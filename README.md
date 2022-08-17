@@ -1,4 +1,7 @@
 # Background context
+
+[![Join the chat at https://gitter.im/qpep/community](https://badges.gitter.im/qpep/community.svg)](https://gitter.im/qpep/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 See https://docs.projectfaster.org/use-cases/vpn-over-satellite/vpn-client-software/optimizing-client-software. This repository includes the Windows port of qpep.
 
 # qpep
