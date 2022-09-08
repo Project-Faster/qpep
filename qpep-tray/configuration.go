@@ -38,20 +38,21 @@ threads: 1
 )
 
 type QPepConfigYAML struct {
-	Acks             int    `yaml:"acks"`
-	AckDelay         int    `yaml:"ackDelay"`
-	Congestion       int    `yaml:"congestion"`
-	Decimate         int    `yaml:"decimate"`
-	DelayDecimate    int    `yaml:"minBeforeDecimation"`
-	GatewayHost      string `yaml:"gateway"`
-	GatewayPort      int    `yaml:"port"`
-	GatewayAPIPort   int    `yaml:"apiport"`
-	ListenHost       string `yaml:"listenaddress"`
-	ListenPort       int    `yaml:"listenport"`
-	MultiStream      bool   `yaml:"multistream"`
-	Verbose          bool   `yaml:"verbose"`
-	VarAckDelay      int    `yaml:"varAckDelay"`
-	WinDivertThreads int    `yaml:"threads"`
+	Acks                  int    `yaml:"acks"`
+	AckDelay              int    `yaml:"ackDelay"`
+	Congestion            int    `yaml:"congestion"`
+	MaxConnectionsRetries int    `yaml:"maxConnectionRetries"`
+	Decimate              int    `yaml:"decimate"`
+	DelayDecimate         int    `yaml:"minBeforeDecimation"`
+	GatewayHost           string `yaml:"gateway"`
+	GatewayPort           int    `yaml:"port"`
+	GatewayAPIPort        int    `yaml:"apiport"`
+	ListenHost            string `yaml:"listenaddress"`
+	ListenPort            int    `yaml:"listenport"`
+	MultiStream           bool   `yaml:"multistream"`
+	Verbose               bool   `yaml:"verbose"`
+	VarAckDelay           int    `yaml:"varAckDelay"`
+	WinDivertThreads      int    `yaml:"threads"`
 }
 
 var qpepConfig QPepConfigYAML

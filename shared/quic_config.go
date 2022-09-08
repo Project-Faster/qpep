@@ -20,6 +20,7 @@ type QuicConfig struct {
 	MaxAckDelay                    int //in miliseconds, used to determine if decimating
 	MinReceivedBeforeAckDecimation int
 	ClientFlag                     bool
+	MaxConnectionRetries           int
 	GatewayIP                      string
 	GatewayPort                    int
 	GatewayAPIPort                 int
@@ -30,7 +31,8 @@ type QuicConfig struct {
 }
 
 const (
-	ACK_FLAG = "acks"
+	ACK_FLAG                 = "acks"
+	DEFAULT_REDIRECT_RETRIES = 15
 )
 
 var (
@@ -45,6 +47,7 @@ func ParseFlags(args []string) {
 	ackElicitingFlag := flag.Int("acks", 10, "Number of acks to bundle")
 	ackDecimationFlag := flag.Int("decimate", 4, "Denominator of Ack Decimation Ratio")
 	congestionWindowFlag := flag.Int("congestion", 4, "Number of QUIC packets for initial congestion window")
+	maxConnectionRetriesFlag := flag.Int("maxretries", DEFAULT_REDIRECT_RETRIES, "Number of connection retries before shutting down (min 1, max 300)")
 	multiStreamFlag := flag.Bool("multistream", true, "Enable multiplexed QUIC streams inside a single session")
 	maxAckDelayFlag := flag.Int("ackDelay", 25, "Maximum number of miliseconds to hold back an ack for decimation")
 	varAckDelayFlag := flag.Float64("varAckDelay", 0.25, "Variable number of miliseconds to hold back an ack for decimation, as multiple of RTT")
@@ -73,6 +76,7 @@ func ParseFlags(args []string) {
 		VarAckDelay:                    *varAckDelayFlag,
 		MinReceivedBeforeAckDecimation: *minReceivedBeforeAckDecimationFlag,
 		ClientFlag:                     *clientFlag,
+		MaxConnectionRetries:           *maxConnectionRetriesFlag,
 		GatewayIP:                      *gatewayHostFlag,
 		GatewayPort:                    *gatewayPortFlag,
 		GatewayAPIPort:                 *gatewayAPIPortFlag,

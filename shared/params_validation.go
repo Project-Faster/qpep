@@ -6,6 +6,14 @@ import (
 	"sort"
 )
 
+func AssertParamNumeric(name string, value, min, max int) error {
+	if value < min || value > max {
+		log.Printf("Invalid parameter '%s' validated as numeric [%d:%d]: %d\n", name, min, max, value)
+		panic(ErrConfigurationValidationFailed)
+	}
+	return nil
+}
+
 func AssertParamIP(name, value string) error {
 	if ip := net.ParseIP(value); ip == nil {
 		log.Printf("Invalid parameter '%s' validated as ip address: %s\n", name, value)

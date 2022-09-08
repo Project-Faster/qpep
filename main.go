@@ -85,19 +85,6 @@ func runAsClient(execContext context.Context, cancel context.CancelFunc) {
 
 	windivert.EnableDiverterLogging(shared.QuicConfiguration.Verbose)
 
-	gatewayHost := shared.QuicConfiguration.GatewayIP
-	gatewayPort := shared.QuicConfiguration.GatewayPort
-	listenHost, interfacesList := shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP)
-	listenPort := shared.QuicConfiguration.ListenPort
-	threads := shared.QuicConfiguration.WinDivertThreads
-
-	if code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, interfacesList); code != windivert.DIVERT_OK {
-		windivert.CloseWinDivertEngine()
-
-		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
-		os.Exit(1)
-	}
-
 	go client.RunClient(execContext, cancel)
 }
 

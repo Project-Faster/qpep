@@ -18,15 +18,18 @@ import (
 )
 
 var (
+	redirected             = false
+	keepRedirectionRetries = shared.DEFAULT_REDIRECT_RETRIES
+
 	proxyListener       net.Listener
 	ClientConfiguration = ClientConfig{
 		ListenHost: "0.0.0.0", ListenPort: 9443,
 		GatewayHost: "198.56.1.10", GatewayPort: 443,
 		QuicStreamTimeout: 2, MultiStream: shared.QuicConfiguration.MultiStream,
-		ConnectionRetries: 3,
-		IdleTimeout:       time.Duration(300) * time.Second,
-		WinDivertThreads:  1,
-		Verbose:           false,
+		MaxConnectionRetries: shared.DEFAULT_REDIRECT_RETRIES,
+		IdleTimeout:          time.Duration(300) * time.Second,
+		WinDivertThreads:     1,
+		Verbose:              false,
 	}
 	quicSession             quic.Session
 	QuicClientConfiguration = quic.Config{
@@ -35,17 +38,17 @@ var (
 )
 
 type ClientConfig struct {
-	ListenHost        string
-	ListenPort        int
-	GatewayHost       string
-	GatewayPort       int
-	APIPort           int
-	QuicStreamTimeout int
-	MultiStream       bool
-	IdleTimeout       time.Duration
-	ConnectionRetries int
-	WinDivertThreads  int
-	Verbose           bool
+	ListenHost           string
+	ListenPort           int
+	GatewayHost          string
+	GatewayPort          int
+	APIPort              int
+	QuicStreamTimeout    int
+	MultiStream          bool
+	IdleTimeout          time.Duration
+	MaxConnectionRetries int
+	WinDivertThreads     int
+	Verbose              bool
 }
 
 func RunClient(ctx context.Context, cancel context.CancelFunc) {
@@ -75,40 +78,117 @@ func RunClient(ctx context.Context, cancel context.CancelFunc) {
 		return
 	}
 
-	go ListenTCPConn()
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	go listenTCPConn(wg)
+	go handleServices(ctx, cancel, wg)
+
+	wg.Wait()
+}
+
+func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("PANIC: %v", err)
+			debug.PrintStack()
+		}
+		wg.Done()
+		cancel()
+	}()
+
+	gatewayHost := shared.QuicConfiguration.GatewayIP
+	gatewayPort := shared.QuicConfiguration.GatewayPort
+	listenHost := shared.QuicConfiguration.ListenIP
+	listenPort := shared.QuicConfiguration.ListenPort
+	threads := shared.QuicConfiguration.WinDivertThreads
 
 	var connected = false
 	var publicAddress = ""
+
+	// start redirection right away because we normally expect the
+	// connection with the server to be on already up
+	successConnectionStartRedirection(gatewayHost, listenHost, gatewayPort, listenPort, threads)
 
 	for {
 		select {
 		case <-ctx.Done():
 			proxyListener.Close()
 			return
+
 		case <-time.After(1 * time.Second):
 			localAddr := ClientConfiguration.ListenHost
 			apiAddr := ClientConfiguration.GatewayHost
 			apiPort := ClientConfiguration.APIPort
 			if !connected {
 				if ok, response := gatewayStatusCheck(localAddr, apiAddr, apiPort); ok {
-					connected = true
 					publicAddress = response.Address
+					connected = true
+					keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries // reset connection tries
 					log.Printf("Server returned public address %s\n", publicAddress)
+
+				} else {
+					// if connection is lost then keep the redirection active
+					// for a certain number of retries then terminate to not keep
+					// all the network blocked
+					if failedConnectionCheckRedirection() {
+						return
+					}
 				}
 				continue
 			}
 
 			connected = clientStatisticsUpdate(localAddr, apiAddr, apiPort, publicAddress)
+			if !connected {
+				log.Printf("Error during statistics update from server\n")
+
+				// if connection is lost then keep the redirection active
+				// for a certain number of retries then terminate to not keep
+				// all the network blocked
+				if failedConnectionCheckRedirection() {
+					return
+				}
+				connected = false
+			}
 		}
 	}
 }
 
-func ListenTCPConn() {
+func successConnectionStartRedirection(gatewayHost, listenHost string, gatewayPort, listenPort, threads int) bool {
+	keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries // reset connection tries
+
+	if redirected {
+		// no need to restart, already redirected
+		return true
+	}
+	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads)
+	if code != windivert.DIVERT_OK {
+		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
+		return true
+	}
+	return false
+}
+
+func failedConnectionCheckRedirection() bool {
+	keepRedirectionRetries--
+	if keepRedirectionRetries > 0 {
+		log.Printf("Connection failed, keeping redirection active (retries left: %d)\n", keepRedirectionRetries)
+		return false
+	}
+
+	log.Printf("Connection failed and retries exhausted, redirection stopped\n")
+	redirected = false
+	windivert.CloseWinDivertEngine()
+	return true
+}
+
+func listenTCPConn(wg *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("PANIC: %v", err)
 			debug.PrintStack()
 		}
+		wg.Done()
 	}()
 	for {
 		conn, err := proxyListener.Accept()
@@ -243,7 +323,7 @@ func openQuicSession() (quic.Session, error) {
 	gatewayPath := ClientConfiguration.GatewayHost + ":" + strconv.Itoa(ClientConfiguration.GatewayPort)
 	quicClientConfig := QuicClientConfiguration
 	log.Printf("Dialing QUIC Session: %s\n", gatewayPath)
-	for i := 0; i < ClientConfiguration.ConnectionRetries; i++ {
+	for i := 0; i < ClientConfiguration.MaxConnectionRetries; i++ {
 		session, err = quic.DialAddr(gatewayPath, tlsConf, &quicClientConfig)
 		if err == nil {
 			return session, nil
@@ -289,6 +369,7 @@ func validateConfiguration() {
 	ClientConfiguration.APIPort = shared.QuicConfiguration.GatewayAPIPort
 	ClientConfiguration.ListenHost, _ = shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP)
 	ClientConfiguration.ListenPort = shared.QuicConfiguration.ListenPort
+	ClientConfiguration.MaxConnectionRetries = shared.QuicConfiguration.MaxConnectionRetries
 	ClientConfiguration.MultiStream = shared.QuicConfiguration.MultiStream
 	ClientConfiguration.WinDivertThreads = shared.QuicConfiguration.WinDivertThreads
 	ClientConfiguration.Verbose = shared.QuicConfiguration.Verbose
@@ -301,6 +382,8 @@ func validateConfiguration() {
 	shared.AssertParamPort("listen port", ClientConfiguration.ListenPort)
 
 	shared.AssertParamPort("api port", ClientConfiguration.APIPort)
+
+	shared.AssertParamNumeric("max connection retries", ClientConfiguration.MaxConnectionRetries, 1, 300)
 
 	shared.AssertParamHostsDifferent("hosts", ClientConfiguration.GatewayHost, ClientConfiguration.ListenHost)
 	shared.AssertParamPortsDifferent("ports", ClientConfiguration.GatewayPort,
