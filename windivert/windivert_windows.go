@@ -21,10 +21,18 @@ const (
 	DIVERT_ERROR_FAILED        = 3
 )
 
-func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int) int {
+func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterfaces []int64) int {
 	gatewayStr := C.CString(gatewayAddr)
 	listenStr := C.CString(listenAddr)
-	return int(C.InitializeWinDivertEngine(gatewayStr, listenStr, C.int(gatewayPort), C.int(listenPort), C.int(numThreads)))
+	response := int(C.InitializeWinDivertEngine(gatewayStr, listenStr, C.int(gatewayPort), C.int(listenPort), C.int(numThreads)))
+	if response != DIVERT_OK {
+		return response
+	}
+
+	for _, idx := range gatewayInterfaces {
+		C.AddGatewayInterfaceIndexToDivert(C.int(idx))
+	}
+	return response
 }
 
 func CloseWinDivertEngine() int {
@@ -55,13 +63,15 @@ func GetConnectionStateData(port int) (int, int, int, string, string) {
 }
 
 func EnableDiverterLogging(enable bool) {
+	val := 0
+	msg := "Diverter debug messages won't be output"
 	if enable {
-		log.Println("Diverter messages will be output")
-		C.EnableMessageOutputToGo(C.int(1))
-	} else {
-		log.Println("Diverter messages will be ignored")
-		C.EnableMessageOutputToGo(C.int(0))
+		msg = "Diverter debug messages will be output"
+		val = 1
 	}
+
+	log.Println(msg)
+	C.EnableMessageOutputToGo(C.int(val))
 }
 
 //export logMessageToGo

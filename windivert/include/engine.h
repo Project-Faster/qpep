@@ -5,6 +5,7 @@
 #define MAXBUF            WINDIVERT_MTU_MAX
 #define INET6_ADDRSTRLEN  45
 #define MAX_THREADS       8
+#define MAX_INTERFACES    256
 
 #define ntohs(x) WinDivertHelperNtohs(x)
 #define ntohl(x) WinDivertHelperNtohl(x)
@@ -42,8 +43,6 @@ typedef struct
     char* listenAddress;
 } threadParameters;
 
-DWORD WINAPI dispatchDivertedOutboundPackets(LPVOID lpParameter);
-
 BOOLEAN     acquireLock(BOOLEAN exclusive);
 void        releaseLock(BOOLEAN exclusive);
 
@@ -52,6 +51,9 @@ const char*  connStateToString(UINT state);
 void         dumpPacket( int thid, PVOID packetData, UINT len );
 void         atomicUpdateConnectionState(UINT port, int state);
 void         ipV4PackedToUnpackedNetworkByteOrder( UINT32 packed, UINT32* unpacked );
+
+DWORD WINAPI dispatchDivertedOutboundPackets(LPVOID lpParameter);
+BOOL  checkAllowedInterfaceToDivert(int intrf);
 
 BOOL handleLocalToServerPacket(
     threadParameters* th,

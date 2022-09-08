@@ -34,8 +34,9 @@ const (
 )
 
 var (
-	QuicConfiguration       QuicConfig
-	defaultListeningAddress string
+	QuicConfiguration         QuicConfig
+	defaultListeningAddress   string
+	detectedGatewayInterfaces []int64
 )
 
 func ParseFlags(args []string) {
@@ -85,13 +86,24 @@ func ParseFlags(args []string) {
 	log.Printf("%v\n", string(data))
 }
 
-func GetDefaultLanListeningAddress(currentAddress string) string {
+func init() {
+	var err error
+	detectedGatewayInterfaces, err = getRouteGatewayInterfaces()
+
+	fmt.Printf("gateway interfaces: %v\n", detectedGatewayInterfaces)
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func GetDefaultLanListeningAddress(currentAddress string) (string, []int64) {
 	if len(defaultListeningAddress) > 0 {
-		return defaultListeningAddress
+		return defaultListeningAddress, detectedGatewayInterfaces
 	}
 
 	if !strings.HasPrefix(currentAddress, "0.") && !strings.HasPrefix(currentAddress, "127.") {
-		return currentAddress
+		return currentAddress, detectedGatewayInterfaces
 	}
 
 	log.Printf("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
@@ -99,10 +111,10 @@ func GetDefaultLanListeningAddress(currentAddress string) string {
 	defaultIP, err := gateway.DiscoverInterface()
 	if err != nil {
 		panic(fmt.Sprint("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
-		return currentAddress
+		return currentAddress, detectedGatewayInterfaces
 	}
 
 	defaultListeningAddress = defaultIP.String()
 	log.Printf("Found default ip address: %s\n", defaultListeningAddress)
-	return defaultListeningAddress
+	return defaultListeningAddress, detectedGatewayInterfaces
 }

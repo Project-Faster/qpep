@@ -26,17 +26,22 @@ func main() {
 		}
 	}()
 
-	f, err := os.OpenFile("qpep.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	log.SetFlags(log.Ltime | log.Lmicroseconds)
+
+	shared.ParseFlags(os.Args) // don't skip first parameter
+
+	logName := "qpep-server.log"
+	if shared.QuicConfiguration.ClientFlag {
+		logName = "qpep-client.log"
+	}
+
+	f, err := os.OpenFile(logName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	defer f.Close()
 	wrt := io.MultiWriter(os.Stdout, f)
 	log.SetOutput(wrt)
-
-	log.SetFlags(log.Ltime | log.Lmicroseconds)
-
-	shared.ParseFlags(os.Args) // don't skip first parameter
 
 	execContext, cancelExecutionFunc := context.WithCancel(context.Background())
 
@@ -82,11 +87,11 @@ func runAsClient(execContext context.Context, cancel context.CancelFunc) {
 
 	gatewayHost := shared.QuicConfiguration.GatewayIP
 	gatewayPort := shared.QuicConfiguration.GatewayPort
-	listenHost := shared.QuicConfiguration.ListenIP
+	listenHost, interfacesList := shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP)
 	listenPort := shared.QuicConfiguration.ListenPort
 	threads := shared.QuicConfiguration.WinDivertThreads
 
-	if code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads); code != windivert.DIVERT_OK {
+	if code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, interfacesList); code != windivert.DIVERT_OK {
 		windivert.CloseWinDivertEngine()
 
 		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
