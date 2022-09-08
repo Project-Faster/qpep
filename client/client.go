@@ -25,7 +25,8 @@ var (
 	ClientConfiguration = ClientConfig{
 		ListenHost: "0.0.0.0", ListenPort: 9443,
 		GatewayHost: "198.56.1.10", GatewayPort: 443,
-		QuicStreamTimeout: 2, MultiStream: shared.QuicConfiguration.MultiStream,
+		RedirectedInterfaces: []int64{},
+		QuicStreamTimeout:    2, MultiStream: shared.QuicConfiguration.MultiStream,
 		MaxConnectionRetries: shared.DEFAULT_REDIRECT_RETRIES,
 		IdleTimeout:          time.Duration(300) * time.Second,
 		WinDivertThreads:     1,
@@ -42,6 +43,7 @@ type ClientConfig struct {
 	ListenPort           int
 	GatewayHost          string
 	GatewayPort          int
+	RedirectedInterfaces []int64
 	APIPort              int
 	QuicStreamTimeout    int
 	MultiStream          bool
@@ -97,18 +99,12 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 		cancel()
 	}()
 
-	gatewayHost := shared.QuicConfiguration.GatewayIP
-	gatewayPort := shared.QuicConfiguration.GatewayPort
-	listenHost := shared.QuicConfiguration.ListenIP
-	listenPort := shared.QuicConfiguration.ListenPort
-	threads := shared.QuicConfiguration.WinDivertThreads
-
 	var connected = false
 	var publicAddress = ""
 
 	// start redirection right away because we normally expect the
 	// connection with the server to be on already up
-	successConnectionStartRedirection(gatewayHost, listenHost, gatewayPort, listenPort, threads)
+	successConnectionStartRedirection()
 
 	for {
 		select {
@@ -154,14 +150,22 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 	}
 }
 
-func successConnectionStartRedirection(gatewayHost, listenHost string, gatewayPort, listenPort, threads int) bool {
+func successConnectionStartRedirection() bool {
+
+	gatewayHost := ClientConfiguration.GatewayHost
+	gatewayPort := ClientConfiguration.GatewayPort
+	redirectedInterfaces := ClientConfiguration.RedirectedInterfaces
+	listenHost := ClientConfiguration.ListenHost
+	listenPort := ClientConfiguration.ListenPort
+	threads := ClientConfiguration.WinDivertThreads
+
 	keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries // reset connection tries
 
 	if redirected {
 		// no need to restart, already redirected
 		return true
 	}
-	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads)
+	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInterfaces)
 	if code != windivert.DIVERT_OK {
 		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
 		return true
@@ -367,7 +371,7 @@ func validateConfiguration() {
 	ClientConfiguration.GatewayHost = shared.QuicConfiguration.GatewayIP
 	ClientConfiguration.GatewayPort = shared.QuicConfiguration.GatewayPort
 	ClientConfiguration.APIPort = shared.QuicConfiguration.GatewayAPIPort
-	ClientConfiguration.ListenHost, _ = shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP)
+	ClientConfiguration.ListenHost, ClientConfiguration.RedirectedInterfaces = shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP)
 	ClientConfiguration.ListenPort = shared.QuicConfiguration.ListenPort
 	ClientConfiguration.MaxConnectionRetries = shared.QuicConfiguration.MaxConnectionRetries
 	ClientConfiguration.MultiStream = shared.QuicConfiguration.MultiStream
@@ -388,6 +392,8 @@ func validateConfiguration() {
 	shared.AssertParamHostsDifferent("hosts", ClientConfiguration.GatewayHost, ClientConfiguration.ListenHost)
 	shared.AssertParamPortsDifferent("ports", ClientConfiguration.GatewayPort,
 		ClientConfiguration.ListenPort, ClientConfiguration.APIPort)
+
+	shared.AssertParamNumeric("auto-redirected interfaces", len(ClientConfiguration.RedirectedInterfaces), 1, 256)
 
 	// validation ok
 	log.Printf("Client configuration validation OK\n")
