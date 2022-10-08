@@ -39,6 +39,7 @@ var (
 	QuicConfiguration         QuicConfig
 	defaultListeningAddress   string
 	detectedGatewayInterfaces []int64
+	detectedDefaultRouteAddrs []string
 )
 
 func ParseFlags(args []string) {
@@ -92,7 +93,7 @@ func ParseFlags(args []string) {
 
 func init() {
 	var err error
-	detectedGatewayInterfaces, err = getRouteGatewayInterfaces()
+	detectedGatewayInterfaces, detectedDefaultRouteAddrs, err = getRouteGatewayInterfaces()
 
 	fmt.Printf("gateway interfaces: %v\n", detectedGatewayInterfaces)
 
@@ -101,7 +102,7 @@ func init() {
 	}
 }
 
-func GetDefaultLanListeningAddress(currentAddress string) (string, []int64) {
+func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (string, []int64) {
 	if len(defaultListeningAddress) > 0 {
 		return defaultListeningAddress, detectedGatewayInterfaces
 	}
@@ -110,15 +111,41 @@ func GetDefaultLanListeningAddress(currentAddress string) (string, []int64) {
 		return currentAddress, detectedGatewayInterfaces
 	}
 
-	log.Printf("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
+	if len(gatewayAddress) == 0 {
+		defaultIP, err := gateway.DiscoverInterface()
+		if err != nil {
+			panic(fmt.Sprint("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
+			return currentAddress, detectedGatewayInterfaces
+		}
 
-	defaultIP, err := gateway.DiscoverInterface()
-	if err != nil {
-		panic(fmt.Sprint("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
-		return currentAddress, detectedGatewayInterfaces
+		defaultListeningAddress = defaultIP.String()
+		log.Printf("Found default ip address: %s\n", defaultListeningAddress)
+		return defaultListeningAddress, detectedGatewayInterfaces
 	}
 
-	defaultListeningAddress = defaultIP.String()
-	log.Printf("Found default ip address: %s\n", defaultListeningAddress)
+	log.Printf("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
+
+	searchIdx := -1
+	searchLongest := 0
+
+NEXT:
+	for i := 0; i < len(detectedDefaultRouteAddrs); i++ {
+		for idx := 0; idx < len(gatewayAddress); idx++ {
+			if currentAddress[idx] == gatewayAddress[idx] {
+				continue
+			}
+			if idx >= searchLongest {
+				searchIdx = i
+				searchLongest = idx
+				continue NEXT
+			}
+		}
+	}
+	if searchIdx != -1 {
+		defaultListeningAddress = detectedDefaultRouteAddrs[searchIdx]
+		log.Printf("Found default ip address: %s\n", defaultListeningAddress)
+		return defaultListeningAddress, detectedGatewayInterfaces
+	}
+	defaultListeningAddress = detectedDefaultRouteAddrs[0]
 	return defaultListeningAddress, detectedGatewayInterfaces
 }

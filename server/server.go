@@ -305,7 +305,7 @@ func performanceWatcher(ctx context.Context) {
 }
 
 func validateConfiguration() {
-	ServerConfiguration.ListenHost, _ = shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP)
+	ServerConfiguration.ListenHost, _ = shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP, "")
 	ServerConfiguration.ListenPort = shared.QuicConfiguration.ListenPort
 	ServerConfiguration.APIPort = shared.QuicConfiguration.GatewayAPIPort
 

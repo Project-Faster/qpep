@@ -371,7 +371,8 @@ func validateConfiguration() {
 	ClientConfiguration.GatewayHost = shared.QuicConfiguration.GatewayIP
 	ClientConfiguration.GatewayPort = shared.QuicConfiguration.GatewayPort
 	ClientConfiguration.APIPort = shared.QuicConfiguration.GatewayAPIPort
-	ClientConfiguration.ListenHost, ClientConfiguration.RedirectedInterfaces = shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP)
+	ClientConfiguration.ListenHost, ClientConfiguration.RedirectedInterfaces =
+		shared.GetDefaultLanListeningAddress(shared.QuicConfiguration.ListenIP, ClientConfiguration.GatewayHost)
 	ClientConfiguration.ListenPort = shared.QuicConfiguration.ListenPort
 	ClientConfiguration.MaxConnectionRetries = shared.QuicConfiguration.MaxConnectionRetries
 	ClientConfiguration.MultiStream = shared.QuicConfiguration.MultiStream
