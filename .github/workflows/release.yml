@@ -153,21 +153,27 @@ jobs:
         shell: bash
         
     steps:
-        - name: "Create release"
-          uses: "actions/github-script@v5"
-          with:
-            github-token: "${{ secrets.GITHUB_TOKEN }}"
-            script: |
-              try {
-                await github.rest.repos.createRelease({
-                  draft: ${{ github.event.inputs.test_release == 'true' }},
-                  generate_release_notes: true,
-                  name: "v${{ github.event.inputs.version_tag }}",
-                  owner: context.repo.owner,
-                  prerelease: false,
-                  repo: context.repo.repo,
-                  tag_name: "v${{ github.event.inputs.version_tag }}",
-                });
-              } catch (error) {
-                core.setFailed(error.message);
-              }
+      - name: Changelog
+        uses: scottbrenner/generate-changelog-action@master
+        id: Changelog
+        env:
+          REPO: ${{ github.repository }}
+    
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.event.inputs.version_tag }}
+          release_name: Release v${{ github.event.inputs.version_tag }}
+          body: |
+            ${{ steps.Changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ github.event.inputs.test_release == 'true' }}
+      
+      - name: Tag Release
+        run: |
+           git tag -a ${{ github.event.inputs.version_tag }} -m "Release v${{ github.event.inputs.version_tag }}"
+           git push upstream ${{ github.event.inputs.version_tag }}
+           
