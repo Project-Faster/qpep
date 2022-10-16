@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Check release
         run: |
-           if [[ `git tag | grep v${{ github.event.inputs.version_tag }} | wc -l` == 1 ]]; then
+           if [[ `git tag | grep v${{ github.event.inputs.version_tag }} | wc -l` != 0 ]]; then
               exit 1
            fi
 
