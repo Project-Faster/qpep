@@ -33,6 +33,7 @@ jobs:
            fi
 
   build-linux:
+    needs: check-release
     runs-on: ubuntu-latest
     defaults:
       run: 
@@ -70,6 +71,7 @@ jobs:
         path: build/qpep
 
   build-windows:
+    needs: check-release
     runs-on: windows-latest
     defaults:
       run: 
