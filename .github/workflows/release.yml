@@ -4,19 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       test_release:
-            description: 'Dummy release'
+            description: 'Draft Release'
             required: true
             type: boolean
             default: true
+      x86_version:
+            description: 'Create x86 version'
+            type: boolean
+            default: false
       version_tag:
             description: 'Version tag'
             type: 'string'
             required: true
             default: '0.0.1'
-      x86_version:
-            description: '32bits version'
-            type: boolean
-            default: false
 
 jobs:
   build-linux:
