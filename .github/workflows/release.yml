@@ -220,7 +220,7 @@ jobs:
           asset_name: qpep-linux-${{ github.run_id }}
           asset_content_type: application/zip
           
-      - if: ${{ github.event.inputs.test_release != true }}
+      - if: ${{ github.event.inputs.test_release == true }}
         name: Tag Release
         run: |
            cd ${{ github.workspace }}
