@@ -179,12 +179,12 @@ jobs:
       - name: Download Windows Artifact
         uses: actions/download-artifact@v3
         with:
-          name: qpep-windows-${{ github.run_id }}
+          name: qpep_windows_${{ github.run_id }}
       
       - name: Download Linux Artifact
         uses: actions/download-artifact@v3
         with:
-          name: qpep-linux-${{ github.run_id }}
+          name: qpep_linux_${{ github.run_id }}
       
       - name: List
         run: |
