@@ -51,14 +51,10 @@ jobs:
         go clean -cache
         go build -v -o build/qpep
       
-    - name: Prepare artifact
-      run: |
-        7z a -tzip qpep_linux_b${{ github.run_id }}.zip build/qpep
-        
     - uses: actions/upload-artifact@v3
       with:
         name: qpep_linux_b${{ github.run_id }}
-        path: qpep_linux_b${{ github.run_id }}.zip
+        path: build/qpep
 
   build-windows:
     runs-on: windows-latest
@@ -148,14 +144,10 @@ jobs:
            set PATH=${{ github.workspace }}\wix\tools;%PATH%
            msbuild installer\installer.sln
    
-    - name: Prepare artifact
-      run: |
-        7z a -tzip qpep_windows_b${{ github.run_id }}.zip build/installer.msi
-
     - uses: actions/upload-artifact@v3
       with:
         name: qpep_windows_b${{ github.run_id }}
-        path: qpep_windows_b${{ github.run_id }}.zip
+        path: build/installer.msi
 
   create-release-tag:
     needs: [build-windows, build-linux]
@@ -205,7 +197,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ${{ github.workspace }}/qpep-windows-${{ github.run_id }}.zip
+          asset_path: ${{ github.workspace }}/installer.msi
           asset_name: qpep-windows-${{ github.run_id }}
           asset_content_type: application/zip
           
@@ -216,14 +208,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ${{ github.workspace }}/qpep-linux-${{ github.run_id }}.zip
+          asset_path: ${{ github.workspace }}/qpep
           asset_name: qpep-linux-${{ github.run_id }}
           asset_content_type: application/zip
           
-      - if: ${{ github.event.inputs.test_release == true }}
-        name: Tag Release
-        run: |
-           cd ${{ github.workspace }}
-           git tag -a ${{ github.event.inputs.version_tag }} -m "Release v${{ github.event.inputs.version_tag }}"
-           git push upstream ${{ github.event.inputs.version_tag }}
-           
