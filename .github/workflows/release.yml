@@ -19,6 +19,19 @@ on:
             default: '0.0.1'
 
 jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        
+    steps:
+      - name: Check release
+        run: |
+           if [[ `git tag | grep v${{ github.event.inputs.version_tag }} | wc -l` == 1 ]]; then
+              exit 1
+           fi
+
   build-linux:
     runs-on: ubuntu-latest
     defaults:
