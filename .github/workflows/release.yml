@@ -6,7 +6,8 @@ on:
       test_release:
             description: 'Dummy release'
             required: true
-            default: 'true'
+            type: boolean
+            default: true
       version_tag:
             description: 'Version tag'
             type: 'string'
@@ -14,8 +15,8 @@ on:
             default: '0.0.1'
       x86_version:
             description: '32bits version'
-            required: true
-            default: 'false'
+            type: boolean
+            default: false
 
 jobs:
   build-linux:
@@ -114,13 +115,13 @@ jobs:
            go build -ldflags -H=windowsgui -o ..\build\x86\qpep-tray.exe
            popd
            
-    - if: ${{ github.event.inputs.x86_version == 'true' }}
+    - if: ${{ github.event.inputs.x86_version == true }}
       name: Set up MinGW
       uses: egor-tensin/setup-mingw@v2
       with:
         platform: x86
         
-    - if: ${{ github.event.inputs.x86_version == 'true' }}
+    - if: ${{ github.event.inputs.x86_version == true }}
       name: Build QPep x86
       run: |
            set GOARCH=386
@@ -128,7 +129,7 @@ jobs:
            set CGO_ENABLED=1
            go build -o build\x64\qpep.exe
            
-    - if: ${{ github.event.inputs.x86_version == 'true' }}
+    - if: ${{ github.event.inputs.x86_version == true }}
       name: Build QPep Tray x86
       run: |
            pushd qpep-tray
@@ -172,7 +173,7 @@ jobs:
           release_name: Release v${{ github.event.inputs.version_tag }}
           body: |
             ${{ steps.Changelog.outputs.changelog }}
-          draft: ${{ github.event.inputs.test_release == 'true' }}
+          draft: ${{ github.event.inputs.test_release == true }}
           prerelease: false
           
       - name: Download Windows Artifact
@@ -212,7 +213,7 @@ jobs:
           asset_name: qpep-linux-${{ github.run_id }}
           asset_content_type: application/zip
           
-      - if: ${{ github.event.inputs.test_release != 'true' }}
+      - if: ${{ github.event.inputs.test_release != true }}
         name: Tag Release
         run: |
            cd ${{ github.workspace }}
