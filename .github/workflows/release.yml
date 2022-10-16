@@ -179,13 +179,11 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: qpep-windows-${{ github.run_id }}
-          path: qpep-windows-${{ github.run_id }}.zip
       
       - name: Download Linux Artifact
         uses: actions/download-artifact@v3
         with:
           name: qpep-linux-${{ github.run_id }}
-          path: qpep-linux-${{ github.run_id }}.zip
       
       - name: Attach Windows Release Asset
         id: upload-release-asset 
