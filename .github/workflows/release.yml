@@ -175,7 +175,19 @@ jobs:
           draft: ${{ github.event.inputs.test_release == 'true' }}
           prerelease: false
           
-      - name: Upload Windows Release Asset
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: qpep-windows-${{ github.run_id }}
+          path: qpep-windows-${{ github.run_id }}.zip
+      
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: qpep-linux-${{ github.run_id }}
+          path: qpep-linux-${{ github.run_id }}.zip
+      
+      - name: Attach Windows Release Asset
         id: upload-release-asset 
         uses: actions/upload-release-asset@v1
         env:
@@ -186,7 +198,7 @@ jobs:
           asset_name: qpep-windows-${{ github.run_id }}
           asset_content_type: application/zip
           
-      - name: Upload Linux Release Asset
+      - name: Attach Linux Release Asset
         id: upload-linux-asset 
         uses: actions/upload-release-asset@v1
         env:
