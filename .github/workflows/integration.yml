@@ -38,7 +38,7 @@ jobs:
         
     - name: Prepare artifact
       run: |
-        zip qpep_linux_b${{ github.run_id }}.zip build/qpep
+        7z a -tzip qpep_linux_b${{ github.run_id }}.zip build/qpep
       
     - uses: actions/upload-artifact@v3
       with:
@@ -86,7 +86,7 @@ jobs:
               
     - name: Prepare artifact
       run: |
-        zip qpep_windows_b${{ github.run_id }}.zip build/installer.msi
+        7z a -tzip qpep_windows_b${{ github.run_id }}.zip build/installer.msi
       
     - uses: actions/upload-artifact@v3
       with:
