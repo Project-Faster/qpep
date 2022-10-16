@@ -51,10 +51,14 @@ jobs:
         go clean -cache
         go build -v -o build/qpep
       
+    - name: Prepare artifact
+      run: |
+        zip qpep_linux_b${{ github.run_id }}.zip build/qpep
+      
     - uses: actions/upload-artifact@v3
       with:
-        name: qpep-linux-${{ github.run_id }}
-        path: build/qpep
+        name: qpep_linux_b${{ github.run_id }}
+        path: qpep_linux_b${{ github.run_id }}.zip
 
   build-windows:
     runs-on: windows-latest
@@ -144,10 +148,14 @@ jobs:
            set PATH=${{ github.workspace }}\wix\tools;%PATH%
            msbuild installer\installer.sln
    
+    - name: Prepare artifact
+      run: |
+        zip qpep_windows_b${{ github.run_id }}.zip build/installer.msi
+      
     - uses: actions/upload-artifact@v3
       with:
-        name: qpep-windows-${{ github.run_id }}
-        path: build\installer.msi
+        name: qpep_windows_b${{ github.run_id }}
+        path: qpep_windows_b${{ github.run_id }}.zip
 
   create-release-tag:
     needs: [build-windows, build-linux]
