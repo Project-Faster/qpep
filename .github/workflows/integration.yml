@@ -23,6 +23,11 @@ jobs:
     - name: Prepare
       run: mkdir build
         
+    - if: ${{ github.event.inputs.run_tests == 'true' }}
+      name: Test
+      run: go test -v ./...
+      continue-on-error: true
+      
     - name: Build x64
       run: |
         set GOARCH=amd64
@@ -30,16 +35,15 @@ jobs:
         set CGO_ENABLED=1
         go clean -cache
         go build -v -o build/qpep
-      
-    - if: ${{ github.event.inputs.run_tests == 'true' }}
-      name: Test
-      run: go test -v ./...
-      continue-on-error: true
+        
+    - name: Prepare artifact
+      run: |
+        zip qpep_linux_b${{ github.run_id }}.zip build/qpep
       
     - uses: actions/upload-artifact@v3
       with:
         name: qpep_linux_b${{ github.run_id }}
-        path: build/
+        path: qpep_linux_b${{ github.run_id }}.zip
 
   build-windows:
     runs-on: windows-latest
@@ -80,7 +84,11 @@ jobs:
            go build -ldflags -H=windowsgui -o ..\build\qpep-tray.exe
            popd
               
+    - name: Prepare artifact
+      run: |
+        zip qpep_windows_b${{ github.run_id }}.zip build/installer.msi
+      
     - uses: actions/upload-artifact@v3
       with:
-        name: qpep-windows-${{ github.run_id }}
-        path: build\
+        name: qpep_windows_b${{ github.run_id }}
+        path: qpep_windows_b${{ github.run_id }}.zip
