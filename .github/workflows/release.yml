@@ -26,6 +26,8 @@ jobs:
         shell: bash
         
     steps:
+      - uses: actions/checkout@v3
+    
       - name: Check release
         run: |
            if [[ `git tag | grep v${{ github.event.inputs.version_tag }} | wc -l` != 0 ]]; then
@@ -41,6 +43,7 @@ jobs:
         
     steps:
     - uses: actions/checkout@v3
+    
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
