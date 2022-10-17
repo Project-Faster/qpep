@@ -10,8 +10,9 @@ package windivert
 import "C"
 
 import (
-	"log"
 	"unsafe"
+
+	. "github.com/parvit/qpep/logger"
 )
 
 const (
@@ -21,10 +22,18 @@ const (
 	DIVERT_ERROR_FAILED        = 3
 )
 
-func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int) int {
+func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterfaces []int64) int {
 	gatewayStr := C.CString(gatewayAddr)
 	listenStr := C.CString(listenAddr)
-	return int(C.InitializeWinDivertEngine(gatewayStr, listenStr, C.int(gatewayPort), C.int(listenPort), C.int(numThreads)))
+	response := int(C.InitializeWinDivertEngine(gatewayStr, listenStr, C.int(gatewayPort), C.int(listenPort), C.int(numThreads)))
+	if response != DIVERT_OK {
+		return response
+	}
+
+	for _, idx := range gatewayInterfaces {
+		C.AddGatewayInterfaceIndexToDivert(C.int(idx))
+	}
+	return response
 }
 
 func CloseWinDivertEngine() int {
@@ -56,15 +65,15 @@ func GetConnectionStateData(port int) (int, int, int, string, string) {
 
 func EnableDiverterLogging(enable bool) {
 	if enable {
-		log.Println("Diverter messages will be output")
+		Info("Diverter messages will be output")
 		C.EnableMessageOutputToGo(C.int(1))
 	} else {
-		log.Println("Diverter messages will be ignored")
+		Info("Diverter messages will be ignored")
 		C.EnableMessageOutputToGo(C.int(0))
 	}
 }
 
 //export logMessageToGo
 func logMessageToGo(msg *C.char) {
-	log.Println(C.GoString(msg))
+	Info(C.GoString(msg))
 }

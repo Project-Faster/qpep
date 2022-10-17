@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
 	"mime"
 	"net"
 	"net/http"
@@ -12,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/parvit/qpep/flags"
+	. "github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/webgui"
 	"github.com/rs/cors"
@@ -33,20 +34,20 @@ const (
 
 func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 	// update configuration from flags
-	host := shared.QuicConfiguration.ListenIP
+	host := shared.QPepConfig.ListenHost
 	if localMode {
 		host = "127.0.0.1"
-		log.Printf("Listening address for local api server set to 127.0.0.1")
+		Info("Listening address for local api server set to 127.0.0.1")
 	} else {
-		host = shared.GetDefaultLanListeningAddress(host)
+		host, _ = shared.GetDefaultLanListeningAddress(host)
 	}
-	apiPort := shared.QuicConfiguration.GatewayAPIPort
+	apiPort := shared.QPepConfig.GatewayAPIPort
 
 	listenAddr := fmt.Sprintf("%s:%d", host, apiPort)
-	log.Printf("Opening API Server on: %s", listenAddr)
+	Info("Opening API Server on: %s", listenAddr)
 
 	rtr := NewRouter()
-	rtr.clientMode = shared.QuicConfiguration.ClientFlag
+	rtr.clientMode = flags.Globals.Client
 	rtr.registerHandlers()
 	if localMode {
 		rtr.registerStaticFiles()
@@ -63,12 +64,12 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 	}()
 
 	if err := srv.ListenAndServe(); err != nil {
-		log.Printf("Error running API server: %v", err)
+		Info("Error running API server: %v", err)
 	}
 	srv = nil
 	cancel()
 
-	log.Println("Closed API Server")
+	Info("Closed API Server")
 }
 
 func NewServer(addr string, rtr *APIRouter, ctx context.Context) *http.Server {
@@ -95,7 +96,7 @@ func NewRouter() *APIRouter {
 
 func apiFilter(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		log.Printf("apiFilter - %s\n", formatRequest(r))
+		Info("apiFilter - %s\n", formatRequest(r))
 
 		// Request API request must accept JSON
 		accepts := r.Header.Get(textproto.CanonicalMIMEHeaderKey("accept"))
@@ -118,7 +119,7 @@ func apiFilter(next httprouter.Handle) httprouter.Handle {
 type notFoundHandler struct{}
 
 func (n *notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("notFoundHandler - %s\n", formatRequest(r))
+	Info("notFoundHandler - %s\n", formatRequest(r))
 
 	// Request not found for API request will accept JSON
 	accepts := r.Header.Get(textproto.CanonicalMIMEHeaderKey("accept"))
@@ -134,13 +135,13 @@ func (n *notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type methodsNotAllowedHandler struct{}
 
 func (n *methodsNotAllowedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Printf("methodsNotAllowedHandler - %s\n", formatRequest(r))
+	Info("methodsNotAllowedHandler - %s\n", formatRequest(r))
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
 func (r *APIRouter) registerHandlers() {
 	r.handler.PanicHandler = func(w http.ResponseWriter, r *http.Request, i interface{}) {
-		log.Printf("PanicHandler - %s\n", formatRequest(r))
+		Info("PanicHandler - %s\n", formatRequest(r))
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	r.handler.NotFound = &notFoundHandler{}
@@ -165,7 +166,7 @@ func (r *APIRouter) registerAPIMethod(method, path string, handle httprouter.Han
 		panic(fmt.Sprintf("Requested registration of api method %s %s for neither server or client usage!", method, path))
 	}
 
-	log.Printf("Register API: %s %s (srv:%v cli:%v cli-mode:%v)\n", method, path, allowServer, allowClient, r.clientMode)
+	Info("Register API: %s %s (srv:%v cli:%v cli-mode:%v)\n", method, path, allowServer, allowClient, r.clientMode)
 	if allowServer && !r.clientMode {
 		r.handler.Handle(method, API_PREFIX_SERVER+path, handle)
 	} else {
@@ -180,7 +181,7 @@ func (r *APIRouter) registerAPIMethod(method, path string, handle httprouter.Han
 }
 
 func apiForbidden(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	log.Printf("apiForbidden - %s\n", formatRequest(r))
+	Info("apiForbidden - %s\n", formatRequest(r))
 
 	w.WriteHeader(http.StatusForbidden)
 }
@@ -195,7 +196,7 @@ func (r *APIRouter) registerStaticFiles() {
 }
 
 func serveFile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	log.Printf("serveFile - %s\n", formatRequest(r))
+	Info("serveFile - %s\n", formatRequest(r))
 
 	urlPath := r.URL.Path[1:]
 	if _, ok := webgui.FilesList[urlPath]; !ok {

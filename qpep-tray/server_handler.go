@@ -1,58 +1,75 @@
 package main
 
 import (
+	"errors"
 	"log"
-	"os/exec"
 
 	"github.com/parvit/qpep/shared"
 )
 
-var serverCmd *exec.Cmd
+var serverActive bool = false
 
 func startServer() error {
-	if serverCmd != nil {
+	if serverActive {
 		log.Println("ERROR: Cannot start an already running server, first stop it")
 		return shared.ErrFailed
 	}
 
-	serverCmd = getServerCommand()
-
-	if err := serverCmd.Start(); err != nil {
+	if err := startServerProcess; err != nil {
 		ErrorMsg("Could not start server program: %v", err)
-		serverCmd = nil
+		serverActive = false
 		return shared.ErrCommandNotStarted
 	}
+	serverActive = true
 	InfoMsg("Server started")
 
 	return nil
 }
 
 func stopServer() error {
-	if serverCmd == nil {
+	if !serverActive {
 		log.Println("ERROR: Cannot stop an already stopped server, first start it")
 		return nil
 	}
 
 	if err := stopServerProcess(); err != nil {
-		log.Printf("Could not stop process gracefully (%v), will try to force-terminate it\n", err)
-
-		if err := serverCmd.Process.Kill(); err != nil {
-			ErrorMsg("Could not force-terminate process")
-			return err
-		}
+		log.Printf("Could not stop process gracefully (%v)\n", err)
+		return err
 	}
 
-	serverCmd.Wait()
-	serverCmd = nil
+	serverActive = false
 	InfoMsg("Server stopped")
 	return nil
 }
 
 func reloadServerIfRunning() {
-	if serverCmd == nil {
+	if !serverActive {
 		return
 	}
 
 	stopServer()
 	startServer()
+}
+
+func startServerProcess() error {
+	cmd := getServiceCommand(true, false)
+	if cmd == nil {
+		return errors.New("Failed command")
+	}
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	return cmd.Wait()
+}
+func stopServerProcess() error {
+	cmd := getServiceCommand(false, false)
+	if cmd == nil {
+		return errors.New("Failed command")
+	}
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	return cmd.Wait()
 }

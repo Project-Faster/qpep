@@ -53,8 +53,8 @@ if %ERRORLEVEL% GEQ 1 goto fail
 
 ECHO [Cleanup]
 DEL /S /Q build 2> NUL
-RMDIR build\x64 2> NUL
-RMDIR build\x86 2> NUL
+RMDIR build\64bits 2> NUL
+RMDIR build\32bits 2> NUL
 RMDIR build\installer 2> NUL
 RMDIR build 2> NUL
 
@@ -63,9 +63,9 @@ echo OK
 ECHO [Preparation]
 MKDIR build\  2> NUL
 if %ERRORLEVEL% GEQ 1 goto fail
-MKDIR build\x64\ 2> NUL
+MKDIR build\64bits\ 2> NUL
 if %ERRORLEVEL% GEQ 1 goto fail
-MKDIR build\x86\ 2> NUL
+MKDIR build\32bits\ 2> NUL
 if %ERRORLEVEL% GEQ 1 goto fail
 
 go clean
@@ -83,23 +83,23 @@ if %BUILD64% NEQ 0 (
     set GOARCH=amd64
     go clean -cache
 
-    ECHO [Copy dependencies x64]
-    COPY /Y windivert\x64\* build\x64\
+    ECHO [Copy dependencies 64bits]
+    COPY /Y windivert\x64\* build\64bits\
     if %ERRORLEVEL% GEQ 1 goto fail
     echo OK
 
-    ECHO [Build x64 server/client]
+    ECHO [Build 64bits server/client]
     set CGO_ENABLED=1
-    go build -o build\x64\qpep.exe
+    go build -o build\64bits\qpep.exe
     if %ERRORLEVEL% GEQ 1 goto fail
 
     echo OK
 
-    ECHO [Build x64 tray icon]
+    ECHO [Build 64bits tray icon]
     pushd qpep-tray
     if %ERRORLEVEL% GEQ 1 goto fail
     set CGO_ENABLED=0
-    go build -ldflags -H=windowsgui -o ..\build\x64\qpep-tray.exe
+    go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
     if %ERRORLEVEL% GEQ 1 goto fail
     popd
 
@@ -110,23 +110,23 @@ if %BUILD32% NEQ 0 (
     set GOARCH=386
     go clean -cache
 
-    ECHO [Copy dependencies x86]
-    COPY /Y windivert\x86\* build\x86\
+    ECHO [Copy dependencies 32bits]
+    COPY /Y windivert\x86\* build\32bits\
     if %ERRORLEVEL% GEQ 1 goto fail
     echo OK
 
-    ECHO [Build x86 server/client]
+    ECHO [Build 32bits server/client]
     set CGO_ENABLED=1
-    go build -x -o build\x86\qpep.exe
+    go build -x -o build\32bits\qpep.exe
     if %ERRORLEVEL% GEQ 1 goto fail
 
     echo OK
 
-    ECHO [Build x86 tray icon]
+    ECHO [Build 32bits tray icon]
     pushd qpep-tray
     if %ERRORLEVEL% GEQ 1 goto fail
     set CGO_ENABLED=0
-    go build -ldflags -H=windowsgui -o ..\build\x86\qpep-tray.exe
+    go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
     if %ERRORLEVEL% GEQ 1 goto fail
     popd
 

@@ -4,6 +4,7 @@
 package windivert
 
 import (
+	. "github.com/parvit/qpep/logger"
 	"log"
 )
 
@@ -14,22 +15,22 @@ const (
 	DIVERT_ERROR_FAILED        = 3
 )
 
-func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int) int {
-	log.Println("WARNING: windivert package compiled without CGO") // message to check for failing CGO
+func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterfaces []int64) int {
+	Info("WARNING: windivert package compiled without CGO") // message to check for failing CGO
 	return DIVERT_OK
 }
 
 func CloseWinDivertEngine() int {
-	log.Println("WARNING: windivert package compiled without CGO") // message to check for failing CGO
+	Info("WARNING: windivert package compiled without CGO") // message to check for failing CGO
 	return DIVERT_OK
 }
 
 func GetConnectionStateData(port int) (int, int, int, string, string) {
-	log.Println("WARNING: windivert package compiled without CGO") // message to check for failing CGO
+	Info("WARNING: windivert package compiled without CGO") // message to check for failing CGO
 	return DIVERT_OK, -1, -1, "", ""
 }
 
 func EnableDiverterLogging(enable bool) {
-	log.Println("WARNING: windivert package compiled without CGO") // message to check for failing CGO
+	Info("WARNING: windivert package compiled without CGO") // message to check for failing CGO
 	return
 }

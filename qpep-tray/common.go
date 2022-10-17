@@ -10,6 +10,7 @@ import (
 	"github.com/getlantern/systray"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/qpep-tray/icons"
+	"github.com/parvit/qpep/shared"
 
 	. "github.com/sqweek/dialog"
 )
@@ -90,7 +91,7 @@ func onReady() {
 				continue
 
 			case <-mConfigRefresh.ClickedCh:
-				readConfiguration()
+				shared.ReadConfiguration()
 				continue
 
 			case <-mClient.ClickedCh:
@@ -234,7 +235,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 				break CHECKLOOP
 
 			case <-time.After(1 * time.Second):
-				if clientCmd == nil && serverCmd == nil {
+				if !clientActive && !serverActive {
 					state = stateDisconnected
 					pubAddress = ""
 					systray.SetTemplateIcon(icons.MainIconData, icons.MainIconData)
@@ -249,10 +250,14 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 				// Client -> Server: url must contain "/server", so flag true
 				// Server -> Server: url must contain "/server", so flag true
 				// All else false so url contains "/client"
-				var clientToServer = (serverCmd == nil && clientCmd != nil) || (serverCmd != nil && clientCmd == nil)
+				var clientToServer = (!serverActive && clientActive) || (serverActive && !clientActive)
+
+				listenHost := shared.QPepConfig.ListenHost
+				gatewayHost := shared.QPepConfig.GatewayHost
+				gatewayAPIPort := shared.QPepConfig.GatewayAPIPort
 
 				if state != stateConnected {
-					var resp = api.RequestEcho(qpepConfig.ListenHost, qpepConfig.GatewayHost, qpepConfig.GatewayAPIPort, clientToServer)
+					var resp = api.RequestEcho(listenHost, gatewayHost, gatewayAPIPort, clientToServer)
 					if resp == nil {
 						systray.SetTemplateIcon(animIcons[flip], animIcons[flip])
 						flip = (flip + 1) % 2
@@ -264,7 +269,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 				}
 
 				if len(pubAddress) > 0 {
-					var status = api.RequestStatus(qpepConfig.ListenHost, qpepConfig.GatewayHost, qpepConfig.GatewayAPIPort, pubAddress, clientToServer)
+					var status = api.RequestStatus(listenHost, gatewayHost, gatewayAPIPort, pubAddress, clientToServer)
 					if status == nil {
 						log.Printf("Server Status: no / invalid response\n")
 					} else if status.ConnectionCounter < 0 {

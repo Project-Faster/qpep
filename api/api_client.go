@@ -5,13 +5,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"runtime"
 	"strings"
 	"time"
 
+	. "github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 )
 
@@ -47,14 +47,14 @@ func RequestEcho(localAddress, address string, port int, toServer bool) *EchoRes
 
 	req, err := http.NewRequest("GET", addr, nil)
 	if err != nil {
-		log.Printf("1 ERROR: %v\n", err)
+		Info("1 ERROR: %v\n", err)
 		return nil
 	}
 	req.Header.Set("User-Agent", runtime.GOOS)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("2 ERROR: %v\n", err)
+		Info("2 ERROR: %v\n", err)
 		return nil
 	}
 	defer func() {
@@ -62,7 +62,7 @@ func RequestEcho(localAddress, address string, port int, toServer bool) *EchoRes
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("ERROR: BAD status code %d\n", resp.StatusCode)
+		Info("ERROR: BAD status code %d\n", resp.StatusCode)
 		return nil
 	}
 
@@ -73,18 +73,18 @@ func RequestEcho(localAddress, address string, port int, toServer bool) *EchoRes
 	}
 
 	if scanner.Err() != nil {
-		log.Printf("3 ERROR: %v\n", scanner.Err())
+		Info("3 ERROR: %v\n", scanner.Err())
 		return nil
 	}
 
-	if shared.QuicConfiguration.Verbose {
-		log.Printf("%s\n", str.String())
+	if shared.QPepConfig.Verbose {
+		Info("%s\n", str.String())
 	}
 
 	respData := &EchoResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		log.Printf("4 ERROR: %v\n", jsonErr)
+		Info("4 ERROR: %v\n", jsonErr)
 		return nil
 	}
 
@@ -106,7 +106,7 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 
 	resp, err := client.Get(addr)
 	if err != nil {
-		log.Printf("5 ERROR: %v\n", err)
+		Info("5 ERROR: %v\n", err)
 		return nil
 	}
 	defer func() {
@@ -114,7 +114,7 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("ERROR: BAD status code %d\n", resp.StatusCode)
+		Info("ERROR: BAD status code %d\n", resp.StatusCode)
 		return nil
 	}
 
@@ -125,18 +125,18 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 	}
 
 	if scanner.Err() != nil {
-		log.Printf("6 ERROR: %v\n", scanner.Err())
+		Info("6 ERROR: %v\n", scanner.Err())
 		return nil
 	}
 
-	if shared.QuicConfiguration.Verbose {
-		log.Printf("%s\n", str.String())
+	if shared.QPepConfig.Verbose {
+		Info("%s\n", str.String())
 	}
 
 	respData := &StatusReponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		log.Printf("7 ERROR: %v\n", jsonErr)
+		Info("7 ERROR: %v\n", jsonErr)
 		return nil
 	}
 
@@ -153,7 +153,7 @@ func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicA
 
 	resp, err := client.Get(addr)
 	if err != nil {
-		log.Printf("8 ERROR: %v\n", err)
+		Info("8 ERROR: %v\n", err)
 		return nil
 	}
 	defer func() {
@@ -161,7 +161,7 @@ func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicA
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("ERROR: BAD status code %d\n", resp.StatusCode)
+		Info("ERROR: BAD status code %d\n", resp.StatusCode)
 		return nil
 	}
 
@@ -172,18 +172,18 @@ func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicA
 	}
 
 	if scanner.Err() != nil {
-		log.Printf("9 ERROR: %v\n", scanner.Err())
+		Info("9 ERROR: %v\n", scanner.Err())
 		return nil
 	}
 
-	if shared.QuicConfiguration.Verbose {
-		log.Printf("%s\n", str.String())
+	if shared.QPepConfig.Verbose {
+		Info("%s\n", str.String())
 	}
 
 	respData := &StatsInfoReponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		log.Printf("10 ERROR: %v\n", jsonErr)
+		Info("10 ERROR: %v\n", jsonErr)
 		return nil
 	}
 

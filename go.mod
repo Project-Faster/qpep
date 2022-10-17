@@ -3,11 +3,15 @@ module github.com/parvit/qpep
 go 1.18
 
 require (
+	github.com/davecgh/go-spew v1.1.1
 	github.com/getlantern/systray v1.2.1
 	github.com/jackpal/gateway v1.0.7
 	github.com/julienschmidt/httprouter v1.3.0
+	github.com/kardianos/service v1.2.1 // indirect
 	github.com/lucas-clemente/quic-go v0.29.0
+	github.com/parvit/kardianos-service v0.0.0-20220822101756-89fc969969b8
 	github.com/rs/cors v1.8.2
+	github.com/rs/zerolog v1.28.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/sqweek/dialog v0.0.0-20220504154117-be45b268883a
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e

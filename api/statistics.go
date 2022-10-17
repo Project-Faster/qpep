@@ -2,9 +2,10 @@ package api
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"sync"
+
+	. "github.com/parvit/qpep/logger"
 )
 
 const (
@@ -41,7 +42,7 @@ func (s *statistics) init() {
 		return
 	}
 
-	log.Println("Statistics init.")
+	Debug("Statistics init.")
 	s.semCounters = &sync.RWMutex{}
 	s.semState = &sync.RWMutex{}
 	s.hosts = make([]string, 0, 32)
@@ -52,7 +53,7 @@ func (s *statistics) Reset() {
 	s.semState = nil
 	s.init()
 
-	log.Println("Statistics reset.")
+	Debug("Statistics reset.")
 	s.counters = make(map[string]float64)
 	s.state = make(map[string]string)
 }
@@ -75,7 +76,7 @@ func (s *statistics) GetCounter(prefix string, keyparts ...string) float64 {
 	s.semCounters.RLock()
 	defer s.semCounters.RUnlock()
 
-	//log.Printf("GET counter: %s = %.2f\n", key, s.counters[key])
+	//Info("GET counter: %s = %.2f\n", key, s.counters[key])
 	if val, ok := s.counters[key]; ok {
 		return val
 	}
@@ -96,7 +97,7 @@ func (s *statistics) SetCounter(value float64, prefix string, keyparts ...string
 	defer s.semCounters.Unlock()
 
 	s.counters[key] = value
-	//log.Printf("SET counter: %s = %.2f\n", key, s.counters[key])
+	//Info("SET counter: %s = %.2f\n", key, s.counters[key])
 	return value
 }
 
@@ -110,7 +111,7 @@ func (s *statistics) GetCounterAndClear(prefix string, keyparts ...string) float
 	s.semCounters.Lock()
 	defer s.semCounters.Unlock()
 
-	//log.Printf("GET+CLEAR counter: %s = %.2f\n", key, s.counters[key])
+	//Info("GET+CLEAR counter: %s = %.2f\n", key, s.counters[key])
 	if val, ok := s.counters[key]; ok {
 		s.counters[key] = 0.0
 		return val
@@ -161,7 +162,7 @@ func (s *statistics) DecrementCounter(decr float64, prefix string, keyparts ...s
 		return 0.0
 	}
 
-	//log.Printf("counter: %s = %.2f\n", key, value-decr)
+	//Info("counter: %s = %.2f\n", key, value-decr)
 	s.counters[key] = value - decr
 	return value - decr
 }
@@ -254,7 +255,7 @@ func (s *statistics) GetHosts() []string {
 	defer s.semState.RUnlock()
 
 	// for test
-	//log.Printf("hosts: %v\n", strings.Join(s.hosts, ","))
+	//Info("hosts: %v\n", strings.Join(s.hosts, ","))
 	//v := append([]string{}, "127.0.0.1")
 	v := append([]string{}, s.hosts...)
 	return v

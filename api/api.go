@@ -12,11 +12,13 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+
 	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/version"
 )
 
 func formatRequest(r *http.Request) string {
-	data, err := httputil.DumpRequest(r, shared.QuicConfiguration.Verbose)
+	data, err := httputil.DumpRequest(r, shared.QPepConfig.Verbose)
 	if err != nil {
 		return fmt.Sprintf("REQUEST: %v", err)
 	}
@@ -76,7 +78,7 @@ func apiEcho(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	data, err := json.Marshal(EchoResponse{
 		Address:       dataAddr[0],
 		Port:          port,
-		ServerVersion: shared.Version(),
+		ServerVersion: version.Version(),
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -95,10 +97,10 @@ func apiVersions(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	server := "N/A"
 	client := "N/A"
 	if strings.Contains(r.URL.String(), API_PREFIX_SERVER) {
-		server = shared.Version()
+		server = version.Version()
 	} else {
 		server = Statistics.GetState(INFO_OTHER_VERSION)
-		client = shared.Version()
+		client = version.Version()
 	}
 
 	data, err := json.Marshal(VersionsResponse{
@@ -143,7 +145,7 @@ func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	reqAddress := ps.ByName("addr")
 
 	lastUpdate := ""
-	address := shared.QuicConfiguration.ListenIP
+	address := shared.QPepConfig.ListenHost
 	platform := runtime.GOOS
 	if len(reqAddress) > 0 {
 		address = reqAddress
