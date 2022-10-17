@@ -9,8 +9,6 @@ on:
             default: false
   push:
     branches: [ "main", "testing-*" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build-linux:
@@ -38,7 +36,7 @@ jobs:
         go test -v ./...
       continue-on-error: true
       
-    - name: Build x64
+    - name: Build 64bits
       run: |
         set GOARCH=amd64
         set GOOS=linux
@@ -85,29 +83,29 @@ jobs:
     - name: Prepare
       run: |
            MKDIR build
-           MKDIR build\x64
-           MKDIR build\x86
+           MKDIR build\64bits
+           MKDIR build\32bits
            COPY /Y windivert\LICENSE build\LICENSE.windivert
            COPY /Y LICENSE build\LICENSE
            set GOARCH=amd64
            go clean -cache
            set GOARCH=386
            go clean -cache
-           COPY /Y windivert\x64\* build\x64
+           COPY /Y windivert\64bits\* build\64bits
            
-    - name: Build QPep x64
+    - name: Build QPep 64bits
       run: |
            set GOARCH=amd64
            set CGO_ENABLED=1
-           go build -o build\x64\qpep.exe
+           go build -o build\64bits\qpep.exe
            
-    - name: Build QPep Tray x64
+    - name: Build QPep Tray 64bits
       run: |
            pushd qpep-tray
            set GOARCH=amd64
            set GOOS=windows
            set CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\x86\qpep-tray.exe
+           go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
            popd
            
     - if: ${{ github.event.inputs.x86_version == true }}
@@ -122,7 +120,7 @@ jobs:
            set GOARCH=386
            set GOOS=windows
            set CGO_ENABLED=1
-           go build -o build\x64\qpep.exe
+           go build -o build\64bits\qpep.exe
            
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Build QPep Tray x86
@@ -131,7 +129,7 @@ jobs:
            set GOARCH=386
            set GOOS=windows
            set CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\x86\qpep-tray.exe
+           go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
            popd
       
     - name: Build QPep Installer
