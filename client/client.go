@@ -28,7 +28,7 @@ var (
 		WinDivertThreads:  1,
 		Verbose:           false,
 	}
-	quicSession             quic.Session
+	quicSession             quic.Connection
 	QuicClientConfiguration = quic.Config{
 		MaxIncomingStreams: 40000,
 	}
@@ -236,9 +236,9 @@ func handleTCPConn(tcpConn net.Conn) {
 	log.Printf("Done sending data on %d", quicStream.StreamID())
 }
 
-func openQuicSession() (quic.Session, error) {
+func openQuicSession() (quic.Connection, error) {
 	var err error
-	var session quic.Session
+	var session quic.Connection
 	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"qpep"}}
 	gatewayPath := ClientConfiguration.GatewayHost + ":" + strconv.Itoa(ClientConfiguration.GatewayPort)
 	quicClientConfig := QuicClientConfiguration

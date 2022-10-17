@@ -35,7 +35,7 @@ var (
 		APIPort:    444,
 	}
 	quicListener quic.Listener
-	quicSession  quic.Session
+	quicSession  quic.Connection
 )
 
 type ServerConfig struct {
@@ -104,7 +104,7 @@ func ListenQuicSession() {
 	}
 }
 
-func ListenQuicConn(quicSession quic.Session) {
+func ListenQuicConn(quicSession quic.Connection) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("PANIC: %v\n", err)
