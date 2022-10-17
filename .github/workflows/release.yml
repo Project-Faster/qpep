@@ -201,9 +201,11 @@ jobs:
         with:
           name: qpep_linux_b${{ github.run_id }}
       
-      - name: List
+      - name: Prepare archives
         run: |
            cd ${{ github.workspace }}
+           7z a -tzip qpep_windows_b${{ github.run_id }}.zip ${{ github.workspace }}/installer.msi
+           7z a -tzip qpep_linux_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep
         
       - name: Attach Windows Release Asset
         id: upload-release-asset 
@@ -212,7 +214,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ${{ github.workspace }}/installer.msi
+          asset_path: qpep_windows_b${{ github.run_id }}.zip
           asset_name: qpep_windows_b${{ github.run_id }}
           asset_content_type: application/zip
           
@@ -223,7 +225,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ${{ github.workspace }}/qpep
+          asset_path: qpep_linux_b${{ github.run_id }}.zip
           asset_name: qpep_linux_b${{ github.run_id }}
           asset_content_type: application/zip
           
