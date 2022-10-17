@@ -30,9 +30,14 @@ jobs:
     
       - name: Check release
         run: |
+           git tag
+           git tag | grep v${{ github.event.inputs.version_tag }} | wc -l
            if [[ `git tag | grep v${{ github.event.inputs.version_tag }} | wc -l` != 0 ]]; then
+              echo a
               exit 1
            fi
+           echo b
+           exit 1
 
   build-linux:
     needs: check-release
