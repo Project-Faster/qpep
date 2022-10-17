@@ -27,19 +27,19 @@ jobs:
         
     steps:
       - uses: actions/checkout@v3
-    
-      - name: Check release
-        run: |
-           cd ${{ github.workspace }}
-           git tag
-           git tag | grep v${{ github.event.inputs.version_tag }} | wc -l
-           if [[ `git tag | grep v${{ github.event.inputs.version_tag }} | wc -l` != 0 ]]; then
-              echo a
-              exit 1
-           fi
-           echo b
-           exit 1
 
+      - name: Check tag
+        uses: mukunku/tag-exists-action@v1.0.0
+        id: checkTag
+        with: 
+          tag: 'v${{ github.event.inputs.version_tag }}'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - if: ${{ steps.checkTag.outputs.exists == 'true' }}
+        name: Fail build
+        run: exit 1
+    
   build-linux:
     needs: check-release
     runs-on: ubuntu-latest
