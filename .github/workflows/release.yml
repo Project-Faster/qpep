@@ -30,6 +30,7 @@ jobs:
     
       - name: Check release
         run: |
+           cd ${{ github.workspace }}
            git tag
            git tag | grep v${{ github.event.inputs.version_tag }} | wc -l
            if [[ `git tag | grep v${{ github.event.inputs.version_tag }} | wc -l` != 0 ]]; then
