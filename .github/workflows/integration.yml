@@ -27,8 +27,8 @@ jobs:
       name: Test
       run: go test -v ./...
       continue-on-error: true
-      
-    - name: Build x64
+
+- name: Build x64
       run: |
         set GOARCH=amd64
         set GOOS=linux
@@ -92,3 +92,4 @@ jobs:
       with:
         name: qpep_windows_b${{ github.run_id }}
         path: qpep_windows_b${{ github.run_id }}.zip
+
