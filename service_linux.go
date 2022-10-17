@@ -2,7 +2,6 @@ package main
 
 import (
 	. "github.com/parvit/qpep/logger"
-	"log"
 	"os"
 )
 
@@ -12,11 +11,12 @@ func setCurrentWorkingDir(path string) {
 
 func sendProcessInterrupt() {
 	pid := os.Getpid()
-	if p, err := os.FindProcess(pid); err != nil {
+	p, err := os.FindProcess(pid)
+	if err != nil {
 		Info("ERROR: %v\n", err)
 		os.Exit(1)
 	}
-	if err := p.Signal(os.Interrupt); err != nil {
+	if err = p.Signal(os.Interrupt); err != nil {
 		Info("ERROR: %v\n", err)
 		os.Exit(1)
 	}
