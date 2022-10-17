@@ -91,7 +91,7 @@ jobs:
            go clean -cache
            set GOARCH=386
            go clean -cache
-           COPY /Y windivert\64bits\* build\64bits
+           COPY /Y windivert\x64\* build\64bits
            
     - name: Build QPep 64bits
       run: |
