@@ -105,7 +105,7 @@ jobs:
            set GOARCH=amd64
            set GOOS=windows
            set CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
+           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
            popd
            
     - if: ${{ github.event.inputs.x86_version == true }}
