@@ -6,6 +6,6 @@ package shared
 * interface ID for interface filtering in the divert engine
  */
 
-func getRouteGatewayInterfaces() ([]int64, error) {
-	return nil, nil
+func getRouteGatewayInterfaces() ([]int64, []string, error) {
+	return nil, nil, nil
 }
