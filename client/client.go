@@ -3,12 +3,10 @@ package client
 import (
 	"bufio"
 	"bytes"
-	"fmt"
-	"github.com/lucas-clemente/quic-go/logging"
-	"github.com/lucas-clemente/quic-go/qlog"
+	//"github.com/lucas-clemente/quic-go/logging"
+	//"github.com/lucas-clemente/quic-go/qlog"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	"crypto/tls"
 	"io"
@@ -48,17 +46,17 @@ var (
 	}
 	quicSession             quic.Session
 	QuicClientConfiguration = quic.Config{
-		MaxIncomingStreams: 40000,
+		MaxIncomingStreams:      40000,
 		DisablePathMTUDiscovery: true,
-//		Tracer: qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
-//			filename := fmt.Sprintf("client_%x.qlog", connID)
-//			f, err := os.Create(filename)
-//			if err != nil {
-//				log.Fatal(err)
-//			}
-//			log.Printf("Creating qlog file %s.\n", filename)
-//			return &shared.QLogWriter{Writer: bufio.NewWriter(f)}
-//		}),
+		//		Tracer: qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
+		//			filename := fmt.Sprintf("client_%x.qlog", connID)
+		//			f, err := os.Create(filename)
+		//			if err != nil {
+		//				log.Fatal(err)
+		//			}
+		//			log.Printf("Creating qlog file %s.\n", filename)
+		//			return &shared.QLogWriter{Writer: bufio.NewWriter(f)}
+		//		}),
 	}
 )
 
@@ -190,12 +188,12 @@ func successConnectionStartConnectionManagement() bool {
 	}
 
 	var redirectedInetID int64 = 0
-	for _,id := range redirectedInterfaces {
-		inet,_ := net.InterfaceByIndex( int(id) )
+	for _, id := range redirectedInterfaces {
+		inet, _ := net.InterfaceByIndex(int(id))
 
-		addresses,_ := inet.Addrs()
-		for _,addr := range addresses {
-			if strings.Contains( addr.String(), listenHost ) {
+		addresses, _ := inet.Addrs()
+		for _, addr := range addresses {
+			if strings.Contains(addr.String(), listenHost) {
 				redirectedInetID = id
 				break
 			}
@@ -212,7 +210,7 @@ func successConnectionStartConnectionManagement() bool {
 
 func failedCheckConnection() bool {
 	keepRedirectionRetries--
-	if !shared.UsingProxy && keepRedirectionRetries < shared.QuicConfiguration.MaxConnectionRetries / 2 {
+	if !shared.UsingProxy && keepRedirectionRetries < shared.QuicConfiguration.MaxConnectionRetries/2 {
 		windivert.CloseWinDivertEngine()
 
 		log.Printf("Connection failed and half retries exhausted, trying with proxy\n")
@@ -336,7 +334,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		io.Copy(buf, tcpConn)
 
 		rd := bufio.NewReader(buf)
-		req,err := http.ReadRequest(rd)
+		req, err := http.ReadRequest(rd)
 		if err != nil {
 			tcpConn.Close()
 			log.Printf("Failed to parse request: %v\n", err)
@@ -345,7 +343,7 @@ func handleTCPConn(tcpConn net.Conn) {
 
 		switch req.Method {
 		case http.MethodGet:
-			address,port,proxyable := getAddressPortFromHost(req.Host)
+			address, port, proxyable := getAddressPortFromHost(req.Host)
 			if !proxyable {
 				tcpConn.Close()
 				log.Printf("Non proxyable request\n")
@@ -353,7 +351,7 @@ func handleTCPConn(tcpConn net.Conn) {
 			}
 
 			sessionHeader.DestAddr = &net.TCPAddr{
-				IP: address,
+				IP:   address,
 				Port: port,
 			}
 
@@ -372,7 +370,7 @@ func handleTCPConn(tcpConn net.Conn) {
 			break
 
 		case http.MethodConnect:
-			address,port,proxyable := getAddressPortFromHost(req.Host)
+			address, port, proxyable := getAddressPortFromHost(req.Host)
 			if !proxyable {
 				tcpConn.Close()
 				log.Printf("Non proxyable request\n")
@@ -380,20 +378,20 @@ func handleTCPConn(tcpConn net.Conn) {
 			}
 
 			sessionHeader.DestAddr = &net.TCPAddr{
-				IP: address,
+				IP:   address,
 				Port: port,
 			}
 
 			t := http.Response{
-				Status: http.StatusText(http.StatusOK),
-				StatusCode: http.StatusOK,
-				Proto: req.Proto,
-				ProtoMajor: req.ProtoMajor,
-				ProtoMinor: req.ProtoMinor,
-				Body: ioutil.NopCloser(bytes.NewBufferString("")),
+				Status:        http.StatusText(http.StatusOK),
+				StatusCode:    http.StatusOK,
+				Proto:         req.Proto,
+				ProtoMajor:    req.ProtoMajor,
+				ProtoMinor:    req.ProtoMinor,
+				Body:          ioutil.NopCloser(bytes.NewBufferString("")),
 				ContentLength: 0,
-				Request: req,
-				Header: make(http.Header, 0),
+				Request:       req,
+				Header:        make(http.Header, 0),
 			}
 
 			t.Write(tcpConn)
@@ -408,15 +406,15 @@ func handleTCPConn(tcpConn net.Conn) {
 			break
 		default:
 			t := http.Response{
-				Status: http.StatusText(http.StatusBadGateway),
-				StatusCode: http.StatusBadGateway,
-				Proto: req.Proto,
-				ProtoMajor: req.ProtoMajor,
-				ProtoMinor: req.ProtoMinor,
-				Body: ioutil.NopCloser(bytes.NewBufferString("")),
+				Status:        http.StatusText(http.StatusBadGateway),
+				StatusCode:    http.StatusBadGateway,
+				Proto:         req.Proto,
+				ProtoMajor:    req.ProtoMajor,
+				ProtoMinor:    req.ProtoMinor,
+				Body:          ioutil.NopCloser(bytes.NewBufferString("")),
 				ContentLength: 0,
-				Request: req,
-				Header: make(http.Header, 0),
+				Request:       req,
+				Header:        make(http.Header, 0),
 			}
 
 			t.Write(tcpConn)
@@ -426,7 +424,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		}
 	}
 
-	ctx,_ := context.WithTimeout(context.Background(), ClientConfiguration.IdleTimeout)
+	ctx, _ := context.WithTimeout(context.Background(), ClientConfiguration.IdleTimeout)
 
 	streamQUICtoTCP := func(dst *net.TCPConn, src quic.Stream) {
 		defer func() {
@@ -441,7 +439,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		}
 
 		var buffSize = INITIAL_BUFF_SIZE
-		var loopTimeout = 150*time.Millisecond
+		var loopTimeout = 150 * time.Millisecond
 		for {
 			select {
 			case <-ctx.Done():
@@ -455,7 +453,7 @@ func handleTCPConn(tcpConn net.Conn) {
 
 			written, err := io.Copy(dst, io.LimitReader(src, buffSize))
 			if err != nil || written == 0 {
-				if nErr,ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+				if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
 					continue
 				}
 				//log.Printf("Error on Copy %s\n", err)
@@ -482,7 +480,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		}
 
 		var buffSize = INITIAL_BUFF_SIZE
-		var loopTimeout = 150*time.Millisecond
+		var loopTimeout = 150 * time.Millisecond
 		for {
 			select {
 			case <-ctx.Done():
@@ -496,7 +494,7 @@ func handleTCPConn(tcpConn net.Conn) {
 
 			written, err := io.Copy(dst, io.LimitReader(src, buffSize))
 			if err != nil || written == 0 {
-				if nErr,ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+				if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
 					continue
 				}
 				//log.Printf("Error on Copy %s\n", err)
@@ -527,7 +525,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	log.Printf("== Stream %d Done ==", quicStream.StreamID())
 }
 
-func getAddressPortFromHost( host string ) (net.IP,int,bool) {
+func getAddressPortFromHost(host string) (net.IP, int, bool) {
 	var proxyable = false
 	var port int64 = 0
 	var address net.IP
@@ -537,7 +535,7 @@ func getAddressPortFromHost( host string ) (net.IP,int,bool) {
 	}
 
 	ips, _ := net.LookupIP(urlParts[0])
-	for _,ip := range ips {
+	for _, ip := range ips {
 		address = ip.To4()
 		if address == nil {
 			continue
@@ -546,7 +544,7 @@ func getAddressPortFromHost( host string ) (net.IP,int,bool) {
 		proxyable = true
 		break
 	}
-	return address,int(port),proxyable
+	return address, int(port), proxyable
 }
 
 func openQuicSession() (quic.Session, error) {

@@ -5,7 +5,7 @@
         <Media Id="1" Cabinet="qpep.cab" EmbedCab="yes" />
 
         <MajorUpgrade
-            DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit.">
+            DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit." />
 
         <Icon Id="installer.ico" SourceFile="$(var.ProjectDir)\installer.ico" />
         <Icon Id="applications_internet.ico" SourceFile="$(var.ProjectDir)\applications-internet.ico" />
@@ -22,8 +22,8 @@
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFilesFolder">
                 <Directory Id="APPLICATIONROOTDIRECTORY" Name="QPep" >
-                    <Directory Id="INSTALLDIRX86" Name="x86" />
-                    <Directory Id="INSTALLDIRX64" Name="x64" />
+                    <Directory Id="INSTALLDIRX86" Name="32bits" />
+                    <Directory Id="INSTALLDIRX64" Name="64bits" />
                 </Directory>
             </Directory>
 

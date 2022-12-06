@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -9,14 +8,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/lucas-clemente/quic-go/logging"
-	"github.com/lucas-clemente/quic-go/qlog"
+	//"github.com/lucas-clemente/quic-go/logging"
+	//"github.com/lucas-clemente/quic-go/qlog"
 	"io"
 	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
-	"os"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -38,20 +36,20 @@ var (
 		ListenPort: 443,
 		APIPort:    444,
 	}
-	quicListener quic.Listener
-	quicSession  quic.Session
+	quicListener            quic.Listener
+	quicSession             quic.Session
 	QuicServerConfiguration = quic.Config{
-		MaxIncomingStreams: 40000,
+		MaxIncomingStreams:      40000,
 		DisablePathMTUDiscovery: true,
-//		Tracer: qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
-//			filename := fmt.Sprintf("server_%x.qlog", connID)
-//			f, err := os.Create(filename)
-//			if err != nil {
-//				log.Fatal(err)
-//			}
-//			log.Printf("Creating qlog file %s.\n", filename)
-//			return &shared.QLogWriter{Writer: bufio.NewWriter(f)}
-//		}),
+		//		Tracer: qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
+		//			filename := fmt.Sprintf("server_%x.qlog", connID)
+		//			f, err := os.Create(filename)
+		//			if err != nil {
+		//				log.Fatal(err)
+		//			}
+		//			log.Printf("Creating qlog file %s.\n", filename)
+		//			return &shared.QLogWriter{Writer: bufio.NewWriter(f)}
+		//		}),
 	}
 )
 
@@ -185,7 +183,7 @@ func handleQuicStream(stream quic.Stream) {
 		api.Statistics.DecrementCounter(1.0, api.TOTAL_CONNECTIONS)
 	}()
 
-	ctx,_ := context.WithTimeout(context.Background(), 10 * time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
 	var streamWait sync.WaitGroup
 	streamWait.Add(2)
@@ -205,7 +203,7 @@ func handleQuicStream(stream quic.Stream) {
 		}
 
 		var buffSize = INITIAL_BUFF_SIZE
-		var loopTimeout = 150*time.Millisecond
+		var loopTimeout = 150 * time.Millisecond
 		for {
 			select {
 			case <-ctx.Done():
@@ -219,7 +217,7 @@ func handleQuicStream(stream quic.Stream) {
 
 			written, err := io.Copy(dst, src)
 			if err != nil || written == 0 {
-				if nErr,ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+				if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
 					continue
 				}
 				//log.Printf("Error on Copy %s\n", err)
@@ -247,7 +245,7 @@ func handleQuicStream(stream quic.Stream) {
 		}
 
 		var buffSize = INITIAL_BUFF_SIZE
-		var loopTimeout = 150*time.Millisecond
+		var loopTimeout = 150 * time.Millisecond
 		for {
 			select {
 			case <-ctx.Done():
@@ -261,7 +259,7 @@ func handleQuicStream(stream quic.Stream) {
 
 			written, err := io.Copy(dst, src)
 			if err != nil || written == 0 {
-				if nErr,ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+				if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
 					continue
 				}
 				//log.Printf("Error on Copy %s\n", err)
