@@ -22,7 +22,7 @@ HANDLE diverterHandle = INVALID_HANDLE_VALUE; //!< WinDivert handler
 HANDLE threadHandles[MAX_THREADS]; //!< Thread handles
 
 int diveterMessagesEnabledToGo = TRUE; //!< When true, verbose redirect messages are output in the go log
-UINT32 gatewayInterfacesList[MAX_INTERFACES];
+UINT32 allowedGatewayInterface = 0; //!< Allowed interface id to be redirected
 
 /**
  * @brief Initializes the divert engine and the worker threads to handle the packets
@@ -61,9 +61,7 @@ int InitializeWinDivertEngine(char* gatewayHost, char* listenHost, int gatewayPo
         return DIVERT_ERROR_NOTINITILIZED;
     }
 
-    for( int i=0; i<MAX_INTERFACES; i++ ) {
-        gatewayInterfacesList[i] = -1;
-    }
+    allowedGatewayInterface = 0;
     for( int i=0; i<MAX_THREADS; i++ ) {
         threadHandles[i] = INVALID_HANDLE_VALUE;
     }
@@ -136,6 +134,8 @@ int CloseWinDivertEngine()
     int resultDivert= WinDivertClose(diverterHandle);
     diverterHandle = INVALID_HANDLE_VALUE;
 
+    allowedGatewayInterface = 0;
+
     if( resultDivert!= TRUE || resultThread != TRUE ) {
         logNativeMessageToGo(0, "Could not stop the engine, errorcode: %d, status: %d/%d", 
             GetLastError(), resultDivert, resultThread);
@@ -152,26 +152,15 @@ int CloseWinDivertEngine()
  * Will not add twice the same index to the list
  * 
  */
-void AddGatewayInterfaceIndexToDivert( int _interfaceIndex ) 
+void SetGatewayInterfaceIndexToDivert( int _interfaceIndex )
 {
     if(_interfaceIndex < 0) {
         logNativeMessageToGo(0, "Diverted gateway interface value invalid: %d", _interfaceIndex);
         return; // value not allowed
     }
 
-    UINT32 interfaceIndex = (UINT32)_interfaceIndex;
-
-    for( int i=0; i<MAX_INTERFACES; i++ ) {
-        if( gatewayInterfacesList[i] == -1 ) {
-            gatewayInterfacesList[i] = interfaceIndex;
-            logNativeMessageToGo(0, "Added diverted gateway interface: %d", _interfaceIndex);
-            return; // free place in the list
-        }
-        if( gatewayInterfacesList[i] == interfaceIndex ) {
-            logNativeMessageToGo(0, "Gateway interface already present: %d", _interfaceIndex);
-            return; // already added
-        }
-    }
+    allowedGatewayInterface = (UINT32)_interfaceIndex;
+    logNativeMessageToGo(0, "Added diverted gateway interface: %d", _interfaceIndex);
 }
 
 /**
@@ -179,14 +168,7 @@ void AddGatewayInterfaceIndexToDivert( int _interfaceIndex )
  * 
  */
 BOOL checkAllowedInterfaceToDivert( UINT32 idx ) {
-    for( int i=0; i<MAX_INTERFACES; i++ ) {
-        if( gatewayInterfacesList[i] == -1 )
-            return FALSE; // not found
-
-        if( gatewayInterfacesList[i] == idx )
-            return TRUE; // index found
-    }
-    return FALSE; // not found at end
+    return idx == allowedGatewayInterface;
 }
 
 /**
@@ -513,7 +495,7 @@ BOOL handleLocalToServerPacket(
             if( tcp_header->Fin || tcp_header->Rst ) {
                 logNativeMessageToGo(th->threadID,  "Reset received for port %d, closing connection", portSrcIdx);
                 atomicUpdateConnectionState( portSrcIdx, STATE_WAIT );
-            } else if( !tcp_header->Ack ) {
+            } else if( !tcp_header->Ack && !tcp_header->Syn ) {
                 logNativeMessageToGo(th->threadID,  "Out-of-sequence packet for handshake, dropping...");
                 return FALSE;
             }

@@ -24,6 +24,7 @@ func main() {
 			log.Printf("PANIC: %v", err)
 			debug.PrintStack()
 		}
+		shared.SetSystemProxy(false)
 	}()
 
 	log.SetFlags(log.Ltime | log.Lmicroseconds)

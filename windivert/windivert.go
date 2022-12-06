@@ -14,7 +14,7 @@ const (
 	DIVERT_ERROR_FAILED        = 3
 )
 
-func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterfaces []int64) int {
+func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterfaces int64) int {
 	log.Println("WARNING: windivert package compiled without CGO") // message to check for failing CGO
 	return DIVERT_OK
 }

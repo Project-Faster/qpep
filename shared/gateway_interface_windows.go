@@ -3,6 +3,8 @@ package shared
 import (
 	"bufio"
 	"errors"
+	"fmt"
+	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -134,4 +136,31 @@ BLOCK:
 		}
 	}
 	return interfacesList, addressesList, nil
+}
+
+func SetSystemProxy(active bool) {
+	var configCmd *exec.Cmd
+	if !active {
+		log.Printf("Clearing system proxy settings\n")
+		configCmd = exec.Command("netsh", "winhttp", "reset", "proxy")
+		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		log.Printf("CMD: %v", configCmd.Run())
+
+		configCmd = exec.Command("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
+		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		log.Printf("CMD: %v", configCmd.Run())
+		return
+	}
+
+	log.Printf("Setting system proxy to '%s:%d'\n", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort)
+	configCmd = exec.Command("netsh", "winhttp", "set", "proxy",
+		fmt.Sprintf("proxy-server=\"%s:%d\"", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort ),
+		"bypass-list=\"localhost\"" )
+	log.Printf("CMD: %v", configCmd.Run())
+
+	configCmd = exec.Command("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+		"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
+	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	log.Printf("CMD: %v", configCmd.Run())
 }

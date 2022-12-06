@@ -21,7 +21,7 @@ const (
 	DIVERT_ERROR_FAILED        = 3
 )
 
-func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterfaces []int64) int {
+func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) int {
 	gatewayStr := C.CString(gatewayAddr)
 	listenStr := C.CString(listenAddr)
 	response := int(C.InitializeWinDivertEngine(gatewayStr, listenStr, C.int(gatewayPort), C.int(listenPort), C.int(numThreads)))
@@ -29,9 +29,7 @@ func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, list
 		return response
 	}
 
-	for _, idx := range gatewayInterfaces {
-		C.AddGatewayInterfaceIndexToDivert(C.int(idx))
-	}
+	C.SetGatewayInterfaceIndexToDivert(C.int(gatewayInterface))
 	return response
 }
 

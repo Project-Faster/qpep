@@ -17,7 +17,6 @@ func (listener *ClientProxyListener) Accept() (net.Conn, error) {
 
 func (listener *ClientProxyListener) AcceptTProxy() (*net.TCPConn, error) {
 	tcpConn, err := listener.base.(*net.TCPListener).AcceptTCP()
-
 	if err != nil {
 		return nil, err
 	}

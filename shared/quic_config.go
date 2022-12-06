@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -37,10 +38,19 @@ const (
 
 var (
 	QuicConfiguration         QuicConfig
+	UsingProxy                = false
 	defaultListeningAddress   string
 	detectedGatewayInterfaces []int64
 	detectedDefaultRouteAddrs []string
 )
+
+type QLogWriter struct {
+	*bufio.Writer
+}
+func (mwc *QLogWriter) Close() error {
+	// Noop
+	return mwc.Writer.Flush()
+}
 
 func ParseFlags(args []string) {
 	log.Println("ARGS:", strings.Join(args, " "))

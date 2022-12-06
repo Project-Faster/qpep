@@ -1,12 +1,22 @@
 package client
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"github.com/lucas-clemente/quic-go/logging"
+	"github.com/lucas-clemente/quic-go/qlog"
+	"io/ioutil"
+	"net/http"
+	"os"
+
 	"crypto/tls"
 	"io"
 	"log"
 	"net"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +25,10 @@ import (
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
 	"golang.org/x/net/context"
+)
+
+const (
+	INITIAL_BUFF_SIZE = int64(4096)
 )
 
 var (
@@ -35,6 +49,16 @@ var (
 	quicSession             quic.Session
 	QuicClientConfiguration = quic.Config{
 		MaxIncomingStreams: 40000,
+		DisablePathMTUDiscovery: true,
+//		Tracer: qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
+//			filename := fmt.Sprintf("client_%x.qlog", connID)
+//			f, err := os.Create(filename)
+//			if err != nil {
+//				log.Fatal(err)
+//			}
+//			log.Printf("Creating qlog file %s.\n", filename)
+//			return &shared.QLogWriter{Writer: bufio.NewWriter(f)}
+//		}),
 	}
 )
 
@@ -104,7 +128,7 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 
 	// start redirection right away because we normally expect the
 	// connection with the server to be on already up
-	successConnectionStartRedirection()
+	successConnectionStartConnectionManagement()
 
 	for {
 		select {
@@ -120,14 +144,14 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 				if ok, response := gatewayStatusCheck(localAddr, apiAddr, apiPort); ok {
 					publicAddress = response.Address
 					connected = true
-					keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries // reset connection tries
+					keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries / 2 // reset connection tries
 					log.Printf("Server returned public address %s\n", publicAddress)
 
 				} else {
 					// if connection is lost then keep the redirection active
 					// for a certain number of retries then terminate to not keep
 					// all the network blocked
-					if failedConnectionCheckRedirection() {
+					if failedCheckConnection() {
 						return
 					}
 				}
@@ -141,7 +165,7 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 				// if connection is lost then keep the redirection active
 				// for a certain number of retries then terminate to not keep
 				// all the network blocked
-				if failedConnectionCheckRedirection() {
+				if failedCheckConnection() {
 					return
 				}
 				connected = false
@@ -150,8 +174,7 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 	}
 }
 
-func successConnectionStartRedirection() bool {
-
+func successConnectionStartConnectionManagement() bool {
 	gatewayHost := ClientConfiguration.GatewayHost
 	gatewayPort := ClientConfiguration.GatewayPort
 	redirectedInterfaces := ClientConfiguration.RedirectedInterfaces
@@ -161,11 +184,25 @@ func successConnectionStartRedirection() bool {
 
 	keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries // reset connection tries
 
-	if redirected {
+	if redirected || shared.UsingProxy {
 		// no need to restart, already redirected
 		return true
 	}
-	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInterfaces)
+
+	var redirectedInetID int64 = 0
+	for _,id := range redirectedInterfaces {
+		inet,_ := net.InterfaceByIndex( int(id) )
+
+		addresses,_ := inet.Addrs()
+		for _,addr := range addresses {
+			if strings.Contains( addr.String(), listenHost ) {
+				redirectedInetID = id
+				break
+			}
+		}
+	}
+
+	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
 	if code != windivert.DIVERT_OK {
 		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
 		return true
@@ -173,8 +210,16 @@ func successConnectionStartRedirection() bool {
 	return false
 }
 
-func failedConnectionCheckRedirection() bool {
+func failedCheckConnection() bool {
 	keepRedirectionRetries--
+	if !shared.UsingProxy && keepRedirectionRetries < shared.QuicConfiguration.MaxConnectionRetries / 2 {
+		windivert.CloseWinDivertEngine()
+
+		log.Printf("Connection failed and half retries exhausted, trying with proxy\n")
+		shared.UsingProxy = true
+		shared.SetSystemProxy(true)
+		return false
+	}
 	if keepRedirectionRetries > 0 {
 		log.Printf("Connection failed, keeping redirection active (retries left: %d)\n", keepRedirectionRetries)
 		return false
@@ -182,7 +227,7 @@ func failedConnectionCheckRedirection() bool {
 
 	log.Printf("Connection failed and retries exhausted, redirection stopped\n")
 	redirected = false
-	windivert.CloseWinDivertEngine()
+	shared.SetSystemProxy(false)
 	return true
 }
 
@@ -217,6 +262,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	}()
 	log.Printf("Accepting TCP connection from %s with destination of %s", tcpConn.RemoteAddr().String(), tcpConn.LocalAddr().String())
 	defer tcpConn.Close()
+
 	var quicStream quic.Stream = nil
 	// if we allow for multiple streams in a session, lets try and open on the existing session
 	if ClientConfiguration.MultiStream {
@@ -264,6 +310,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		DestAddr:   tcpConn.LocalAddr().(*net.TCPAddr),
 	}
 
+	// divert check
 	diverted, srcPort, dstPort, srcAddress, dstAddress := windivert.GetConnectionStateData(sessionHeader.SourceAddr.Port)
 	if diverted == windivert.DIVERT_OK {
 		log.Printf("Diverted connection: %v:%v %v:%v", srcAddress, srcPort, dstAddress, dstPort)
@@ -276,48 +323,230 @@ func handleTCPConn(tcpConn net.Conn) {
 			IP:   net.ParseIP(dstAddress),
 			Port: dstPort,
 		}
+
+		log.Printf("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
+		_, err := quicStream.Write(sessionHeader.ToBytes())
+		if err != nil {
+			log.Printf("Error writing to quic stream: %s", err.Error())
+		}
+	} else {
+		tcpConn.SetReadDeadline(time.Now().Add(1 * time.Second))
+
+		buf := bytes.NewBuffer([]byte{})
+		io.Copy(buf, tcpConn)
+
+		rd := bufio.NewReader(buf)
+		req,err := http.ReadRequest(rd)
+		if err != nil {
+			tcpConn.Close()
+			log.Printf("Failed to parse request: %v\n", err)
+			return
+		}
+
+		switch req.Method {
+		case http.MethodGet:
+			address,port,proxyable := getAddressPortFromHost(req.Host)
+			if !proxyable {
+				tcpConn.Close()
+				log.Printf("Non proxyable request\n")
+				return
+			}
+
+			sessionHeader.DestAddr = &net.TCPAddr{
+				IP: address,
+				Port: port,
+			}
+
+			log.Printf("Proxied connection")
+			log.Printf("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
+			_, err := quicStream.Write(sessionHeader.ToBytes())
+			if err != nil {
+				log.Printf("Error writing to quic stream: %s", err.Error())
+			}
+
+			log.Printf("Sending captured GET request\n")
+			err = req.Write(quicStream)
+			if err != nil {
+				log.Printf("Error writing to tcp stream: %s", err.Error())
+			}
+			break
+
+		case http.MethodConnect:
+			address,port,proxyable := getAddressPortFromHost(req.Host)
+			if !proxyable {
+				tcpConn.Close()
+				log.Printf("Non proxyable request\n")
+				return
+			}
+
+			sessionHeader.DestAddr = &net.TCPAddr{
+				IP: address,
+				Port: port,
+			}
+
+			t := http.Response{
+				Status: http.StatusText(http.StatusOK),
+				StatusCode: http.StatusOK,
+				Proto: req.Proto,
+				ProtoMajor: req.ProtoMajor,
+				ProtoMinor: req.ProtoMinor,
+				Body: ioutil.NopCloser(bytes.NewBufferString("")),
+				ContentLength: 0,
+				Request: req,
+				Header: make(http.Header, 0),
+			}
+
+			t.Write(tcpConn)
+			buf.Reset()
+
+			log.Printf("Proxied connection")
+			log.Printf("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
+			_, err := quicStream.Write(sessionHeader.ToBytes())
+			if err != nil {
+				log.Printf("Error writing to quic stream: %s", err.Error())
+			}
+			break
+		default:
+			t := http.Response{
+				Status: http.StatusText(http.StatusBadGateway),
+				StatusCode: http.StatusBadGateway,
+				Proto: req.Proto,
+				ProtoMajor: req.ProtoMajor,
+				ProtoMinor: req.ProtoMinor,
+				Body: ioutil.NopCloser(bytes.NewBufferString("")),
+				ContentLength: 0,
+				Request: req,
+				Header: make(http.Header, 0),
+			}
+
+			t.Write(tcpConn)
+			tcpConn.Close()
+			log.Printf("Proxy returns BadGateway\n")
+			return
+		}
 	}
 
-	log.Printf("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
-
-	_, err := quicStream.Write(sessionHeader.ToBytes())
-	if err != nil {
-		log.Printf("Error writing to quic stream: %s", err.Error())
-	}
+	ctx,_ := context.WithTimeout(context.Background(), ClientConfiguration.IdleTimeout)
 
 	streamQUICtoTCP := func(dst *net.TCPConn, src quic.Stream) {
-		_, err := io.Copy(dst, src)
-		dst.SetLinger(3)
-		dst.Close()
-		//src.CancelRead(1)
-		//src.Close()
-		if err != nil {
-			log.Printf("Error on Copy %s", err)
-		}
-		streamWait.Done()
-	}
+		defer func() {
+			_ = recover()
 
-	streamTCPtoQUIC := func(dst quic.Stream, src *net.TCPConn) {
-		_, err := io.Copy(dst, src)
-		src.SetLinger(3)
-		src.Close()
-		//src.CloseWrite()
-		//dst.CancelWrite(1)
-		//dst.Close()
-		if err != nil {
-			log.Printf("Error on Copy %s", err)
+			streamWait.Done()
+		}()
+
+		err1 := dst.SetLinger(1)
+		if err1 != nil {
+			log.Printf("error on setLinger: %s\n", err1)
 		}
-		streamWait.Done()
+
+		var buffSize = INITIAL_BUFF_SIZE
+		var loopTimeout = 150*time.Millisecond
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			src.SetReadDeadline(time.Now().Add(loopTimeout))
+			src.SetWriteDeadline(time.Now().Add(loopTimeout))
+			dst.SetReadDeadline(time.Now().Add(loopTimeout))
+			dst.SetWriteDeadline(time.Now().Add(loopTimeout))
+
+			written, err := io.Copy(dst, io.LimitReader(src, buffSize))
+			if err != nil || written == 0 {
+				if nErr,ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+					continue
+				}
+				//log.Printf("Error on Copy %s\n", err)
+				break
+			}
+
+			buffSize = int64(written * 2)
+			if buffSize < INITIAL_BUFF_SIZE {
+				buffSize = INITIAL_BUFF_SIZE
+			}
+		}
+		//log.Printf("Finished Copying Stream ID %d, TCP Conn %s->%s\n", src.StreamID(), dst.LocalAddr().String(), dst.RemoteAddr().String())
+	}
+	streamTCPtoQUIC := func(dst quic.Stream, src *net.TCPConn) {
+		defer func() {
+			_ = recover()
+
+			streamWait.Done()
+		}()
+
+		err1 := src.SetLinger(1)
+		if err1 != nil {
+			log.Printf("error on setLinger: %s\n", err1)
+		}
+
+		var buffSize = INITIAL_BUFF_SIZE
+		var loopTimeout = 150*time.Millisecond
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			src.SetReadDeadline(time.Now().Add(loopTimeout))
+			src.SetWriteDeadline(time.Now().Add(loopTimeout))
+			dst.SetReadDeadline(time.Now().Add(loopTimeout))
+			dst.SetWriteDeadline(time.Now().Add(loopTimeout))
+
+			written, err := io.Copy(dst, io.LimitReader(src, buffSize))
+			if err != nil || written == 0 {
+				if nErr,ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+					continue
+				}
+				//log.Printf("Error on Copy %s\n", err)
+				break
+			}
+
+			buffSize = int64(written * 2)
+			if buffSize < INITIAL_BUFF_SIZE {
+				buffSize = INITIAL_BUFF_SIZE
+			}
+		}
+		//log.Printf("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.StreamID())
 	}
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
+	log.Printf("== Stream %d Start ==", quicStream.StreamID())
 	go streamTCPtoQUIC(quicStream, tcpConn.(*net.TCPConn))
 	go streamQUICtoTCP(tcpConn.(*net.TCPConn), quicStream)
 
 	//we exit (and close the TCP connection) once both streams are done copying
 	streamWait.Wait()
+	tcpConn.(*net.TCPConn).SetLinger(3)
+	tcpConn.Close()
+
+	quicStream.CancelWrite(0)
+	quicStream.CancelRead(0)
 	quicStream.Close()
-	log.Printf("Done sending data on %d", quicStream.StreamID())
+	log.Printf("== Stream %d Done ==", quicStream.StreamID())
+}
+
+func getAddressPortFromHost( host string ) (net.IP,int,bool) {
+	var proxyable = false
+	var port int64 = 0
+	var address net.IP
+	urlParts := strings.Split(host, ":")
+	if len(urlParts) == 2 {
+		port, _ = strconv.ParseInt(urlParts[1], 10, 64)
+	}
+
+	ips, _ := net.LookupIP(urlParts[0])
+	for _,ip := range ips {
+		address = ip.To4()
+		if address == nil {
+			continue
+		}
+
+		proxyable = true
+		break
+	}
+	return address,int(port),proxyable
 }
 
 func openQuicSession() (quic.Session, error) {

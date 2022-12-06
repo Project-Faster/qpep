@@ -3,6 +3,7 @@ module github.com/parvit/qpep
 go 1.16
 
 require (
+	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/getlantern/systray v1.2.1
 	github.com/jackpal/gateway v1.0.7 // indirect
 	github.com/julienschmidt/httprouter v1.3.0
