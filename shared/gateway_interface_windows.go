@@ -127,9 +127,13 @@ BLOCK:
 				continue BLOCK
 			}
 
-			idx := strings.LastIndex(line, "IP:")
+			idx := strings.LastIndex(line, "IP")
 			if idx != -1 {
-				line = strings.TrimSpace(line[idx+3:])
+				pieces := strings.Split(line, ":")
+				if len(pieces) != 2 {
+					continue
+				}
+				line = strings.TrimSpace(pieces[1])
 				addressesList = append(addressesList, line)
 				continue BLOCK
 			}
@@ -155,8 +159,8 @@ func SetSystemProxy(active bool) {
 
 	log.Printf("Setting system proxy to '%s:%d'\n", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort)
 	configCmd = exec.Command("netsh", "winhttp", "set", "proxy",
-		fmt.Sprintf("proxy-server=\"%s:%d\"", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort ),
-		"bypass-list=\"localhost\"" )
+		fmt.Sprintf("proxy-server=\"%s:%d\"", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort),
+		"bypass-list=\"localhost\"")
 	log.Printf("CMD: %v", configCmd.Run())
 
 	configCmd = exec.Command("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
