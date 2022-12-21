@@ -623,6 +623,9 @@ func validateConfiguration() {
 
 	shared.AssertParamNumeric("auto-redirected interfaces", len(ClientConfiguration.RedirectedInterfaces), 1, 256)
 
+	// override the configured listening address with the discovered one
+	// if not set explicitly
+	shared.QuicConfiguration.ListenIP = ClientConfiguration.ListenHost
 	// validation ok
 	log.Printf("Client configuration validation OK\n")
 }

@@ -38,6 +38,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// No       Sistema   256  192.168.1.30/32            18  Wi-Fi
 	// No       Sistema   256  192.168.1.255/32           18  Wi-Fi
 
+	// get interfaces with default routes set
 	routeCmd := exec.Command("netsh", "interface", "ip", "show", "route")
 	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := routeCmd.CombinedOutput()
@@ -92,6 +93,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 		routeInterfaceMap[strings.Join(fields[4:], " ")] = value
 	}
 
+	// parse the configuration of the interfaces to extract the addresses
 	configCmd := exec.Command("netsh", "interface", "ip", "show", "config")
 	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err = configCmd.CombinedOutput()
@@ -104,8 +106,8 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	scn := bufio.NewScanner(strings.NewReader(string(output)))
 	scn.Split(bufio.ScanLines)
 
-	var interfacesList []int64 = make([]int64, 0, len(routeInterfaceMap))
-	var addressesList []string = make([]string, 0, len(routeInterfaceMap))
+	var interfacesList = make([]int64, 0, len(routeInterfaceMap))
+	var addressesList = make([]string, 0, len(routeInterfaceMap))
 
 BLOCK:
 	for scn.Scan() {

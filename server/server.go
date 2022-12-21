@@ -361,5 +361,9 @@ func validateConfiguration() {
 
 	shared.AssertParamPortsDifferent("ports", ServerConfiguration.ListenPort, ServerConfiguration.APIPort)
 
+	// override the configured listening address with the discovered one
+	// if not set explicitly
+	shared.QuicConfiguration.ListenIP = ServerConfiguration.ListenHost
+	// validation ok
 	log.Printf("Server configuration validation OK\n")
 }
