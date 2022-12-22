@@ -97,6 +97,8 @@ func readConfiguration() (outerr error) {
 	}
 
 	shared.QuicConfiguration.Verbose = qpepConfig.Verbose
+	qpepConfig.ListenHost, _ = shared.GetDefaultLanListeningAddress(qpepConfig.ListenHost, "")
+	shared.QuicConfiguration.ListenIP = qpepConfig.ListenHost
 
 	log.Println("Configuration Loaded")
 	return nil
