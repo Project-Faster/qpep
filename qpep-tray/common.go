@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/parvit/qpep/shared"
 	"log"
 	"runtime/debug"
 	"time"
@@ -163,13 +164,13 @@ func onReady() {
 				}
 
 			case <-mQuit.ClickedCh:
-				if ok := ConfirmMsg("Do you want to quit QPep and stop its services?"); !ok {
-					break
+				if mServerActive || mClientActive {
+					if ok := ConfirmMsg("Do you want to quit QPep and stop its services?"); !ok {
+						break
+					}
+					stopClient()
+					stopServer()
 				}
-
-				stopClient()
-				stopServer()
-
 				systray.Quit()
 				return
 			}
@@ -256,6 +257,9 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 					if resp == nil {
 						systray.SetTemplateIcon(animIcons[flip], animIcons[flip])
 						flip = (flip + 1) % 2
+
+						// check in tray-icon for activated proxy
+						shared.UsingProxy, shared.ProxyAddress = shared.GetSystemProxyEnabled()
 						continue
 					}
 

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 
@@ -39,6 +40,7 @@ const (
 var (
 	QuicConfiguration         QuicConfig
 	UsingProxy                = false
+	ProxyAddress              *url.URL
 	defaultListeningAddress   string
 	detectedGatewayInterfaces []int64
 	detectedDefaultRouteAddrs []string
@@ -47,6 +49,7 @@ var (
 type QLogWriter struct {
 	*bufio.Writer
 }
+
 func (mwc *QLogWriter) Close() error {
 	// Noop
 	return mwc.Writer.Flush()

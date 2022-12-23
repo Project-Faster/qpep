@@ -100,6 +100,9 @@ func readConfiguration() (outerr error) {
 	qpepConfig.ListenHost, _ = shared.GetDefaultLanListeningAddress(qpepConfig.ListenHost, "")
 	shared.QuicConfiguration.ListenIP = qpepConfig.ListenHost
 
+	// check in tray-icon for activated proxy
+	shared.UsingProxy, shared.ProxyAddress = shared.GetSystemProxyEnabled()
+
 	log.Println("Configuration Loaded")
 	return nil
 }

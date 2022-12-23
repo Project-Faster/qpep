@@ -17,20 +17,12 @@ import (
 )
 
 func getClientForAPI(localAddr net.Addr) *http.Client {
-	host := shared.QuicConfiguration.ListenIP
-	port := shared.QuicConfiguration.ListenPort
-	proxyUrl,err := url.Parse( fmt.Sprintf("http://%s:%d", host, port) )
-	if err != nil {
-		log.Printf("ERROR: %v\n", err)
-		return nil
-	}
-
 	return &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			Proxy: func(*http.Request) (*url.URL, error) {
 				if shared.UsingProxy {
-					return proxyUrl, nil
+					return shared.ProxyAddress, nil
 				}
 				return nil, nil
 			},

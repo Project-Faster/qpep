@@ -8,6 +8,7 @@ package shared
 
 import (
 	"log"
+	"net/url"
 )
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
@@ -20,4 +21,8 @@ func SetSystemProxy(active bool) {
 		return
 	}
 	log.Printf("Setting system proxy not yet supported\n")
+}
+
+func GetSystemProxyEnabled() (bool, *url.URL) {
+	return false, ""
 }

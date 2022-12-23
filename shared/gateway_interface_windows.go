@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -19,8 +20,16 @@ import (
 * local ip addresses to use as source addresses
  */
 
+const (
+	PROXY_KEY_1 = `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+	PROXY_KEY_2 = `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+	PROXY_KEY_3 = `ProxyServer`
+	PROXY_KEY_4 = `REG_SZ`
+)
+
 var (
 	errNoGateway = errors.New("no gateway found")
+	repl         = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_3, "", PROXY_KEY_4, "")
 )
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
@@ -152,10 +161,13 @@ func SetSystemProxy(active bool) {
 		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		log.Printf("CMD: %v", configCmd.Run())
 
-		configCmd = exec.Command("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+		configCmd = exec.Command("reg", "add", PROXY_KEY_2,
 			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
 		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		log.Printf("CMD: %v", configCmd.Run())
+
+		UsingProxy = false
+		ProxyAddress = nil
 		return
 	}
 
@@ -165,8 +177,43 @@ func SetSystemProxy(active bool) {
 		"bypass-list=\"localhost\"")
 	log.Printf("CMD: %v", configCmd.Run())
 
-	configCmd = exec.Command("reg", "add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+	configCmd = exec.Command("reg", "add", PROXY_KEY_2,
 		"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
 	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	log.Printf("CMD: %v", configCmd.Run())
+
+	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort))
+	if err != nil {
+		panic(err)
+	}
+	ProxyAddress = urlValue
+	UsingProxy = true
+}
+
+func GetSystemProxyEnabled() (bool, *url.URL) {
+	configCmd := exec.Command("reg", "query", PROXY_KEY_2,
+		"/v", "ProxyEnable")
+	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	data, err := configCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("ERR: %v\n", err)
+		return false, nil
+	}
+	if strings.Index(string(data), "0x1") != -1 {
+		proxyCmd := exec.Command("reg", "query", PROXY_KEY_2,
+			"/v", "ProxyServer")
+		proxyCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		data2, err := proxyCmd.CombinedOutput()
+		if err != nil {
+			log.Printf("ERR: %v\n", err)
+			return false, nil
+		}
+
+		proxyUrlString := strings.TrimSpace(repl.Replace(string(data2)))
+		proxyUrl, err := url.Parse("http://" + proxyUrlString)
+		if err == nil {
+			return true, proxyUrl
+		}
+	}
+	return false, nil
 }

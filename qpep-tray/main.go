@@ -1,14 +1,14 @@
 package main
 
 import (
+	"github.com/getlantern/systray"
+	"github.com/parvit/qpep/shared"
 	"io"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
-
-	"github.com/getlantern/systray"
 )
 
 var (
@@ -16,6 +16,11 @@ var (
 )
 
 func main() {
+	defer func() {
+		// clear the proxy in case a orphaned client cannot
+		shared.SetSystemProxy(false)
+	}()
+
 	// note: channel is never dequeued as to stop the ctrl-c signal from stopping also
 	// this process and only the child client / server
 	interruptListener := make(chan os.Signal, 1)
