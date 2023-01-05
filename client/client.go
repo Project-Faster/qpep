@@ -260,7 +260,7 @@ func initDiverter() bool {
 	if code != windivert.DIVERT_OK {
 		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
 	}
-	return code == windivert.DIVERT_OK
+	return code != windivert.DIVERT_OK
 }
 
 func stopDiverter() {
