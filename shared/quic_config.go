@@ -43,7 +43,8 @@ var (
 	ProxyAddress              *url.URL
 	defaultListeningAddress   string
 	detectedGatewayInterfaces []int64
-	detectedDefaultRouteAddrs []string
+	detectedGatewayAddresses  []string
+	currentAddressIndex       int
 )
 
 type QLogWriter struct {
@@ -108,7 +109,7 @@ func ParseFlags(args []string) {
 
 func init() {
 	var err error
-	detectedGatewayInterfaces, detectedDefaultRouteAddrs, err = getRouteGatewayInterfaces()
+	detectedGatewayInterfaces, detectedGatewayAddresses, err = getRouteGatewayInterfaces()
 
 	fmt.Printf("gateway interfaces: %v\n", detectedGatewayInterfaces)
 
@@ -144,7 +145,7 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 	searchLongest := 0
 
 NEXT:
-	for i := 0; i < len(detectedDefaultRouteAddrs); i++ {
+	for i := 0; i < len(detectedGatewayAddresses); i++ {
 		for idx := 0; idx < len(gatewayAddress); idx++ {
 			if currentAddress[idx] == gatewayAddress[idx] {
 				continue
@@ -157,10 +158,20 @@ NEXT:
 		}
 	}
 	if searchIdx != -1 {
-		defaultListeningAddress = detectedDefaultRouteAddrs[searchIdx]
+		defaultListeningAddress = detectedGatewayAddresses[searchIdx]
 		log.Printf("Found default ip address: %s\n", defaultListeningAddress)
 		return defaultListeningAddress, detectedGatewayInterfaces
 	}
-	defaultListeningAddress = detectedDefaultRouteAddrs[0]
+	defaultListeningAddress = detectedGatewayAddresses[0]
 	return defaultListeningAddress, detectedGatewayInterfaces
+}
+
+func GetNextLanListeningAddress() (string, []int64) {
+	defer func() {
+		currentAddressIndex = (currentAddressIndex + 1) % len(detectedGatewayAddresses)
+	}()
+	if len(detectedGatewayAddresses) == 0 {
+		return "", []int64{}
+	}
+	return detectedGatewayAddresses[currentAddressIndex], detectedGatewayInterfaces
 }

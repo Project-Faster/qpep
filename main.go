@@ -24,7 +24,7 @@ func main() {
 			log.Printf("PANIC: %v", err)
 			debug.PrintStack()
 		}
-		shared.SetSystemProxy(false)
+		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
@@ -45,6 +45,8 @@ func main() {
 	log.SetOutput(wrt)
 
 	execContext, cancelExecutionFunc := context.WithCancel(context.Background())
+
+	shared.SetSystemProxy(false) // clear previous data
 
 	go api.RunServer(execContext, cancelExecutionFunc, true) // api server for local webgui
 

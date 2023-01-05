@@ -60,10 +60,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		fields := strings.Fields(line)
-		if len(fields) != 6 {
-			continue
-		}
-		if !strings.Contains(fields[3], "0.0.0.0") {
+		if len(fields) < 5 {
 			continue
 		}
 		value, err := strconv.ParseInt(fields[4], 10, 64)
@@ -130,7 +127,6 @@ BLOCK:
 		if !ok {
 			continue
 		}
-		interfacesList = append(interfacesList, value)
 
 		for scn.Scan() {
 			line = strings.TrimSpace(scn.Text())
@@ -145,7 +141,11 @@ BLOCK:
 					continue
 				}
 				line = strings.TrimSpace(pieces[1])
+				if strings.HasPrefix(line, "127.") {
+					continue
+				}
 				addressesList = append(addressesList, line)
+				interfacesList = append(interfacesList, value)
 				continue BLOCK
 			}
 		}

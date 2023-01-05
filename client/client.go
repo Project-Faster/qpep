@@ -194,6 +194,9 @@ func failedCheckConnection() bool {
 	maxRetries := ClientConfiguration.MaxConnectionRetries
 	preferProxy := ClientConfiguration.PreferProxy
 
+	ClientConfiguration.ListenHost, ClientConfiguration.RedirectedInterfaces = shared.GetNextLanListeningAddress()
+	log.Printf("Using next configured listening address: %s\n", ClientConfiguration.ListenHost)
+
 	keepRedirectionRetries--
 	if preferProxy {
 		// First half of tries with proxy, then diverter, then stop
