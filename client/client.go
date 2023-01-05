@@ -71,6 +71,7 @@ type ClientConfig struct {
 	MultiStream          bool
 	IdleTimeout          time.Duration
 	MaxConnectionRetries int
+	PreferProxy          bool
 	WinDivertThreads     int
 	Verbose              bool
 }
@@ -126,7 +127,7 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 
 	// start redirection right away because we normally expect the
 	// connection with the server to be on already up
-	successConnectionStartConnectionManagement()
+	initialCheckConnection()
 
 	for {
 		select {
@@ -142,7 +143,6 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 				if ok, response := gatewayStatusCheck(localAddr, apiAddr, apiPort); ok {
 					publicAddress = response.Address
 					connected = true
-					keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries / 2 // reset connection tries
 					log.Printf("Server returned public address %s\n", publicAddress)
 
 				} else {
@@ -172,20 +172,70 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 	}
 }
 
-func successConnectionStartConnectionManagement() bool {
-	gatewayHost := ClientConfiguration.GatewayHost
-	gatewayPort := ClientConfiguration.GatewayPort
-	redirectedInterfaces := ClientConfiguration.RedirectedInterfaces
-	listenHost := ClientConfiguration.ListenHost
-	listenPort := ClientConfiguration.ListenPort
-	threads := ClientConfiguration.WinDivertThreads
-
-	keepRedirectionRetries = shared.QuicConfiguration.MaxConnectionRetries // reset connection tries
-
+func initialCheckConnection() bool {
 	if redirected || shared.UsingProxy {
 		// no need to restart, already redirected
 		return true
 	}
+
+	keepRedirectionRetries = ClientConfiguration.MaxConnectionRetries // reset connection tries
+	preferProxy := ClientConfiguration.PreferProxy
+
+	if preferProxy {
+		log.Printf("Proxy preference set, trying to connect...\n")
+		initProxy()
+		return false
+	}
+
+	return initDiverter()
+}
+
+func failedCheckConnection() bool {
+	maxRetries := ClientConfiguration.MaxConnectionRetries
+	preferProxy := ClientConfiguration.PreferProxy
+
+	keepRedirectionRetries--
+	if preferProxy {
+		// First half of tries with proxy, then diverter, then stop
+		if shared.UsingProxy && keepRedirectionRetries < maxRetries/2 {
+			stopProxy()
+			log.Printf("Connection failed and half retries exhausted, trying with diverter\n")
+			return initDiverter()
+		}
+		if keepRedirectionRetries > 0 {
+			log.Printf("Connection failed, keeping redirection active (retries left: %d)\n", keepRedirectionRetries)
+			return false
+		}
+
+		log.Printf("Connection failed and retries exhausted, redirection stopped\n")
+		stopDiverter()
+		return true
+	} else {
+		// First half of tries with diverter, then proxy, then stop
+		if !shared.UsingProxy && keepRedirectionRetries < maxRetries/2 {
+			stopDiverter()
+			log.Printf("Connection failed and half retries exhausted, trying with proxy\n")
+			initProxy()
+			return false
+		}
+		if keepRedirectionRetries > 0 {
+			log.Printf("Connection failed, keeping redirection active (retries left: %d)\n", keepRedirectionRetries)
+			return false
+		}
+
+		log.Printf("Connection failed and retries exhausted, redirection stopped\n")
+		stopProxy()
+		return true
+	}
+}
+
+func initDiverter() bool {
+	gatewayHost := ClientConfiguration.GatewayHost
+	gatewayPort := ClientConfiguration.GatewayPort
+	listenPort := ClientConfiguration.ListenPort
+	threads := ClientConfiguration.WinDivertThreads
+	listenHost := ClientConfiguration.ListenHost
+	redirectedInterfaces := ClientConfiguration.RedirectedInterfaces
 
 	var redirectedInetID int64 = 0
 	for _, id := range redirectedInterfaces {
@@ -203,30 +253,24 @@ func successConnectionStartConnectionManagement() bool {
 	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
 	if code != windivert.DIVERT_OK {
 		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
-		return true
 	}
-	return false
+	return code == windivert.DIVERT_OK
 }
 
-func failedCheckConnection() bool {
-	keepRedirectionRetries--
-	if !shared.UsingProxy && keepRedirectionRetries < shared.QuicConfiguration.MaxConnectionRetries/2 {
-		windivert.CloseWinDivertEngine()
-
-		log.Printf("Connection failed and half retries exhausted, trying with proxy\n")
-		shared.UsingProxy = true
-		shared.SetSystemProxy(true)
-		return false
-	}
-	if keepRedirectionRetries > 0 {
-		log.Printf("Connection failed, keeping redirection active (retries left: %d)\n", keepRedirectionRetries)
-		return false
-	}
-
-	log.Printf("Connection failed and retries exhausted, redirection stopped\n")
+func stopDiverter() {
+	windivert.CloseWinDivertEngine()
 	redirected = false
+}
+
+func initProxy() {
+	shared.UsingProxy = true
+	shared.SetSystemProxy(true)
+}
+
+func stopProxy() {
+	redirected = false
+	shared.UsingProxy = false
 	shared.SetSystemProxy(false)
-	return true
 }
 
 func listenTCPConn(wg *sync.WaitGroup) {
@@ -604,6 +648,7 @@ func validateConfiguration() {
 	ClientConfiguration.MaxConnectionRetries = shared.QuicConfiguration.MaxConnectionRetries
 	ClientConfiguration.MultiStream = shared.QuicConfiguration.MultiStream
 	ClientConfiguration.WinDivertThreads = shared.QuicConfiguration.WinDivertThreads
+	ClientConfiguration.PreferProxy = shared.QuicConfiguration.PreferProxy
 	ClientConfiguration.Verbose = shared.QuicConfiguration.Verbose
 
 	// panic if configuration is inconsistent

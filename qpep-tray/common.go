@@ -239,10 +239,12 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 					state = stateDisconnected
 					pubAddress = ""
 					systray.SetTemplateIcon(icons.MainIconData, icons.MainIconData)
+					systray.SetTooltip(TooltipMsgDisconnected)
 					continue
 				}
 				if state == stateDisconnected {
 					state = stateConnecting
+					systray.SetTooltip(TooltipMsgConnecting)
 					flip = 0
 				}
 
@@ -260,6 +262,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 
 						// check in tray-icon for activated proxy
 						shared.UsingProxy, shared.ProxyAddress = shared.GetSystemProxyEnabled()
+						log.Printf("Server Echo: FAILED\n")
 						continue
 					}
 
@@ -285,6 +288,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 					log.Printf("Server Status: %s %d\n", status.LastCheck, status.ConnectionCounter)
 					state = stateConnected
 					systray.SetTemplateIcon(icons.MainIconConnected, icons.MainIconConnected)
+					systray.SetTooltip(TooltipMsgConnected)
 				}
 				continue
 			}

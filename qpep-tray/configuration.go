@@ -20,11 +20,13 @@ const (
 	CONFIGFILENAME = "qpep-tray.yml"
 	CONFIGPATH     = "qpep-tray"
 	WEBGUIURL      = "http://127.0.0.1:%d/index?mode=%s&port=%d"
-	DEFAULTCONFIG  = `acks: 10
-ackDelay: 25
+	DEFAULTCONFIG  = `
+acks: 10
+ackdelay: 25
 congestion: 4
 decimate: 4
-minBeforeDecimation: 100
+decimatetime: 100
+maxretries: 10
 gateway: 198.18.0.254
 port: 443
 apiport: 444
@@ -32,26 +34,28 @@ listenaddress: 0.0.0.0
 listenport: 9443
 multistream: true
 verbose: false
-varAckDelay: 0
-threads: 1
+preferproxy: false
+varackdelay: 0
+threads: 4
 `
 )
 
 type QPepConfigYAML struct {
 	Acks                  int    `yaml:"acks"`
-	AckDelay              int    `yaml:"ackDelay"`
+	AckDelay              int    `yaml:"ackdelay"`
 	Congestion            int    `yaml:"congestion"`
-	MaxConnectionsRetries int    `yaml:"maxConnectionRetries"`
+	MaxConnectionsRetries int    `yaml:"maxretries"`
 	Decimate              int    `yaml:"decimate"`
-	DelayDecimate         int    `yaml:"minBeforeDecimation"`
+	DelayDecimate         int    `yaml:"decimatetime"`
 	GatewayHost           string `yaml:"gateway"`
 	GatewayPort           int    `yaml:"port"`
 	GatewayAPIPort        int    `yaml:"apiport"`
 	ListenHost            string `yaml:"listenaddress"`
 	ListenPort            int    `yaml:"listenport"`
 	MultiStream           bool   `yaml:"multistream"`
+	PreferProxy           bool   `yaml:"preferproxy"`
 	Verbose               bool   `yaml:"verbose"`
-	VarAckDelay           int    `yaml:"varAckDelay"`
+	VarAckDelay           int    `yaml:"varackdelay"`
 	WinDivertThreads      int    `yaml:"threads"`
 }
 

@@ -28,12 +28,12 @@ type QuicConfig struct {
 	GatewayAPIPort                 int
 	ListenIP                       string
 	ListenPort                     int
+	PreferProxy                    bool
 	WinDivertThreads               int
 	Verbose                        bool
 }
 
 const (
-	ACK_FLAG                 = "acks"
 	DEFAULT_REDIRECT_RETRIES = 15
 )
 
@@ -65,13 +65,14 @@ func ParseFlags(args []string) {
 	multiStreamFlag := flag.Bool("multistream", true, "Enable multiplexed QUIC streams inside a single session")
 	maxAckDelayFlag := flag.Int("ackDelay", 25, "Maximum number of miliseconds to hold back an ack for decimation")
 	varAckDelayFlag := flag.Float64("varAckDelay", 0.25, "Variable number of miliseconds to hold back an ack for decimation, as multiple of RTT")
-	minReceivedBeforeAckDecimationFlag := flag.Int("minBeforeDecimation", 100, "Minimum number of packets before initiating ack decimation")
+	minReceivedBeforeAckDecimationFlag := flag.Int("decimatetime", 100, "Minimum number of packets before initiating ack decimation")
 	clientFlag := flag.Bool("client", false, "a bool")
 	gatewayHostFlag := flag.String("gateway", "198.18.0.254", "IP address of gateway running qpep server")
 	gatewayPortFlag := flag.Int("port", 443, "Port of gateway running qpep server")
 	gatewayAPIPortFlag := flag.Int("apiport", 444, "IP address of gateway running qpep server")
 	listenHostFlag := flag.String("listenaddress", "0.0.0.0", "IP listen address of qpep client")
 	listenPortFlag := flag.Int("listenport", 9443, "Listen Port of qpep client")
+	preferProxyFlag := flag.Bool("preferproxy", false, "Try first using proxy instead of diverter")
 	winDiverterThreads := flag.Int("threads", 1, "Worker threads for windivert engine (min 1, max 8)")
 	verbose := flag.Bool("verbose", false, "Outputs data about diverted connections for debug")
 
@@ -96,6 +97,7 @@ func ParseFlags(args []string) {
 		GatewayAPIPort:                 *gatewayAPIPortFlag,
 		ListenIP:                       *listenHostFlag,
 		ListenPort:                     *listenPortFlag,
+		PreferProxy:                    *preferProxyFlag,
 		WinDivertThreads:               *winDiverterThreads,
 		Verbose:                        *verbose,
 	}

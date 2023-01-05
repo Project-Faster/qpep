@@ -44,6 +44,7 @@ func stopClient() error {
 
 	clientCmd.Wait()
 	clientCmd = nil
+	shared.SetSystemProxy(false)
 	InfoMsg("Client stopped")
 	return nil
 }

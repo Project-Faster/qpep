@@ -40,7 +40,9 @@ func getClientCommand() *exec.Cmd {
 				`-ackDelay %d `+
 				`-congestion %d `+
 				`-decimate %d `+
-				`-minBeforeDecimation %d `+
+				`-decimatetime %d `+
+				`-maxretries %d `+
+				`-preferproxy %v `+
 				`-multistream %v `+
 				`-varAckDelay %d `,
 			verboseFlag,
@@ -55,6 +57,8 @@ func getClientCommand() *exec.Cmd {
 			qpepConfig.Congestion,
 			qpepConfig.Decimate,
 			qpepConfig.DelayDecimate,
+			qpepConfig.MaxConnectionsRetries,
+			qpepConfig.PreferProxy,
 			qpepConfig.MultiStream,
 			qpepConfig.VarAckDelay),
 	}

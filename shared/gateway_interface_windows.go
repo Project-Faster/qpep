@@ -157,7 +157,9 @@ func SetSystemProxy(active bool) {
 	var configCmd *exec.Cmd
 	if !active {
 		log.Printf("Clearing system proxy settings\n")
-		configCmd = exec.Command("netsh", "winhttp", "reset", "proxy")
+		configCmd = exec.Command("reg", "add", PROXY_KEY_2,
+			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+			"", "/f")
 		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		log.Printf("CMD: %v", configCmd.Run())
 
@@ -172,9 +174,9 @@ func SetSystemProxy(active bool) {
 	}
 
 	log.Printf("Setting system proxy to '%s:%d'\n", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort)
-	configCmd = exec.Command("netsh", "winhttp", "set", "proxy",
-		fmt.Sprintf("proxy-server=\"%s:%d\"", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort),
-		"bypass-list=\"localhost\"")
+	configCmd = exec.Command("reg", "add", PROXY_KEY_2,
+		"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+		fmt.Sprintf("%s:%d", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort), "/f")
 	log.Printf("CMD: %v", configCmd.Run())
 
 	configCmd = exec.Command("reg", "add", PROXY_KEY_2,
