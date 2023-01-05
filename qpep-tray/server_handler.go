@@ -15,6 +15,15 @@ func startServer() error {
 		return shared.ErrFailed
 	}
 
+	addressList, _ := shared.GetLanListeningAddresses()
+	for idx, addr := range addressCheckBoxList {
+		if addr.Checked() {
+			qpepConfig.ListenHost = addressList[idx]
+			log.Printf("Forced Listening address to %v\n", qpepConfig.ListenHost)
+			break
+		}
+	}
+
 	serverCmd = getServerCommand()
 
 	if err := serverCmd.Start(); err != nil {

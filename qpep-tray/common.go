@@ -43,6 +43,8 @@ var cancelConfigWatchdog context.CancelFunc
 var contextConnectionWatchdog context.Context
 var cancelConnectionWatchdog context.CancelFunc
 
+var addressCheckBoxList []*systray.MenuItem
+
 func onReady() {
 	// Setup tray menu
 	systray.SetTemplateIcon(icons.MainIconData, icons.MainIconData)
@@ -52,6 +54,13 @@ func onReady() {
 	mStatus := systray.AddMenuItem("Status Interface", "Open the status web gui")
 	mConfig := systray.AddMenuItem("Edit Configuration", "Open configuration for next client / server executions")
 	mConfigRefresh := systray.AddMenuItem("Reload Configuration", "Reload configuration from disk and restart the service")
+	systray.AddSeparator()
+	mListeningAddress := systray.AddMenuItem("Listen Address", "Force a listening address on the fly")
+	addressList, _ := shared.GetLanListeningAddresses()
+	for _, addr := range addressList {
+		box := mListeningAddress.AddSubMenuItemCheckbox(addr, "Force listening address to be "+addr, false)
+		addressCheckBoxList = append(addressCheckBoxList, box)
+	}
 	systray.AddSeparator()
 	mClient := systray.AddMenuItemCheckbox("Client Disabled", "Launch/Stop QPep Client", false)
 	mServer := systray.AddMenuItemCheckbox("Server Disabled", "Launch/Stop QPep Server", false)
@@ -79,6 +88,24 @@ func onReady() {
 
 		mClientActive := false
 		mServerActive := false
+
+		// check clicks on address checkboxes
+		for _, box := range addressCheckBoxList {
+			go func(self *systray.MenuItem) {
+				for {
+					select {
+					case <-self.ClickedCh:
+						for _, checkbox := range addressCheckBoxList {
+							if checkbox == self {
+								checkbox.Check()
+								continue
+							}
+							checkbox.Uncheck()
+						}
+					}
+				}
+			}(box)
+		}
 
 		for {
 			select {
@@ -262,6 +289,10 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 
 						// check in tray-icon for activated proxy
 						shared.UsingProxy, shared.ProxyAddress = shared.GetSystemProxyEnabled()
+						if shared.UsingProxy {
+							qpepConfig.ListenHost = shared.ProxyAddress.Hostname()
+						}
+						log.Printf("Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
 						log.Printf("Server Echo: FAILED\n")
 						continue
 					}

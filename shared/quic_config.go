@@ -44,7 +44,6 @@ var (
 	defaultListeningAddress   string
 	detectedGatewayInterfaces []int64
 	detectedGatewayAddresses  []string
-	currentAddressIndex       int
 )
 
 type QLogWriter struct {
@@ -166,12 +165,6 @@ NEXT:
 	return defaultListeningAddress, detectedGatewayInterfaces
 }
 
-func GetNextLanListeningAddress() (string, []int64) {
-	defer func() {
-		currentAddressIndex = (currentAddressIndex + 1) % len(detectedGatewayAddresses)
-	}()
-	if len(detectedGatewayAddresses) == 0 {
-		return "", []int64{}
-	}
-	return detectedGatewayAddresses[currentAddressIndex], detectedGatewayInterfaces
+func GetLanListeningAddresses() ([]string, []int64) {
+	return detectedGatewayAddresses, detectedGatewayInterfaces
 }

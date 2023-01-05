@@ -24,5 +24,5 @@ func SetSystemProxy(active bool) {
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
-	return false, ""
+	return false, nil
 }

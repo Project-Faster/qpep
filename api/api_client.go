@@ -21,6 +21,7 @@ func getClientForAPI(localAddr net.Addr) *http.Client {
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			Proxy: func(*http.Request) (*url.URL, error) {
+				log.Printf("API Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
 				if shared.UsingProxy {
 					return shared.ProxyAddress, nil
 				}

@@ -161,12 +161,12 @@ func SetSystemProxy(active bool) {
 			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
 			"", "/f")
 		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		log.Printf("CMD: %v", configCmd.Run())
+		configCmd.Run()
 
 		configCmd = exec.Command("reg", "add", PROXY_KEY_2,
 			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
 		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		log.Printf("CMD: %v", configCmd.Run())
+		configCmd.Run()
 
 		UsingProxy = false
 		ProxyAddress = nil
@@ -177,12 +177,12 @@ func SetSystemProxy(active bool) {
 	configCmd = exec.Command("reg", "add", PROXY_KEY_2,
 		"/v", "ProxyServer", "/t", "REG_SZ", "/d",
 		fmt.Sprintf("%s:%d", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort), "/f")
-	log.Printf("CMD: %v", configCmd.Run())
+	configCmd.Run()
 
 	configCmd = exec.Command("reg", "add", PROXY_KEY_2,
 		"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
 	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	log.Printf("CMD: %v", configCmd.Run())
+	configCmd.Run()
 
 	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort))
 	if err != nil {

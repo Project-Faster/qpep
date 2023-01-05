@@ -194,9 +194,6 @@ func failedCheckConnection() bool {
 	maxRetries := ClientConfiguration.MaxConnectionRetries
 	preferProxy := ClientConfiguration.PreferProxy
 
-	ClientConfiguration.ListenHost, ClientConfiguration.RedirectedInterfaces = shared.GetNextLanListeningAddress()
-	log.Printf("Using next configured listening address: %s\n", ClientConfiguration.ListenHost)
-
 	keepRedirectionRetries--
 	if preferProxy {
 		// First half of tries with proxy, then diverter, then stop
@@ -207,6 +204,8 @@ func failedCheckConnection() bool {
 		}
 		if keepRedirectionRetries > 0 {
 			log.Printf("Connection failed, keeping redirection active (retries left: %d)\n", keepRedirectionRetries)
+			stopProxy()
+			initProxy()
 			return false
 		}
 
@@ -223,6 +222,8 @@ func failedCheckConnection() bool {
 		}
 		if keepRedirectionRetries > 0 {
 			log.Printf("Connection failed, keeping redirection active (retries left: %d)\n", keepRedirectionRetries)
+			stopDiverter()
+			initDiverter()
 			return false
 		}
 
@@ -253,7 +254,9 @@ func initDiverter() bool {
 		}
 	}
 
+	log.Printf("WinDivert: %v %v %v %v %v %v\n", gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
 	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
+	log.Printf("WinDivert code: %v\n", code)
 	if code != windivert.DIVERT_OK {
 		log.Printf("ERROR: Could not initialize WinDivert engine, code %d\n", code)
 	}
