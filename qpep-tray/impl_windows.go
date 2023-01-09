@@ -37,14 +37,14 @@ func getClientCommand() *exec.Cmd {
 				`-listenaddress "%s" `+
 				`-listenport %d `+
 				`-acks %d `+
-				`-ackDelay %d `+
+				`-ackdelay %d `+
 				`-congestion %d `+
 				`-decimate %d `+
 				`-decimatetime %d `+
 				`-maxretries %d `+
 				`-preferproxy %v `+
 				`-multistream %v `+
-				`-varAckDelay %d `,
+				`-varackdelay %d `,
 			verboseFlag,
 			qpepConfig.WinDivertThreads,
 			qpepConfig.GatewayHost,
@@ -95,20 +95,22 @@ func getServerCommand() *exec.Cmd {
 				`-gateway "%s" `+
 				`-port %d `+
 				`-apiport %d `+
+				`-maxretries %d `+
 				`-listenaddress "%s" `+
 				`-listenport %d `+
 				`-acks %d `+
-				`-ackDelay %d `+
+				`-ackdelay %d `+
 				`-congestion %d `+
 				`-decimate %d `+
-				`-minBeforeDecimation %d `+
+				`-decimatetime %d `+
 				`-multistream %v `+
-				`-varAckDelay %d `,
+				`-varackdelay %d `,
 			verboseFlag,
 			qpepConfig.WinDivertThreads,
 			qpepConfig.GatewayHost,
 			qpepConfig.GatewayPort,
 			qpepConfig.GatewayAPIPort,
+			qpepConfig.MaxConnectionsRetries,
 			qpepConfig.ListenHost,
 			qpepConfig.ListenPort,
 			qpepConfig.Acks,
