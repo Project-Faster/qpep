@@ -22,14 +22,15 @@ import (
 
 const (
 	PROXY_KEY_1 = `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-	PROXY_KEY_2 = `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+	PROXY_KEY_2 = `HKEY_USERS\%s\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
 	PROXY_KEY_3 = `ProxyServer`
 	PROXY_KEY_4 = `REG_SZ`
 )
 
 var (
-	errNoGateway = errors.New("no gateway found")
-	repl         = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_3, "", PROXY_KEY_4, "")
+	errNoGateway     = errors.New("no gateway found")
+	repl             = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_3, "", PROXY_KEY_4, "")
+	userRegistryKeys = make([]string, 0, 8)
 )
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
@@ -154,19 +155,23 @@ BLOCK:
 }
 
 func SetSystemProxy(active bool) {
+	preloadRegistryKeysForUsers()
+
 	var configCmd *exec.Cmd
 	if !active {
-		log.Printf("Clearing system proxy settings\n")
-		configCmd = exec.Command("reg", "add", PROXY_KEY_2,
-			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
-			"", "/f")
-		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		configCmd.Run()
+		for _, userKey := range userRegistryKeys {
+			log.Printf("Clearing system proxy settings\n")
+			configCmd = exec.Command("reg", "add", userKey,
+				"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+				"", "/f")
+			configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			configCmd.Run()
 
-		configCmd = exec.Command("reg", "add", PROXY_KEY_2,
-			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
-		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		configCmd.Run()
+			configCmd = exec.Command("reg", "add", userKey,
+				"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
+			configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			configCmd.Run()
+		}
 
 		UsingProxy = false
 		ProxyAddress = nil
@@ -174,15 +179,17 @@ func SetSystemProxy(active bool) {
 	}
 
 	log.Printf("Setting system proxy to '%s:%d'\n", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort)
-	configCmd = exec.Command("reg", "add", PROXY_KEY_2,
-		"/v", "ProxyServer", "/t", "REG_SZ", "/d",
-		fmt.Sprintf("%s:%d", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort), "/f")
-	configCmd.Run()
+	for _, userKey := range userRegistryKeys {
+		configCmd = exec.Command("reg", "add", userKey,
+			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+			fmt.Sprintf("%s:%d", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort), "/f")
+		configCmd.Run()
 
-	configCmd = exec.Command("reg", "add", PROXY_KEY_2,
-		"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
-	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	configCmd.Run()
+		configCmd = exec.Command("reg", "add", userKey,
+			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
+		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		configCmd.Run()
+	}
 
 	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QuicConfiguration.ListenIP, QuicConfiguration.ListenPort))
 	if err != nil {
@@ -193,7 +200,7 @@ func SetSystemProxy(active bool) {
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
-	configCmd := exec.Command("reg", "query", PROXY_KEY_2,
+	configCmd := exec.Command("reg", "query", PROXY_KEY_1,
 		"/v", "ProxyEnable")
 	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	data, err := configCmd.CombinedOutput()
@@ -202,7 +209,7 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 		return false, nil
 	}
 	if strings.Index(string(data), "0x1") != -1 {
-		proxyCmd := exec.Command("reg", "query", PROXY_KEY_2,
+		proxyCmd := exec.Command("reg", "query", PROXY_KEY_1,
 			"/v", "ProxyServer")
 		proxyCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 		data2, err := proxyCmd.CombinedOutput()
@@ -218,4 +225,33 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 		}
 	}
 	return false, nil
+}
+
+func preloadRegistryKeysForUsers() {
+	if len(userRegistryKeys) > 0 {
+		return
+	}
+
+	configCmd := exec.Command("wmic", "useraccount", "get", "sid")
+	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	data, err := configCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("ERR: %v\n", err)
+		panic(fmt.Sprintf("ERR: %v", err))
+	}
+
+	scn := bufio.NewScanner(strings.NewReader(string(data)))
+	scn.Split(bufio.ScanLines)
+
+	for scn.Scan() {
+		line := scn.Text()
+		if strings.HasPrefix(line, "SID") {
+			continue
+		}
+
+		key := strings.TrimSpace(line)
+		if len(key) > 0 {
+			userRegistryKeys = append(userRegistryKeys, fmt.Sprintf(PROXY_KEY_2, key))
+		}
+	}
 }
