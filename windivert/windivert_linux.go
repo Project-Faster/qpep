@@ -1,4 +1,4 @@
-//go:build linux,cgo
+//go:build linux && cgo
 // +build linux,cgo
 
 package windivert

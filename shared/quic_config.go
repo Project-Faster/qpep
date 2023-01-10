@@ -129,7 +129,7 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 	if len(gatewayAddress) == 0 {
 		defaultIP, err := gateway.DiscoverInterface()
 		if err != nil {
-			panic(fmt.Sprint("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
+			panic(fmt.Sprintf("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
 			return currentAddress, detectedGatewayInterfaces
 		}
 
