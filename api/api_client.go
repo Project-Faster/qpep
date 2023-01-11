@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strings"
 	"time"
@@ -17,12 +18,18 @@ import (
 
 func getClientForAPI(localAddr net.Addr) *http.Client {
 	return &http.Client{
-		Timeout: 500 * time.Millisecond,
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
+			Proxy: func(*http.Request) (*url.URL, error) {
+				Info("API Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
+				if shared.UsingProxy {
+					return shared.ProxyAddress, nil
+				}
+				return nil, nil
+			},
 			DialContext: (&net.Dialer{
 				LocalAddr: localAddr,
-				Timeout:   30 * time.Second,
+				Timeout:   5 * time.Second,
 				KeepAlive: 30 * time.Second,
 				DualStack: true,
 			}).DialContext,
@@ -41,9 +48,13 @@ func RequestEcho(localAddress, address string, port int, toServer bool) *EchoRes
 	}
 	addr := fmt.Sprintf("http://%s:%d%s", address, port, prefix+API_ECHO_PATH)
 
-	client := getClientForAPI(&net.TCPAddr{
-		IP: net.ParseIP(localAddress),
-	})
+	resolvedAddr, errAddr := net.ResolveTCPAddr("tcp", localAddress+":0")
+	if errAddr != nil {
+		Info("ERROR: %v\n", errAddr)
+		return nil
+	}
+
+	clientInst := getClientForAPI(resolvedAddr)
 
 	req, err := http.NewRequest("GET", addr, nil)
 	if err != nil {
@@ -52,7 +63,7 @@ func RequestEcho(localAddress, address string, port int, toServer bool) *EchoRes
 	}
 	req.Header.Set("User-Agent", runtime.GOOS)
 
-	resp, err := client.Do(req)
+	resp, err := clientInst.Do(req)
 	if err != nil {
 		Info("2 ERROR: %v\n", err)
 		return nil
@@ -147,11 +158,11 @@ func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicA
 	apiPath := strings.Replace(API_PREFIX_SERVER+API_STATS_DATA_SRV_PATH, ":addr", publicAddress, -1)
 	addr := fmt.Sprintf("http://%s:%d%s", gatewayAddress, apiPort, apiPath)
 
-	client := getClientForAPI(&net.TCPAddr{
+	clientInst := getClientForAPI(&net.TCPAddr{
 		IP: net.ParseIP(localAddress),
 	})
 
-	resp, err := client.Get(addr)
+	resp, err := clientInst.Get(addr)
 	if err != nil {
 		Info("8 ERROR: %v\n", err)
 		return nil

@@ -3,6 +3,7 @@ module github.com/parvit/qpep
 go 1.18
 
 require (
+	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getlantern/systray v1.2.1
 	github.com/jackpal/gateway v1.0.7

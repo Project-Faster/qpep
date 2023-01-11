@@ -1,9 +1,11 @@
 package shared
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -21,10 +23,11 @@ const (
 	WEBGUIURL      = "http://127.0.0.1:%d/index?mode=%s&port=%d"
 	DEFAULTCONFIG  = `
 acks: 10
-ackDelay: 25
+ackdelay: 25
 congestion: 4
 decimate: 4
-minBeforeDecimation: 100
+decimatetime: 100
+maxretries: 10
 gateway: 198.18.0.254
 port: 443
 apiport: 444
@@ -32,33 +35,63 @@ listenaddress: 0.0.0.0
 listenport: 9443
 multistream: true
 verbose: false
-varAckDelay: 0
-threads: 1
+preferproxy: false
+varackdelay: 0
+threads: 4
 `
 )
 
 type QPepConfigType struct {
-	Acks             int    `yaml:"acks"`
-	AckDelay         int    `yaml:"ackDelay"`
-	Congestion       int    `yaml:"congestion"`
-	Decimate         int    `yaml:"decimate"`
-	DelayDecimate    int    `yaml:"minBeforeDecimation"`
-	GatewayHost      string `yaml:"gateway"`
-	GatewayPort      int    `yaml:"port"`
-	GatewayAPIPort   int    `yaml:"apiport"`
-	ListenHost       string `yaml:"listenaddress"`
-	ListenPort       int    `yaml:"listenport"`
-	MultiStream      bool   `yaml:"multistream"`
-	Verbose          bool   `yaml:"verbose"`
-	VarAckDelay      int    `yaml:"varAckDelay"`
-	WinDivertThreads int    `yaml:"threads"`
+	Acks                 int    `yaml:"acks"`
+	AckDelay             int    `yaml:"ackdelay"`
+	Congestion           int    `yaml:"congestion"`
+	MaxConnectionRetries int    `yaml:"maxretries"`
+	Decimate             int    `yaml:"decimate"`
+	DelayDecimate        int    `yaml:"decimatetime"`
+	GatewayHost          string `yaml:"gateway"`
+	GatewayPort          int    `yaml:"port"`
+	GatewayAPIPort       int    `yaml:"apiport"`
+	ListenHost           string `yaml:"listenaddress"`
+	ListenPort           int    `yaml:"listenport"`
+	MultiStream          bool   `yaml:"multistream"`
+	PreferProxy          bool   `yaml:"preferproxy"`
+	Verbose              bool   `yaml:"verbose"`
+	VarAckDelay          int    `yaml:"varackdelay"`
+	WinDivertThreads     int    `yaml:"threads"`
 }
+
+const (
+	DEFAULT_REDIRECT_RETRIES = 15
+)
 
 var (
 	QPepConfig                QPepConfigType
+	UsingProxy                = false
+	ProxyAddress              *url.URL
 	defaultListeningAddress   string
 	detectedGatewayInterfaces []int64
+	detectedGatewayAddresses  []string
 )
+
+type QLogWriter struct {
+	*bufio.Writer
+}
+
+func (mwc *QLogWriter) Close() error {
+	// Noop
+	return mwc.Writer.Flush()
+}
+
+func init() {
+	var err error
+	detectedGatewayInterfaces, detectedGatewayAddresses, err = getRouteGatewayInterfaces()
+
+	Info("gateway interfaces: %v\n", detectedGatewayInterfaces)
+
+	if err != nil {
+		panic(err)
+	}
+}
 
 func GetConfigurationPath() string {
 	basedir, err := os.Executable()
@@ -111,19 +144,7 @@ func ReadConfiguration() (outerr error) {
 	Info("Configuration Loaded")
 	return nil
 }
-
-func init() {
-	var err error
-	detectedGatewayInterfaces, err = getRouteGatewayInterfaces()
-
-	Info("gateway interfaces: %v\n", detectedGatewayInterfaces)
-
-	if err != nil {
-		panic(err)
-	}
-}
-
-func GetDefaultLanListeningAddress(currentAddress string) (string, []int64) {
+func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (string, []int64) {
 	if len(defaultListeningAddress) > 0 {
 		return defaultListeningAddress, detectedGatewayInterfaces
 	}
@@ -132,15 +153,45 @@ func GetDefaultLanListeningAddress(currentAddress string) (string, []int64) {
 		return currentAddress, detectedGatewayInterfaces
 	}
 
-	Info("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
+	if len(gatewayAddress) == 0 {
+		defaultIP, err := gateway.DiscoverInterface()
+		if err != nil {
+			panic(fmt.Sprintf("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
+			return currentAddress, detectedGatewayInterfaces
+		}
 
-	defaultIP, err := gateway.DiscoverInterface()
-	if err != nil {
-		panic(fmt.Sprint("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
-		return currentAddress, detectedGatewayInterfaces
+		defaultListeningAddress = defaultIP.String()
+		Info("Found default ip address: %s\n", defaultListeningAddress)
+		return defaultListeningAddress, detectedGatewayInterfaces
 	}
 
-	defaultListeningAddress = defaultIP.String()
-	Info("Found default ip address: %s\n", defaultListeningAddress)
+	Info("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
+
+	searchIdx := -1
+	searchLongest := 0
+
+NEXT:
+	for i := 0; i < len(detectedGatewayAddresses); i++ {
+		for idx := 0; idx < len(gatewayAddress); idx++ {
+			if currentAddress[idx] == gatewayAddress[idx] {
+				continue
+			}
+			if idx >= searchLongest {
+				searchIdx = i
+				searchLongest = idx
+				continue NEXT
+			}
+		}
+	}
+	if searchIdx != -1 {
+		defaultListeningAddress = detectedGatewayAddresses[searchIdx]
+		Info("Found default ip address: %s\n", defaultListeningAddress)
+		return defaultListeningAddress, detectedGatewayInterfaces
+	}
+	defaultListeningAddress = detectedGatewayAddresses[0]
 	return defaultListeningAddress, detectedGatewayInterfaces
+}
+
+func GetLanListeningAddresses() ([]string, []int64) {
+	return detectedGatewayAddresses, detectedGatewayInterfaces
 }

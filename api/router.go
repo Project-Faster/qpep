@@ -39,7 +39,7 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 		host = "127.0.0.1"
 		Info("Listening address for local api server set to 127.0.0.1")
 	} else {
-		host, _ = shared.GetDefaultLanListeningAddress(host)
+		host, _ = shared.GetDefaultLanListeningAddress(host, "")
 	}
 	apiPort := shared.QPepConfig.GatewayAPIPort
 

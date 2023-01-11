@@ -15,6 +15,15 @@ func startClient() error {
 		return shared.ErrFailed
 	}
 
+	addressList, _ := shared.GetLanListeningAddresses()
+	for idx, addr := range addressCheckBoxList {
+		if addr.Checked() {
+			shared.QPepConfig.ListenHost = addressList[idx]
+			log.Printf("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
+			break
+		}
+	}
+
 	if err := startClientProcess(); err != nil {
 		ErrorMsg("Could not start client program: %v", err)
 		clientActive = false
@@ -28,16 +37,17 @@ func startClient() error {
 
 func stopClient() error {
 	if !clientActive {
-		log.Println("ERROR: Cannot stop an already stopped client, first start it")
+		ErrorMsg("ERROR: Cannot stop an already stopped client, first start it")
 		return nil
 	}
 
 	if err := stopClientProcess(); err != nil {
-		log.Printf("Could not stop process gracefully (%v)n", err)
+		ErrorMsg("Could not stop process gracefully (%v)n", err)
 		return err
 	}
 
 	clientActive = false
+	shared.SetSystemProxy(false)
 	InfoMsg("Client stopped")
 	return nil
 }

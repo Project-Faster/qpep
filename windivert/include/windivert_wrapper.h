@@ -27,5 +27,5 @@ extern void logMessageToGo( char* message );
 extern void EnableMessageOutputToGo( int enabled );
 extern int  GetConnectionData( UINT sourcePort, UINT* origSrcPort, UINT* origDstPort, 
                                char* origSrcAddress, char* origDstAddress );
-extern void AddGatewayInterfaceIndexToDivert( int interfaceIndex );
+extern void SetGatewayInterfaceIndexToDivert( int interfaceIndex );
 #endif // WIN32

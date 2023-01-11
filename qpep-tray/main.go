@@ -17,6 +17,11 @@ var (
 )
 
 func main() {
+	defer func() {
+		// clear the proxy in case a orphaned client cannot
+		shared.SetSystemProxy(false)
+	}()
+
 	// note: channel is never dequeued as to stop the ctrl-c signal from stopping also
 	// this process and only the child client / server
 	interruptListener := make(chan os.Signal, 1)
