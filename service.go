@@ -193,6 +193,7 @@ func (p *QPepService) Main() {
 		if err := recover(); err != nil {
 			Info("PANIC: %v\n", err)
 		}
+		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
 	if err := shared.ReadConfiguration(); err != nil {
@@ -236,6 +237,8 @@ TERMINATIONLOOP:
 
 func runAsClient(execContext context.Context, cancel context.CancelFunc) {
 	Info("Running Client")
+
+	windivert.EnableDiverterLogging(shared.QPepConfig.Verbose)
 
 	go client.RunClient(execContext, cancel)
 }
