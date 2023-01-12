@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/parvit/qpep/shared"
 	"os"
 	"os/exec"
 	"strings"
@@ -98,6 +99,8 @@ func setInstallDirectoryPermissions(installDir string) {
 }
 
 func sendProcessInterrupt() {
+	shared.SetSystemProxy(false)
+
 	dll := syscall.MustLoadDLL("kernel32.dll")
 	defer func() {
 		if dll != nil {

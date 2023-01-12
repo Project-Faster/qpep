@@ -650,7 +650,8 @@ func validateConfiguration() {
 	ClientConfiguration.GatewayHost = shared.QPepConfig.GatewayHost
 	ClientConfiguration.GatewayPort = shared.QPepConfig.GatewayPort
 	ClientConfiguration.APIPort = shared.QPepConfig.GatewayAPIPort
-	ClientConfiguration.ListenHost, _ = shared.GetDefaultLanListeningAddress(shared.QPepConfig.ListenHost, shared.QPepConfig.GatewayHost)
+	ClientConfiguration.ListenHost, ClientConfiguration.RedirectedInterfaces = shared.GetDefaultLanListeningAddress(
+		shared.QPepConfig.ListenHost, shared.QPepConfig.GatewayHost)
 	ClientConfiguration.ListenPort = shared.QPepConfig.ListenPort
 	ClientConfiguration.MaxConnectionRetries = shared.QPepConfig.MaxConnectionRetries
 	ClientConfiguration.MultiStream = shared.QPepConfig.MultiStream

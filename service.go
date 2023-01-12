@@ -38,7 +38,7 @@ const (
 )
 
 type QPepService struct {
-	service service.Service
+	service.Service
 
 	context    context.Context
 	cancelFunc context.CancelFunc
@@ -93,7 +93,7 @@ func serviceMain() {
 		svcConfig.Arguments = append(svcConfig.Arguments, `-client`)
 	}
 
-	serviceInst, err := service.New(svc, svcConfig)
+	serviceInst, err := service.New(&svc, svcConfig)
 	if err != nil {
 		Info(err.Error())
 		panic(err)
@@ -126,7 +126,8 @@ func serviceMain() {
 		err = service.Control(serviceInst, svcCommand)
 		if err != nil {
 			Info("Error %v\nPossible actions: %q\n", err.Error(), service.ControlAction)
-			panic(err)
+			os.Exit(WIN32_UNKNOWN_CODE)
+			return
 		}
 
 		if svcCommand == "install" {
@@ -155,20 +156,21 @@ func serviceMain() {
 	os.Exit(svc.exitValue)
 }
 
-func (p QPepService) Start(s service.Service) error {
+func (p *QPepService) Start(s service.Service) error {
 	p.status = startingSvc
-	p.service = s
+	//p.service = s
 
 	go p.Main()
 
 	return nil // Service is now started
 }
 
-func (p QPepService) Stop(s service.Service) error {
+func (p *QPepService) Stop(s service.Service) error {
 	defer func() {
 		if err := recover(); err != nil {
 			Info("PANIC: %v\n", err)
 		}
+		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
 	if p.status != startedSvc {
