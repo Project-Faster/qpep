@@ -28,9 +28,9 @@ const (
 )
 
 var (
-	errNoGateway     = errors.New("no gateway found")
-	repl             = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_3, "", PROXY_KEY_4, "")
-	userRegistryKeys = make([]string, 0, 8)
+	errNoGateway      = errors.New("no gateway found")
+	repl              = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_3, "", PROXY_KEY_4, "")
+	usersRegistryKeys = make([]string, 0, 8)
 )
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
@@ -159,7 +159,7 @@ func SetSystemProxy(active bool) {
 
 	var configCmd *exec.Cmd
 	if !active {
-		for _, userKey := range userRegistryKeys {
+		for _, userKey := range usersRegistryKeys {
 			log.Printf("Clearing system proxy settings\n")
 			configCmd = exec.Command("reg", "add", userKey,
 				"/v", "ProxyServer", "/t", "REG_SZ", "/d",
@@ -179,7 +179,7 @@ func SetSystemProxy(active bool) {
 	}
 
 	log.Printf("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
-	for _, userKey := range userRegistryKeys {
+	for _, userKey := range usersRegistryKeys {
 		configCmd = exec.Command("reg", "add", userKey,
 			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
 			fmt.Sprintf("%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort), "/f")
@@ -230,7 +230,7 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 }
 
 func preloadRegistryKeysForUsers() {
-	if len(userRegistryKeys) > 0 {
+	if len(usersRegistryKeys) > 0 {
 		return
 	}
 
@@ -253,7 +253,7 @@ func preloadRegistryKeysForUsers() {
 
 		key := strings.TrimSpace(line)
 		if len(key) > 0 {
-			userRegistryKeys = append(userRegistryKeys, fmt.Sprintf(PROXY_KEY_2, key))
+			usersRegistryKeys = append(usersRegistryKeys, fmt.Sprintf(PROXY_KEY_2, key))
 		}
 	}
 }

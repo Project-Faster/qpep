@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/parvit/qpep/shared"
 	"os"
 	"os/exec"
@@ -15,10 +14,11 @@ import (
 )
 
 const (
-	USER_ACCESS_LIST = `D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPCR;;;%s)S:(AU;FA;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;WD)`
+	USER_ACCESS_LIST = `D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPCR;;;S-1-1-0)S:(AU;FA;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;WD)`
 )
 
 func setCurrentWorkingDir(path string) {
+	Info("Set working path %s", path)
 	imagePath, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		Error("ERROR: %v\n", err)
@@ -32,41 +32,31 @@ func setCurrentWorkingDir(path string) {
 }
 
 func setServiceUserPermissions(serviceName string) {
-	// Extract UserID of user, works even if running with admin rights
-	userIdCmd := exec.Command("whoami", "/user", "/fo", "csv", "/nh")
-	userIdCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err := userIdCmd.CombinedOutput()
-	if err != nil {
-		Error("%v", err)
-		panic(err)
-	}
+	Info("Set user permissions %s", serviceName)
 
-	// example output:
-	// "laptop-acer\acer","S-1-5-21-4227727717-1300533570-3298936513-1001"
-	lines := strings.Split(string(output), ",")
-	userID := strings.TrimSpace(strings.Replace(lines[1], `"`, ``, -1))
-
-	// use the extracted UserID to allow start / stop privileges to user
-	// without admin rights
+	// allow all users to start/stop the service using the "Everyone" UserID to allow start / stop privileges
+	// to users without admin rights
 	cmdParams := []string{
 		`sdset`,
 		serviceName,
-		fmt.Sprintf(USER_ACCESS_LIST, userID),
+		USER_ACCESS_LIST,
 	}
+
+	Info(`acl: "%s"`, USER_ACCESS_LIST)
 
 	permssionsCmd := exec.Command(`sc.exe`, cmdParams...)
 	permssionsCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
-	_, err = permssionsCmd.CombinedOutput()
+	_, err := permssionsCmd.CombinedOutput()
 	if err != nil {
 		Error("%v", err)
-		panic(err)
+		return
 	}
-
-	Info("Service installed correctly")
 }
 
 func setInstallDirectoryPermissions(installDir string) {
+	Info("Set install permissions %s", installDir)
+
 	// reset access permission on the installation directory to allow writing logs
 	cmdParams := []string{
 		installDir,
@@ -99,6 +89,8 @@ func setInstallDirectoryPermissions(installDir string) {
 }
 
 func sendProcessInterrupt() {
+	Info("sendProcessInterrupt")
+
 	shared.SetSystemProxy(false)
 
 	dll := syscall.MustLoadDLL("kernel32.dll")
@@ -124,6 +116,8 @@ func sendProcessInterrupt() {
 }
 
 func waitChildProcessTermination(name string) {
+	Info("Wait child terminate %s", name)
+
 	count := 0
 	for timeout := 30; timeout > 0; timeout-- {
 		count = 0

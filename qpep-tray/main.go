@@ -39,7 +39,7 @@ func main() {
 
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
-	if err := shared.ReadConfiguration(); err != nil {
+	if err := shared.ReadConfiguration(true); err != nil {
 		ErrorMsg("Could not load configuration file, please edit: %v", err)
 	}
 

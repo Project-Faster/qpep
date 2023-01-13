@@ -3,8 +3,8 @@ module github.com/parvit/qpep
 go 1.18
 
 require (
-	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/davecgh/go-spew v1.1.1
+	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/getlantern/systray v1.2.1
 	github.com/jackpal/gateway v1.0.7
 	github.com/julienschmidt/httprouter v1.3.0
@@ -32,12 +32,14 @@ require (
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
+	github.com/jessevdk/go-flags v1.5.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-19 v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
+	github.com/nyaosorg/go-windows-dbg v0.0.0-20210914123807-2acba179a4e5 // indirect
 	github.com/onsi/ginkgo v1.16.4 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect

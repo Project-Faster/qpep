@@ -1,14 +1,19 @@
 package flags
 
 import (
-	"flag"
+	"github.com/jessevdk/go-flags"
+	"github.com/parvit/qpep/shared"
 	"os"
+	"strings"
 )
 
 type GlobalFlags struct {
-	Service string
-	Client  bool
-	Verbose bool
+	Service string `long:"service" description:"Service command"`
+	Client  bool   `long:"client" short:"c" description:"Client mode instead of Server mode"`
+	Verbose bool   `long:"verbose" short:"s" description:"Outputs more log messages"`
+
+	ConfigOverrideCallback func(string) `short:"D" description:"Allow to override configuration values with the format name=value"`
+	ConfigOverrides        map[string]string
 }
 
 var (
@@ -16,23 +21,26 @@ var (
 )
 
 func init() {
-	ParseFlags(os.Args)
+	parseFlags(os.Args)
+
+	shared.WriteConfigurationOverrideFile(Globals.ConfigOverrides)
 }
 
-func ParseFlags(args []string) {
-	serviceFlag := flag.String("service", "", "Flag to indicate the service action to be done")
-	clientFlag := flag.Bool("client", false, "indicates if the operation is in client or server mode")
-	verbose := flag.Bool("verbose", false, "Outputs data about diverted connections for debug")
-
-	flag.CommandLine.Parse(args[1:])
-	if !flag.Parsed() {
-		flag.Usage()
-		os.Exit(1)
+func parseFlags(args []string) {
+	Globals.ConfigOverrideCallback = func(s string) {
+		if Globals.ConfigOverrides == nil {
+			Globals.ConfigOverrides = make(map[string]string)
+		}
+		index := strings.Index(s, "=")
+		if index == -1 {
+			return
+		}
+		Globals.ConfigOverrides[strings.ToLower(s[:index])] = s[index+1:]
 	}
 
-	Globals = GlobalFlags{
-		Service: *serviceFlag,
-		Client:  *clientFlag,
-		Verbose: *verbose,
+	cliparser := flags.NewParser(&Globals, flags.Default)
+	if _, err := cliparser.ParseArgs(args); err != nil {
+		cliparser.WriteHelp(os.Stderr)
+		os.Exit(1)
 	}
 }

@@ -12,7 +12,7 @@ import (
 const (
 	EXENAME = "qpep.exe"
 
-	CMD_SERVICE = `%s --service %s %s %s`
+	CMD_SERVICE = `%s %s --service %s %s %s`
 )
 
 func getServiceCommand(start, client bool) *exec.Cmd {
@@ -20,6 +20,7 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 
 	var serviceFlag = "start"
 	var clientFlag = "--client"
+	var hostFlag = fmt.Sprintf("-Dlistenaddress=%s", shared.QPepConfig.ListenHost)
 	var verboseFlag = "--verbose"
 	if !start {
 		serviceFlag = "stop"
@@ -33,7 +34,7 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 
 	attr := &syscall.SysProcAttr{
 		HideWindow: true,
-		CmdLine:    fmt.Sprintf(CMD_SERVICE, exeFile, serviceFlag, clientFlag, verboseFlag),
+		CmdLine:    fmt.Sprintf(CMD_SERVICE, exeFile, clientFlag, serviceFlag, hostFlag, verboseFlag),
 	}
 
 	cmd := exec.Command(exeFile)

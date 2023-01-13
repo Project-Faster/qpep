@@ -34,7 +34,7 @@ func openWebguiWithOSBrowser(clientMode, serverMode bool) {
 		mode = "server"
 	}
 
-	guiurl := fmt.Sprintf(shared.WEBGUIURL, port, mode, port)
+	guiurl := fmt.Sprintf(shared.WEBGUI_URL, port, mode, port)
 	if err := open.Run(guiurl); err != nil {
 		ErrorMsg("Webgui startup failed with error: %v", err)
 		return
@@ -76,7 +76,7 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 				if ok := ConfirmMsg("Do you want to reload the configuration?"); !ok {
 					continue
 				}
-				if shared.ReadConfiguration() == nil {
+				if shared.ReadConfiguration(true) == nil {
 					reloadClientIfRunning()
 					reloadServerIfRunning()
 				}

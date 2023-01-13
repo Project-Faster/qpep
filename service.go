@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/parvit/qpep/version"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -65,6 +67,9 @@ func serviceMain() {
 		cancelFunc: cancel,
 	}
 
+	Info("=== QPep version %s ===", version.Version())
+	Info(spew.Sdump(flags.Globals))
+
 	serviceName := serverService
 	if flags.Globals.Client {
 		serviceName = clientService
@@ -90,7 +95,7 @@ func serviceMain() {
 	svcConfig.EnvVars["PATH"] = workingDir + ";" + path
 
 	if flags.Globals.Client {
-		svcConfig.Arguments = append(svcConfig.Arguments, `-client`)
+		svcConfig.Arguments = append(svcConfig.Arguments, `--client`)
 	}
 
 	serviceInst, err := service.New(&svc, svcConfig)
@@ -132,8 +137,8 @@ func serviceMain() {
 
 		if svcCommand == "install" {
 			setServiceUserPermissions(serviceName)
-
 			setInstallDirectoryPermissions(workingDir)
+			Info("Service installed correctly")
 		}
 
 		Info("Service action %s executed\n", svcCommand)
@@ -157,8 +162,9 @@ func serviceMain() {
 }
 
 func (p *QPepService) Start(s service.Service) error {
+	Info("Start")
+
 	p.status = startingSvc
-	//p.service = s
 
 	go p.Main()
 
@@ -172,6 +178,8 @@ func (p *QPepService) Stop(s service.Service) error {
 		}
 		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
+
+	Info("Stop")
 
 	if p.status != startedSvc {
 		p.status = stoppedSvc
@@ -198,7 +206,9 @@ func (p *QPepService) Main() {
 		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
-	if err := shared.ReadConfiguration(); err != nil {
+	Info("Main")
+
+	if err := shared.ReadConfiguration(false); err != nil {
 		panic(err)
 	}
 

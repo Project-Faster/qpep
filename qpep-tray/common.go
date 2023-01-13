@@ -90,8 +90,8 @@ func onReady() {
 		mServerActive := false
 
 		// check clicks on address checkboxes
-		for _, box := range addressCheckBoxList {
-			go func(self *systray.MenuItem) {
+		for idx, box := range addressCheckBoxList {
+			go func(self *systray.MenuItem, index int) {
 				for {
 					select {
 					case <-self.ClickedCh:
@@ -102,9 +102,10 @@ func onReady() {
 							}
 							checkbox.Uncheck()
 						}
+						InfoMsg("Listening address will be forced to %s", addressList[index])
 					}
 				}
-			}(box)
+			}(box, idx)
 		}
 
 		for {
@@ -118,7 +119,7 @@ func onReady() {
 				continue
 
 			case <-mConfigRefresh.ClickedCh:
-				shared.ReadConfiguration()
+				shared.ReadConfiguration(true)
 				continue
 
 			case <-mClient.ClickedCh:
