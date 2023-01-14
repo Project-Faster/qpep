@@ -72,10 +72,10 @@ func setInstallDirectoryPermissions(installDir string) {
 		panic(err)
 	}
 
-	// allow users group to access installation directory to allow writing logs
+	// allow Everyone group to access installation directory to allow writing logs
 	cmdParams = []string{
 		installDir,
-		`/grant`, `Users:F`,
+		`/t`, `/grant`, `Everyone:F`,
 	}
 
 	permssionsCmd = exec.Command(`icacls`, cmdParams...)

@@ -24,6 +24,10 @@ func startServer() error {
 		}
 	}
 
+	shared.WriteConfigurationOverrideFile(map[string]string{
+		"listenaddress": shared.QPepConfig.ListenHost,
+	})
+
 	if err := startServerProcess(); err != nil {
 		ErrorMsg("Could not start server program: %v", err)
 		serverActive = false

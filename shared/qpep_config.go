@@ -4,18 +4,14 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
-	"strings"
 
-	"github.com/jackpal/gateway"
-	"gopkg.in/yaml.v3"
-
-	. "github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/logger"
 )
 
 func init() {
@@ -63,12 +59,7 @@ threads: 4
 )
 
 var (
-	QPepConfig                QPepConfigType
-	UsingProxy                = false
-	ProxyAddress              *url.URL
-	defaultListeningAddress   string
-	detectedGatewayInterfaces []int64
-	detectedGatewayAddresses  []string
+	QPepConfig QPepConfigType
 )
 
 type QPepConfigType struct {
@@ -97,12 +88,14 @@ func (r rawConfigType) updateIntField(field *int, name string) {
 		intValue, err := strconv.ParseInt(val.(string), 10, 64)
 		if err == nil {
 			*field = int(intValue)
+			logger.Info("update int value [%s]: %d", name, intValue)
 		}
 	}
 }
 func (r rawConfigType) updateStringField(field *string, name string) {
 	if val, ok := r[name]; ok {
 		*field = val.(string)
+		logger.Info("update string value [%s]: %v", name, val)
 	}
 }
 func (r rawConfigType) updateBoolField(field *bool, name string) {
@@ -110,11 +103,12 @@ func (r rawConfigType) updateBoolField(field *bool, name string) {
 		boolValue, err := strconv.ParseBool(val.(string))
 		if err == nil {
 			*field = boolValue
+			logger.Info("update bool value [%s]: %b", name, boolValue)
 		}
 	}
 }
 
-func (q QPepConfigType) override(r rawConfigType) {
+func (q *QPepConfigType) override(r rawConfigType) {
 	r.updateIntField(&q.Acks, "acks")
 	r.updateIntField(&q.AckDelay, "ackdelay")
 	r.updateIntField(&q.Congestion, "congestion")
@@ -133,39 +127,46 @@ func (q QPepConfigType) override(r rawConfigType) {
 	r.updateIntField(&q.WinDivertThreads, "threads")
 }
 
-func GetConfigurationPath() string {
+func GetConfigurationPaths() (string, string, string) {
 	basedir, err := os.Executable()
 	if err != nil {
-		Error("Could not find executable: %s", err)
+		logger.Error("Could not find executable: %s", err)
 	}
 
 	confdir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
 	if _, err := os.Stat(confdir); errors.Is(err, os.ErrNotExist) {
 		os.Mkdir(confdir, 0664)
 	}
-	return confdir
+
+	confFile := filepath.Join(confdir, CONFIG_FILENAME)
+	if _, err := os.Stat(confFile); errors.Is(err, os.ErrNotExist) {
+		_ = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0666)
+	}
+
+	confUserFile := filepath.Join(confdir, CONFIG_OVERRIDE_FILENAME)
+	if _, err := os.Stat(confUserFile); errors.Is(err, os.ErrNotExist) {
+		_ = os.WriteFile(confUserFile, []byte(`\n`), 0666)
+	}
+
+	return confdir, confFile, confUserFile
 }
 
 func ReadConfiguration(ignoreCustom bool) (outerr error) {
 	defer func() {
 		if err := recover(); err != nil {
-			Info("PANIC: ", err)
+			logger.Error("PANIC: ", err)
 			debug.PrintStack()
 			outerr = errors.New(fmt.Sprintf("%v", err))
 		}
+		logger.Info("Configuration Loaded")
 	}()
 
-	confdir := GetConfigurationPath()
-
-	confFile := filepath.Join(confdir, CONFIG_FILENAME)
-	if _, err := os.Stat(confFile); errors.Is(err, os.ErrNotExist) {
-		_ = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0664)
-	}
+	_, confFile, userConfFile := GetConfigurationPaths()
 
 	// Read base config
-	f, err := os.Open(confFile)
+	f, err := createFileIfAbsent(confFile, false)
 	if err != nil {
-		Error("Could not read expected configuration file: %v", err)
+		logger.Error("Could not read expected configuration file: %v", err)
 		return err
 	}
 	defer func() {
@@ -174,57 +175,54 @@ func ReadConfiguration(ignoreCustom bool) (outerr error) {
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		Error("Could not read expected configuration file: %v", err)
+		logger.Error("Could not read expected configuration file: %v", err)
 		return err
 	}
 	if err := yaml.Unmarshal(data, &QPepConfig); err != nil {
-		Error("Could not decode configuration file: %v", err)
+		logger.Error("Could not decode configuration file: %v", err)
 		return err
 	}
 
-	if !ignoreCustom {
-		// Read overrides
-		userConfFile := filepath.Join(confdir, CONFIG_OVERRIDE_FILENAME)
-		fUser, err := os.Open(userConfFile)
-		if err == nil {
-			defer func() {
-				_ = fUser.Close()
-			}()
-
-			var userConfig rawConfigType
-			dataCustom, err := io.ReadAll(fUser)
-			if err == nil {
-				if err = yaml.Unmarshal(dataCustom, &userConfig); err == nil {
-					QPepConfig.override(userConfig)
-				}
-			}
-		}
+	if ignoreCustom {
+		return nil
 	}
 
-	Info("Configuration Loaded")
+	// Read overrides
+	fUser, err := createFileIfAbsent(userConfFile, false)
+	if err != nil {
+		return nil
+	}
+	defer func() {
+		if fUser != nil {
+			_ = fUser.Close()
+		}
+	}()
 
+	var userConfig rawConfigType
+	dataCustom, _ := io.ReadAll(fUser)
+	if err = yaml.Unmarshal(dataCustom, &userConfig); err == nil {
+		logger.Info("override %v", userConfig)
+		QPepConfig.override(userConfig)
+	}
 	return nil
 }
 
 func WriteConfigurationOverrideFile(values map[string]string) {
 	defer func() {
 		if err := recover(); err != nil {
-			Info("PANIC: ", err)
+			logger.Error("PANIC: ", err)
 			debug.PrintStack()
 		}
 	}()
 
-	confdir := GetConfigurationPath()
+	_, _, userConfFile := GetConfigurationPaths()
 
-	confFile := filepath.Join(confdir, CONFIG_OVERRIDE_FILENAME)
-
-	f, err := os.Create(confFile)
-	if err != nil {
-		Error("Could not read expected configuration file: %v", err)
-		return
-	}
+	// create base config if it does not exist
+	f, _ := createFileIfAbsent(userConfFile, true)
 	defer func() {
-		_ = f.Close()
+		if f != nil {
+			_ = f.Close()
+		}
 	}()
 
 	if len(values) == 0 {
@@ -232,61 +230,17 @@ func WriteConfigurationOverrideFile(values map[string]string) {
 	}
 	data, err := yaml.Marshal(values)
 	if err != nil {
-		Error("Could not read expected configuration file: %v", err)
+		logger.Error("Could not read expected configuration file: %v", err)
 		return
 	}
 	_, _ = f.Write(data)
 	return
 }
 
-func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (string, []int64) {
-	if len(defaultListeningAddress) > 0 {
-		return defaultListeningAddress, detectedGatewayInterfaces
+func createFileIfAbsent(fileToCheck string, truncate bool) (*os.File, error) {
+	var flags = os.O_RDWR | os.O_CREATE
+	if truncate {
+		flags = os.O_RDWR | os.O_CREATE | os.O_TRUNC
 	}
-
-	if !strings.HasPrefix(currentAddress, "0.") && !strings.HasPrefix(currentAddress, "127.") {
-		return currentAddress, detectedGatewayInterfaces
-	}
-
-	if len(gatewayAddress) == 0 {
-		defaultIP, err := gateway.DiscoverInterface()
-		if err != nil {
-			panic(fmt.Sprintf("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
-			return currentAddress, detectedGatewayInterfaces
-		}
-
-		defaultListeningAddress = defaultIP.String()
-		Info("Found default ip address: %s\n", defaultListeningAddress)
-		return defaultListeningAddress, detectedGatewayInterfaces
-	}
-
-	Info("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
-
-	searchIdx := -1
-	searchLongest := 0
-
-NEXT:
-	for i := 0; i < len(detectedGatewayAddresses); i++ {
-		for idx := 0; idx < len(gatewayAddress); idx++ {
-			if currentAddress[idx] == gatewayAddress[idx] {
-				continue
-			}
-			if idx >= searchLongest {
-				searchIdx = i
-				searchLongest = idx
-				continue NEXT
-			}
-		}
-	}
-	if searchIdx != -1 {
-		defaultListeningAddress = detectedGatewayAddresses[searchIdx]
-		Info("Found default ip address: %s\n", defaultListeningAddress)
-		return defaultListeningAddress, detectedGatewayInterfaces
-	}
-	defaultListeningAddress = detectedGatewayAddresses[0]
-	return defaultListeningAddress, detectedGatewayInterfaces
-}
-
-func GetLanListeningAddresses() ([]string, []int64) {
-	return detectedGatewayAddresses, detectedGatewayInterfaces
+	return os.OpenFile(fileToCheck, flags, 0666)
 }

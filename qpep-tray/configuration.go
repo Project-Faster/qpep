@@ -12,9 +12,9 @@ import (
 )
 
 func openConfigurationWithOSEditor() {
-	confdir := shared.GetConfigurationPath()
+	_, baseConfigPath, _ := shared.GetConfigurationPaths()
 
-	if err := open.Run(confdir); err != nil {
+	if err := open.Run(baseConfigPath); err != nil {
 		ErrorMsg("Editor configuration failed with error: %v", err)
 		return
 	}
@@ -45,10 +45,10 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		confFile := shared.GetConfigurationPath()
+		_, baseConfigFile, _ := shared.GetConfigurationPaths()
 
 		var lastModTime time.Time
-		if stat, err := os.Stat(confFile); err == nil {
+		if stat, err := os.Stat(baseConfigFile); err == nil {
 			lastModTime = stat.ModTime()
 
 		} else {
@@ -64,8 +64,8 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 				log.Println("Stopping configfile watchdog")
 				break CHECKLOOP
 
-			case <-time.After(1 * time.Second):
-				stat, err := os.Stat(confFile)
+			case <-time.After(10 * time.Second):
+				stat, err := os.Stat(baseConfigFile)
 				if err != nil {
 					continue
 				}

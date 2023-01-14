@@ -2,7 +2,6 @@ package flags
 
 import (
 	"github.com/jessevdk/go-flags"
-	"github.com/parvit/qpep/shared"
 	"os"
 	"strings"
 )
@@ -22,8 +21,6 @@ var (
 
 func init() {
 	parseFlags(os.Args)
-
-	shared.WriteConfigurationOverrideFile(Globals.ConfigOverrides)
 }
 
 func parseFlags(args []string) {

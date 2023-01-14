@@ -24,6 +24,10 @@ func startClient() error {
 		}
 	}
 
+	shared.WriteConfigurationOverrideFile(map[string]string{
+		"listenaddress": shared.QPepConfig.ListenHost,
+	})
+
 	if err := startClientProcess(); err != nil {
 		ErrorMsg("Could not start client program: %v", err)
 		clientActive = false
