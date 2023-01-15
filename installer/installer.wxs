@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-    <Product Id="*" UpgradeCode="{A61174C8-632E-41AC-8AF4-3C27F455298F}" Version="1.0.0.0" Language="1033" Name="QPep" Manufacturer="VirtuallyNathan">
-        <Package InstallerVersion="300" Compressed="yes"/>
+    <Product Id="*" UpgradeCode="{A61174C8-632E-41AC-8AF4-3C27F455298F}" Version="1.0.0.0" Language="1033" Name="QPep" Manufacturer="ProjectFaster">
+        <Package InstallerVersion="300" Compressed="yes" InstallPrivileges="elevated" InstallScope="perMachine"/>
         <Media Id="1" Cabinet="qpep.cab" EmbedCab="yes" />
 
         <MajorUpgrade
@@ -80,7 +80,7 @@
                         WorkingDirectory="INSTALLDIRX64"/>
                     <RegistryValue
                         Root="HKCU"
-                        Key="Software\VirtuallyNathan\QPep"
+                        Key="Software\ProjectFaster\QPep"
                         Name="installed"
                         Type="integer"
                         Value="1"

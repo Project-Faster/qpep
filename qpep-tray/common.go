@@ -62,8 +62,8 @@ func onReady() {
 		addressCheckBoxList = append(addressCheckBoxList, box)
 	}
 	systray.AddSeparator()
-	mClient := systray.AddMenuItemCheckbox("Client Disabled", "Launch/Stop QPep Client", false)
-	mServer := systray.AddMenuItemCheckbox("Server Disabled", "Launch/Stop QPep Server", false)
+	mClient := systray.AddMenuItemCheckbox("Activate Client", "Launch/Stop QPep Client", false)
+	mServer := systray.AddMenuItemCheckbox("Activate Server", "Launch/Stop QPep Server", false)
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "Stop all and quit the whole app")
 
@@ -129,12 +129,12 @@ func onReady() {
 					}
 					if startClient() == nil {
 						mClientActive = true
-						mClient.SetTitle("Client Enabled")
+						mClient.SetTitle("Stop Client")
 						mClient.Enable()
 						mClient.Check()
 
 						mServerActive = false
-						mServer.SetTitle("Server Disabled")
+						mServer.SetTitle("Activate Server")
 						mServer.Uncheck()
 						mServer.Disable()
 						stopServer()
@@ -146,12 +146,12 @@ func onReady() {
 					}
 					if stopClient() == nil {
 						mClientActive = false
-						mClient.SetTitle("Client Disabled")
+						mClient.SetTitle("Activate Client")
 						mClient.Enable()
 						mClient.Uncheck()
 
 						mServerActive = false
-						mServer.SetTitle("Server Disabled")
+						mServer.SetTitle("Activate Server")
 						mServer.Uncheck()
 						mServer.Enable()
 						stopServer()
@@ -164,13 +164,13 @@ func onReady() {
 						break
 					}
 					mServerActive = true
-					mServer.SetTitle("Server Enabled")
+					mServer.SetTitle("Stop Server")
 					mServer.Enable()
 					mServer.Check()
 					startServer()
 
 					mClientActive = false
-					mClient.SetTitle("Client Disabled")
+					mClient.SetTitle("Activate Client")
 					mClient.Uncheck()
 					mClient.Disable()
 					stopClient()
@@ -179,13 +179,13 @@ func onReady() {
 						break
 					}
 					mServerActive = false
-					mServer.SetTitle("Server Disabled")
+					mServer.SetTitle("Activate Server")
 					mServer.Enable()
 					mServer.Uncheck()
 					stopServer()
 
 					mClientActive = false
-					mClient.SetTitle("Client Disabled")
+					mClient.SetTitle("Activate Client")
 					mClient.Uncheck()
 					mClient.Enable()
 					stopClient()

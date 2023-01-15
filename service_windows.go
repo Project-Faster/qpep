@@ -4,6 +4,7 @@ import (
 	"github.com/parvit/qpep/shared"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -54,7 +55,9 @@ func setServiceUserPermissions(serviceName string) {
 	}
 }
 
-func setInstallDirectoryPermissions(installDir string) {
+func setInstallDirectoryPermissions(workDir string) {
+	installDir := filepath.Dir(workDir) // Permissions should be set for the entire folder
+
 	Info("Set install permissions %s", installDir)
 
 	// reset access permission on the installation directory to allow writing logs

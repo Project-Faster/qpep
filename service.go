@@ -136,6 +136,7 @@ func serviceMain() {
 		}
 
 		if svcCommand == "install" {
+			_ = shared.ReadConfiguration(false)
 			setServiceUserPermissions(serviceName)
 			setInstallDirectoryPermissions(workingDir)
 			Info("Service installed correctly")
