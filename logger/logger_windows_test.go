@@ -1,0 +1,181 @@
+//go:build windows
+
+// NOTE: requires flag '-gcflags=-l' to go test to work
+
+package logger
+
+import (
+	"errors"
+	"fmt"
+	dbg "github.com/nyaosorg/go-windows-dbg"
+	log "github.com/rs/zerolog"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"bou.ke/monkey"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestLogger_InfoLevel(t *testing.T) {
+	execPath, _ := os.Executable()
+
+	logFile := filepath.Join(filepath.Dir(execPath), "test")
+
+	var prevlog = _log
+	SetupLogger("test")
+
+	assert.NotEqual(t, prevlog, _log)
+	assert.Equal(t, _log.GetLevel(), log.DebugLevel)
+	assert.Equal(t, log.GlobalLevel(), log.InfoLevel)
+
+	Info("InfoMessage")
+	Debug("DebugMessage")
+	Error("ErrorMessage")
+
+	data, _ := os.ReadFile(logFile)
+	var strData = string(data)
+	assert.NotEqual(t, -1, strings.Index(strData, "InfoMessage"))
+	assert.Equal(t, -1, strings.Index(strData, "DebugMessage"))
+	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
+}
+
+func TestLogger_DebugLevel(t *testing.T) {
+	execPath, _ := os.Executable()
+
+	logFile := filepath.Join(filepath.Dir(execPath), "test")
+
+	var prevlog = _log
+	SetupLogger("test")
+
+	assert.NotEqual(t, prevlog, _log)
+	assert.Equal(t, _log.GetLevel(), log.DebugLevel)
+	assert.Equal(t, log.GlobalLevel(), log.InfoLevel)
+
+	log.SetGlobalLevel(log.DebugLevel)
+
+	Info("InfoMessage")
+	Debug("DebugMessage")
+	Error("ErrorMessage")
+
+	data, _ := os.ReadFile(logFile)
+	var strData = string(data)
+	assert.NotEqual(t, -1, strings.Index(strData, "InfoMessage"))
+	assert.NotEqual(t, -1, strings.Index(strData, "DebugMessage"))
+	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
+}
+
+func TestLogger_ErrorLevel(t *testing.T) {
+	execPath, _ := os.Executable()
+
+	logFile := filepath.Join(filepath.Dir(execPath), "test")
+
+	var prevlog = _log
+	SetupLogger("test")
+
+	assert.NotEqual(t, prevlog, _log)
+	assert.Equal(t, _log.GetLevel(), log.DebugLevel)
+	assert.Equal(t, log.GlobalLevel(), log.InfoLevel)
+
+	log.SetGlobalLevel(log.ErrorLevel)
+
+	Info("InfoMessage")
+	Debug("DebugMessage")
+	Error("ErrorMessage")
+
+	data, _ := os.ReadFile(logFile)
+	var strData = string(data)
+	assert.Equal(t, -1, strings.Index(strData, "InfoMessage"))
+	assert.Equal(t, -1, strings.Index(strData, "DebugMessage"))
+	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
+}
+
+func TestLogger_PanicMessage(t *testing.T) {
+	execPath, _ := os.Executable()
+
+	logFile := filepath.Join(filepath.Dir(execPath), "test")
+
+	var prevlog = _log
+	SetupLogger("test")
+
+	assert.NotEqual(t, prevlog, _log)
+	assert.Equal(t, _log.GetLevel(), log.DebugLevel)
+	assert.Equal(t, log.GlobalLevel(), log.InfoLevel)
+
+	log.SetGlobalLevel(log.DebugLevel)
+
+	Info("InfoMessage")
+	assert.PanicsWithValue(t, "PanicMessage", func() {
+		Panic("PanicMessage")
+	})
+	Debug("DebugMessage")
+	Error("ErrorMessage")
+
+	data, _ := os.ReadFile(logFile)
+	var strData = string(data)
+	assert.NotEqual(t, -1, strings.Index(strData, "InfoMessage"))
+	assert.NotEqual(t, -1, strings.Index(strData, "DebugMessage"))
+	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
+	assert.NotEqual(t, -1, strings.Index(strData, "PanicMessage"))
+}
+
+func TestLogger_OutputDebugString_DebugLevel(t *testing.T) {
+	SetupLogger("test")
+
+	log.SetGlobalLevel(log.DebugLevel)
+
+	var counter = 0
+	guard := monkey.Patch(dbg.Printf, func(format string, values ...interface{}) (int, error) {
+		counter++
+		_ = fmt.Sprint(fmt.Sprintf(format, values...))
+		return 0, nil
+	})
+	defer func() {
+		if guard != nil {
+			guard.Restore()
+		}
+	}()
+
+	Info("InfoMessage")
+	assert.PanicsWithValue(t, "PanicMessage", func() {
+		Panic("PanicMessage")
+	})
+	Debug("DebugMessage")
+	Error("ErrorMessage")
+
+	assert.Equal(t, 4, counter)
+}
+
+func TestLogger_getLoggerFileFailExecutable(t *testing.T) {
+	var guard *monkey.PatchGuard
+	guard = monkey.Patch(os.OpenFile, func(name string, flag int, perm os.FileMode) (*os.File, error) {
+		if !strings.Contains(name, "invalid") {
+			guard.Unpatch()
+			defer guard.Restore()
+
+			return os.OpenFile(name, flag, perm)
+		}
+		return nil, errors.New("file not found")
+	})
+	assert.Panics(t, func() {
+		getLoggerFile("test invalid/")
+	})
+	if guard != nil {
+		guard.Restore()
+	}
+}
+
+func TestLogger_getLoggerFileFailOpenFile(t *testing.T) {
+	guard := monkey.Patch(os.Executable, func() (string, error) {
+		return "", errors.New("file not found")
+	})
+	defer func() {
+		if guard != nil {
+			guard.Restore()
+		}
+	}()
+	assert.Panics(t, func() {
+		getLoggerFile("exec not found/")
+	})
+}
