@@ -1,3 +1,12 @@
+/*
+Package logger provides a very basic interface to logging throughout the project.
+
+By default, it logs to standard out and when SetupLogger is called it outputs to a file
+and on windows it also outputs to OutputDebugString facility if level is debug.
+
+The level is set using the global log level of package zerolog.
+
+*/
 package logger
 
 import (
@@ -11,12 +20,13 @@ import (
 	"github.com/nyaosorg/go-windows-dbg"
 )
 
-var _log log.Logger
+var _log log.Logger // customized logger instance
 
 func init() {
 	_log = log.New(os.Stdout)
 }
 
+// getLoggerFile Sets up a new logging file overwriting the previous one if found
 func getLoggerFile(logName string) *os.File {
 	execPath, err := os.Executable()
 	if err != nil {
@@ -32,6 +42,7 @@ func getLoggerFile(logName string) *os.File {
 	return f
 }
 
+// SetupLogger Sets up a new logger destroying the previous one to a file with name "qpep_<logName>.log"
 func SetupLogger(logName string) {
 	f := getLoggerFile(logName)
 
@@ -41,6 +52,8 @@ func SetupLogger(logName string) {
 		With().Timestamp().Logger()
 }
 
+// Info Outputs a new formatted string with the provided parameters to the logger instance with Info level
+// Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Info(format string, values ...interface{}) {
 	_log.Info().Msgf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
@@ -48,6 +61,8 @@ func Info(format string, values ...interface{}) {
 	}
 }
 
+// Debug Outputs a new formatted string with the provided parameters to the logger instance with Debug level
+// Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Debug(format string, values ...interface{}) {
 	_log.Debug().Msgf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
@@ -55,6 +70,8 @@ func Debug(format string, values ...interface{}) {
 	}
 }
 
+// Error Outputs a new formatted string with the provided parameters to the logger instance with Error level
+// Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Error(format string, values ...interface{}) {
 	_log.Error().Msgf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
@@ -62,6 +79,9 @@ func Error(format string, values ...interface{}) {
 	}
 }
 
+// Panic Outputs a new formatted string with the provided parameters to the logger instance with Error level
+// Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
+// and then panics with the same formatted string
 func Panic(format string, values ...interface{}) {
 	_log.Error().Msgf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {

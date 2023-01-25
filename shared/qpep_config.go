@@ -103,7 +103,7 @@ func (r rawConfigType) updateBoolField(field *bool, name string) {
 		boolValue, err := strconv.ParseBool(val.(string))
 		if err == nil {
 			*field = boolValue
-			logger.Info("update bool value [%s]: %b", name, boolValue)
+			logger.Info("update bool value [%s]: %v", name, boolValue)
 		}
 	}
 }
@@ -154,7 +154,7 @@ func GetConfigurationPaths() (string, string, string) {
 func ReadConfiguration(ignoreCustom bool) (outerr error) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("PANIC: ", err)
+			logger.Error("PANIC: %v", err)
 			debug.PrintStack()
 			outerr = errors.New(fmt.Sprintf("%v", err))
 		}
@@ -210,7 +210,7 @@ func ReadConfiguration(ignoreCustom bool) (outerr error) {
 func WriteConfigurationOverrideFile(values map[string]string) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("PANIC: ", err)
+			logger.Error("PANIC: %v", err)
 			debug.PrintStack()
 		}
 	}()

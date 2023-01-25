@@ -1,4 +1,4 @@
-//go:build windows
+//go:build !windows
 
 // NOTE: requires flag '-gcflags=-l' to go test to work with monkey patching
 
@@ -6,8 +6,6 @@ package logger
 
 import (
 	"errors"
-	"fmt"
-	dbg "github.com/nyaosorg/go-windows-dbg"
 	log "github.com/rs/zerolog"
 	"os"
 	"path/filepath"
@@ -118,33 +116,6 @@ func TestLogger_PanicMessage(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "DebugMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "PanicMessage"))
-}
-
-func TestLogger_OutputDebugString_DebugLevel(t *testing.T) {
-	SetupLogger("test")
-
-	log.SetGlobalLevel(log.DebugLevel)
-
-	var counter = 0
-	guard := monkey.Patch(dbg.Printf, func(format string, values ...interface{}) (int, error) {
-		counter++
-		_ = fmt.Sprint(fmt.Sprintf(format, values...))
-		return 0, nil
-	})
-	defer func() {
-		if guard != nil {
-			guard.Restore()
-		}
-	}()
-
-	Info("InfoMessage")
-	assert.PanicsWithValue(t, "PanicMessage", func() {
-		Panic("PanicMessage")
-	})
-	Debug("DebugMessage")
-	Error("ErrorMessage")
-
-	assert.Equal(t, 4, counter)
 }
 
 func TestLogger_getLoggerFileFailExecutable(t *testing.T) {
