@@ -355,7 +355,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	streamWait.Add(2)
 
 	//Set our custom header to the QUIC session so the server can generate the correct TCP handshake on the other side
-	sessionHeader := shared.QpepHeader{
+	sessionHeader := shared.QPepHeader{
 		SourceAddr: tcpConn.RemoteAddr().(*net.TCPAddr),
 		DestAddr:   tcpConn.LocalAddr().(*net.TCPAddr),
 	}

@@ -1,5 +1,3 @@
-// NOTE: requires flag '-gcflags=-l' to go test to work
-
 package shared
 
 import (
