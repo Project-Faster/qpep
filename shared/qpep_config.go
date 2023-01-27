@@ -14,15 +14,6 @@ import (
 	"github.com/parvit/qpep/logger"
 )
 
-func init() {
-	var err error
-	detectedGatewayInterfaces, detectedGatewayAddresses, err = getRouteGatewayInterfaces()
-
-	if err != nil {
-		panic(err)
-	}
-}
-
 type QLogWriter struct {
 	*bufio.Writer
 }
