@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
+	"strings"
 
 	"github.com/parvit/qpep/logger"
 )
@@ -227,7 +228,7 @@ func printPermissions(pDir string) {
 	log.Printf("path info %s: %v\n", pDir, info.Mode())
 
 	dir := filepath.Dir(pDir)
-	if dir == ".gocache" {
+	if strings.HasSuffix(dir, ".gocache") || strings.HasSuffix(dir, ".gocache/") {
 		return
 	}
 	printPermissions(dir)
