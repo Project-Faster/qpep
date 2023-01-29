@@ -4,16 +4,13 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/parvit/qpep/logger"
 	"gopkg.in/yaml.v3"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
-	"strings"
-
-	"github.com/parvit/qpep/logger"
 )
 
 // QLogWriter struct used by quic-go package to dump debug information
@@ -197,41 +194,28 @@ func GetConfigurationPaths() (string, string, string) {
 	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
 	if _, err := os.Stat(confDir); err != nil {
 		err = os.Mkdir(confDir, 0777)
-		log.Printf("Folder creating: %v\n", err)
-
-		printPermissions(confDir)
+		if err != nil {
+			logger.Panic("Error creating configuration folder: %v\n", err)
+		}
 	}
 
 	confFile := filepath.Join(confDir, CONFIG_FILENAME)
 	if _, err := os.Stat(confFile); err != nil {
 		err = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0777)
-		log.Printf("Main config creating: %v\n", err)
-
-		_, err = os.Stat(confFile)
-		log.Printf("Main config creating 2: %v\n", err)
+		if err != nil {
+			logger.Panic("Error creating main configuration file: %v\n", err)
+		}
 	}
 
 	confUserFile := filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
 	if _, err := os.Stat(confUserFile); err != nil {
 		err = os.WriteFile(confUserFile, []byte(`\n`), 0777)
-		log.Printf("User config creating: %v\n", err)
-
-		_, err = os.Stat(confUserFile)
-		log.Printf("User config creating 2: %v\n", err)
+		if err != nil {
+			logger.Error("Error creating user configuration file: %v\n", err)
+		}
 	}
 
 	return confDir, confFile, confUserFile
-}
-
-func printPermissions(pDir string) {
-	info, _ := os.Stat(pDir)
-	log.Printf("path info %s: %v\n", pDir, info.Mode())
-
-	dir := filepath.Dir(pDir)
-	if strings.HasSuffix(dir, ".gocache") || strings.HasSuffix(dir, ".gocache/") {
-		return
-	}
-	printPermissions(dir)
 }
 
 // ReadConfiguration method loads the global configuration from the yaml files, if the _ignoreCustom_ value is true
