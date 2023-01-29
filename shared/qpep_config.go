@@ -194,7 +194,7 @@ func GetConfigurationPaths() (string, string, string) {
 	}
 
 	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
-	if _, err := os.Stat(confDir); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(confDir); err != nil {
 		err = os.Mkdir(confDir, 0666)
 		log.Printf("Folder creating: %v\n", err)
 
@@ -203,7 +203,7 @@ func GetConfigurationPaths() (string, string, string) {
 	}
 
 	confFile := filepath.Join(confDir, CONFIG_FILENAME)
-	if _, err := os.Stat(confFile); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(confFile); err != nil {
 		err = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0666)
 		log.Printf("Main config creating: %v\n", err)
 
@@ -212,7 +212,7 @@ func GetConfigurationPaths() (string, string, string) {
 	}
 
 	confUserFile := filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
-	if _, err := os.Stat(confUserFile); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(confUserFile); err != nil {
 		err = os.WriteFile(confUserFile, []byte(`\n`), 0666)
 		log.Printf("User config creating: %v\n", err)
 
