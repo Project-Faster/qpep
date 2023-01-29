@@ -44,7 +44,6 @@ jobs:
         set GOOS=linux
         set CGO_ENABLED=0
         go test -v -gcflags=-l 2>&1 ./... > tests.dat || true
-        cat tests.dat || true
         cat tests.dat | go-junit-report -set-exit-code > unit_tests.xml || true
       continue-on-error: true
       
@@ -59,6 +58,16 @@ jobs:
       with:
         name: qpep_linux_b${{ github.run_id }}
         path: build/qpep
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: tests_raw
+        path: tests.dat
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: tests_xml
+        path: unit_tests.xml
 
 #  build-windows:
 #    runs-on: windows-latest
