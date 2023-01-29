@@ -14,22 +14,32 @@ import (
 	"github.com/parvit/qpep/logger"
 )
 
+// QLogWriter struct used by quic-go package to dump debug information
+// abount quic connections
 type QLogWriter struct {
 	*bufio.Writer
 }
 
+// Close method flushes the data to internal writer
 func (mwc *QLogWriter) Close() error {
 	// Noop
 	return mwc.Writer.Flush()
 }
 
 const (
+	// DEFAULT_REDIRECT_RETRIES Value of default number of total tries for a connection before terminating
 	DEFAULT_REDIRECT_RETRIES = 15
-	CONFIG_FILENAME          = "qpep.yml"
+	// CONFIG_FILENAME Name of the main configuration file of the qpep service
+	CONFIG_FILENAME = "qpep.yml"
+	// CONFIG_OVERRIDE_FILENAME Name of the yaml configuration file for overrides by the tray
 	CONFIG_OVERRIDE_FILENAME = "qpep.user.yml"
-	CONFIG_PATH              = "config"
-	WEBGUI_URL               = "http://127.0.0.1:%d/index?mode=%s&port=%d"
-	DEFAULT_CONFIG           = `
+	// CONFIG_PATH Directory name for the configuration files
+	CONFIG_PATH = "config"
+	// WEBGUI_URL URL of the web gui served by the service
+	WEBGUI_URL = "http://127.0.0.1:%d/index?mode=%s&port=%d"
+
+	// DEFAULT_CONFIG Default yaml configuration written if not found
+	DEFAULT_CONFIG = `
 acks: 10
 ackdelay: 25
 congestion: 4
@@ -50,62 +60,119 @@ threads: 4
 )
 
 var (
+	// QPepConfig Global variable for the configuration loaded from the file, with
+	// optional overrides from the user configuration file
 	QPepConfig QPepConfigType
 )
 
+// QPepConfigType Struct that represents all the parameters than influence the workings
+// of the service and are loaded from the yaml main configuration file plus the additional
+// user yaml file that overrides those values
 type QPepConfigType struct {
-	Acks                 int    `yaml:"acks"`
-	AckDelay             int    `yaml:"ackdelay"`
-	Congestion           int    `yaml:"congestion"`
-	MaxConnectionRetries int    `yaml:"maxretries"`
-	Decimate             int    `yaml:"decimate"`
-	DelayDecimate        int    `yaml:"decimatetime"`
-	GatewayHost          string `yaml:"gateway"`
-	GatewayPort          int    `yaml:"port"`
-	GatewayAPIPort       int    `yaml:"apiport"`
-	ListenHost           string `yaml:"listenaddress"`
-	ListenPort           int    `yaml:"listenport"`
-	MultiStream          bool   `yaml:"multistream"`
-	PreferProxy          bool   `yaml:"preferproxy"`
-	Verbose              bool   `yaml:"verbose"`
-	VarAckDelay          int    `yaml:"varackdelay"`
-	WinDivertThreads     int    `yaml:"threads"`
+	// MaxConnectionRetries (yaml:maxretries) integer value for maximum number of connection tries to server before
+	// stopping (half of these will be with diverter system, the other half with proxy)
+	MaxConnectionRetries int `yaml:"maxretries"`
+	// GatewayHost (yaml:gateway) Address of gateway qpep server for opening quic connections
+	GatewayHost string `yaml:"gateway"`
+	// GatewayPort (yaml:port) Port on which the gateway qpep server listens for quic connections
+	GatewayPort int `yaml:"port"`
+	// GatewayAPIPort (yaml:apiport) Port on which the gateway qpep server listens for TCP API requests
+	GatewayAPIPort int `yaml:"apiport"`
+	// ListenHost (yaml:listenaddress) Address on which the local instance (client or server) listens for incoming connections
+	// if indicates subnet 0. or 127. it will try to autodetect a good ip available
+	ListenHost string `yaml:"listenaddress"`
+	// ListenPort (yaml:listenport) Port where diverter or proxy will try to redirect the local tcp connections
+	ListenPort int `yaml:"listenport"`
+	// MultiStream (yaml:multistream) Indicates if MultiStream option for quic-go should be enabled or not
+	MultiStream bool `yaml:"multistream"`
+	// PreferProxy (yaml:preferproxy) If true the first half of retries will use the proxy system instead of diverter
+	PreferProxy bool `yaml:"preferproxy"`
+	// Verbose (yaml:verbose) Activates more verbose output than normal
+	Verbose bool `yaml:"verbose"`
+	// WinDivertThreads (yaml:threads) Indicates the number of threads that the diverter should use to handle packages
+	WinDivertThreads int `yaml:"threads"`
+
+	// -- Unused values -- //
+
+	// Acks unused currently
+	Acks int `yaml:"acks"`
+	// AckDelay unused currently
+	AckDelay int `yaml:"ackdelay"`
+	// Decimate unused currently
+	Decimate int `yaml:"decimate"`
+	// DelayDecimate unused currently
+	DelayDecimate int `yaml:"decimatetime"`
+	// VarAckDelay unused currently
+	VarAckDelay int `yaml:"varackdelay"`
+
+	// Congestion unused but probably will have an implementation soon
+	Congestion int `yaml:"congestion"`
+
+	// -- Unused values -- //
 }
 
+// rawConfigType struct that allows to decode and overwrite the main configuration
 type rawConfigType map[string]interface{}
 
+// updateIntField method udpates a variable pointer of int type if the variable name is contained in the map
+// which is expected to contain a string value
 func (r rawConfigType) updateIntField(field *int, name string) {
 	if val, ok := r[name]; ok {
-		intValue, err := strconv.ParseInt(val.(string), 10, 64)
-		if err == nil {
-			*field = int(intValue)
-			logger.Info("update int value [%s]: %d", name, intValue)
+		switch v := val.(type) {
+		case string:
+			intValue, err := strconv.ParseInt(val.(string), 10, 64)
+			if err == nil {
+				*field = int(intValue)
+				logger.Info("update int value [%s]: %d", name, intValue)
+			}
+			return
+		case int:
+			*field = v
+			logger.Info("update int value [%s]: %d", name, *field)
+			return
 		}
 	}
 }
+
+// updateIntField method udpates a variable pointer of string type if the variable name is contained in the map
+// which is expected to contain a string value
 func (r rawConfigType) updateStringField(field *string, name string) {
 	if val, ok := r[name]; ok {
 		*field = val.(string)
 		logger.Info("update string value [%s]: %v", name, val)
 	}
 }
+
+// updateIntField method udpates a variable pointer of boolean type if the variable name is contained in the map
+// which is expected to contain a string value
 func (r rawConfigType) updateBoolField(field *bool, name string) {
 	if val, ok := r[name]; ok {
-		boolValue, err := strconv.ParseBool(val.(string))
-		if err == nil {
-			*field = boolValue
-			logger.Info("update bool value [%s]: %v", name, boolValue)
+		switch v := val.(type) {
+		case string:
+			boolValue, err := strconv.ParseBool(val.(string))
+			if err == nil {
+				*field = boolValue
+				logger.Info("update int value [%s]: %v", name, boolValue)
+			}
+			return
+		case bool:
+			*field = v
+			logger.Info("update int value [%s]: %v", name, *field)
+			return
 		}
 	}
 }
 
+// override method updates all the fields of the configuration with the rawConfigType map
 func (q *QPepConfigType) override(r rawConfigType) {
-	r.updateIntField(&q.Acks, "acks")
-	r.updateIntField(&q.AckDelay, "ackdelay")
-	r.updateIntField(&q.Congestion, "congestion")
+	//r.updateIntField(&q.Acks, "acks")
+	//r.updateIntField(&q.AckDelay, "ackdelay")
+	//r.updateIntField(&q.Congestion, "congestion")
+	//r.updateIntField(&q.Decimate, "decimate")
+	//r.updateIntField(&q.DelayDecimate, "decimatetime")
+	//r.updateIntField(&q.VarAckDelay, "varackdelay")
+
 	r.updateIntField(&q.MaxConnectionRetries, "maxretries")
-	r.updateIntField(&q.Decimate, "decimate")
-	r.updateIntField(&q.DelayDecimate, "decimatetime")
 	r.updateStringField(&q.GatewayHost, "gateway")
 	r.updateIntField(&q.GatewayPort, "port")
 	r.updateIntField(&q.GatewayAPIPort, "apiport")
@@ -114,34 +181,38 @@ func (q *QPepConfigType) override(r rawConfigType) {
 	r.updateBoolField(&q.MultiStream, "multistream")
 	r.updateBoolField(&q.PreferProxy, "preferproxy")
 	r.updateBoolField(&q.Verbose, "verbose")
-	r.updateIntField(&q.VarAckDelay, "varackdelay")
 	r.updateIntField(&q.WinDivertThreads, "threads")
 }
 
+// GetConfigurationPaths returns the current paths for handling the configuration files, creating them if those don't exist:
+// configuration directory, configuration filename and the configuration override filename
 func GetConfigurationPaths() (string, string, string) {
 	basedir, err := os.Executable()
 	if err != nil {
-		logger.Error("Could not find executable: %s", err)
+		logger.Panic("Could not find executable: %s", err)
 	}
 
-	confdir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
-	if _, err := os.Stat(confdir); errors.Is(err, os.ErrNotExist) {
-		os.Mkdir(confdir, 0664)
+	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
+	if _, err := os.Stat(confDir); errors.Is(err, os.ErrNotExist) {
+		os.Mkdir(confDir, 0664)
 	}
 
-	confFile := filepath.Join(confdir, CONFIG_FILENAME)
+	confFile := filepath.Join(confDir, CONFIG_FILENAME)
 	if _, err := os.Stat(confFile); errors.Is(err, os.ErrNotExist) {
 		_ = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0666)
 	}
 
-	confUserFile := filepath.Join(confdir, CONFIG_OVERRIDE_FILENAME)
+	confUserFile := filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
 	if _, err := os.Stat(confUserFile); errors.Is(err, os.ErrNotExist) {
 		_ = os.WriteFile(confUserFile, []byte(`\n`), 0666)
 	}
 
-	return confdir, confFile, confUserFile
+	return confDir, confFile, confUserFile
 }
 
+// ReadConfiguration method loads the global configuration from the yaml files, if the _ignoreCustom_ value is true
+// then only the main file is loaded, ignoring the user one, if false then the user file is loaded and its config values
+// override the main ones
 func ReadConfiguration(ignoreCustom bool) (outerr error) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -174,6 +245,7 @@ func ReadConfiguration(ignoreCustom bool) (outerr error) {
 		return err
 	}
 
+	// check if custom file needs to be ignored
 	if ignoreCustom {
 		return nil
 	}
@@ -193,11 +265,15 @@ func ReadConfiguration(ignoreCustom bool) (outerr error) {
 	dataCustom, _ := io.ReadAll(fUser)
 	if err = yaml.Unmarshal(dataCustom, &userConfig); err == nil {
 		logger.Info("override %v", userConfig)
+
+		// actual merge of main configuration and user one
 		QPepConfig.override(userConfig)
 	}
 	return nil
 }
 
+// WriteConfigurationOverrideFile method writes the indicated map of values to the user yaml configuration file
+// warning: can potentially contain values which are not recognized by the configuration
 func WriteConfigurationOverrideFile(values map[string]string) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -228,6 +304,8 @@ func WriteConfigurationOverrideFile(values map[string]string) {
 	return
 }
 
+// createFileIfAbsent method creates a file for writing and optionally allows to truncate it by specifying the
+// to true the _truncate_ parameter
 func createFileIfAbsent(fileToCheck string, truncate bool) (*os.File, error) {
 	var flags = os.O_RDWR | os.O_CREATE
 	if truncate {

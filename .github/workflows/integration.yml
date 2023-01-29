@@ -64,12 +64,19 @@ jobs:
         
     - name: Test
       run: |
+        go install github.com/jstemmer/go-junit-report@latest
         set GOARCH=amd64
         set GOOS=windows
         set CGO_ENABLED=1
-        go test -v -gcflags=-l ./...
+        go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
       
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action/composite@v2
+      if: always()
+      with:
+        xunit_files: "unit_tests.xml"
+
     - uses: actions/checkout@v2
     - name: Install Wix
       uses: actions/checkout@v2
