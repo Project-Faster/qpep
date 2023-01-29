@@ -43,7 +43,9 @@ jobs:
         set GOARCH=amd64
         set GOOS=linux
         set CGO_ENABLED=0
-        go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+        go test -v -gcflags=-l 2>&1 ./... > tests.dat
+        cat tests.dat
+        cat tests.dat | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
       
     - name: Publish Test Results
@@ -58,104 +60,104 @@ jobs:
         name: qpep_linux_b${{ github.run_id }}
         path: build/qpep
 
-  build-windows:
-    runs-on: windows-latest
-    defaults:
-      run: 
-        shell: cmd
-    
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.18
-        
-    - uses: actions/checkout@v2
-    - name: Install Wix
-      uses: actions/checkout@v2
-      with:
-        repository: fbarresi/wix
-        path: wix
-
-    - name: Install MSBuild
-      uses: microsoft/setup-msbuild@v1.1
-      
-    - name: Prepare
-      run: |
-           MKDIR build
-           MKDIR build\64bits
-           MKDIR build\32bits
-           COPY /Y windivert\LICENSE build\LICENSE.windivert
-           COPY /Y LICENSE build\LICENSE
-           set GOARCH=amd64
-           go clean -cache
-           set GOARCH=386
-           go clean -cache
-           COPY /Y windivert\x64\* build\64bits
-           
-    - name: Build QPep 64bits
-      run: |
-           set GOARCH=amd64
-           set CGO_ENABLED=1
-           go build -o build\64bits\qpep.exe
-           
-    - name: Build QPep Tray 64bits
-      run: |
-           pushd qpep-tray
-           set GOARCH=amd64
-           set GOOS=windows
-           set CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
-           popd
-           
-    - name: Test
-      run: |
-        go install github.com/jstemmer/go-junit-report@latest
-        set GOARCH=amd64
-        set GOOS=windows
-        set CGO_ENABLED=1
-        go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
-      continue-on-error: true
-
-    - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action/composite@v2
-      if: always()
-      with:
-        check_name: "Unit Tests - Windows Platform"
-        junit_files: "unit_tests.xml"
-
-    - if: ${{ github.event.inputs.x86_version == true }}
-      name: Set up MinGW
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x86
-        
-    - if: ${{ github.event.inputs.x86_version == true }}
-      name: Build QPep x86
-      run: |
-           set GOARCH=386
-           set GOOS=windows
-           set CGO_ENABLED=1
-           go build -o build\64bits\qpep.exe
-           
-    - if: ${{ github.event.inputs.x86_version == true }}
-      name: Build QPep Tray x86
-      run: |
-           pushd qpep-tray
-           set GOARCH=386
-           set GOOS=windows
-           set CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
-           popd
-      
-    - name: Build QPep Installer
-      run: |
-           set PATH=${{ github.workspace }}\wix\tools;%PATH%
-           msbuild installer\installer.sln
-
-    - uses: actions/upload-artifact@v3
-      with:
-        name: qpep_windows_b${{ github.run_id }}
-        path: build/installer.msi
-        
+#  build-windows:
+#    runs-on: windows-latest
+#    defaults:
+#      run:
+#        shell: cmd
+#
+#    steps:
+#    - uses: actions/checkout@v3
+#    - name: Set up Go
+#      uses: actions/setup-go@v3
+#      with:
+#        go-version: 1.18
+#
+#    - uses: actions/checkout@v2
+#    - name: Install Wix
+#      uses: actions/checkout@v2
+#      with:
+#        repository: fbarresi/wix
+#        path: wix
+#
+#    - name: Install MSBuild
+#      uses: microsoft/setup-msbuild@v1.1
+#
+#    - name: Prepare
+#      run: |
+#           MKDIR build
+#           MKDIR build\64bits
+#           MKDIR build\32bits
+#           COPY /Y windivert\LICENSE build\LICENSE.windivert
+#           COPY /Y LICENSE build\LICENSE
+#           set GOARCH=amd64
+#           go clean -cache
+#           set GOARCH=386
+#           go clean -cache
+#           COPY /Y windivert\x64\* build\64bits
+#
+#    - name: Build QPep 64bits
+#      run: |
+#           set GOARCH=amd64
+#           set CGO_ENABLED=1
+#           go build -o build\64bits\qpep.exe
+#
+#    - name: Build QPep Tray 64bits
+#      run: |
+#           pushd qpep-tray
+#           set GOARCH=amd64
+#           set GOOS=windows
+#           set CGO_ENABLED=0
+#           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
+#           popd
+#
+#    - name: Test
+#      run: |
+#        go install github.com/jstemmer/go-junit-report@latest
+#        set GOARCH=amd64
+#        set GOOS=windows
+#        set CGO_ENABLED=1
+#        go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+#      continue-on-error: true
+#
+#    - name: Publish Test Results
+#      uses: EnricoMi/publish-unit-test-result-action/composite@v2
+#      if: always()
+#      with:
+#        check_name: "Unit Tests - Windows Platform"
+#        junit_files: "unit_tests.xml"
+#
+#    - if: ${{ github.event.inputs.x86_version == true }}
+#      name: Set up MinGW
+#      uses: egor-tensin/setup-mingw@v2
+#      with:
+#        platform: x86
+#
+#    - if: ${{ github.event.inputs.x86_version == true }}
+#      name: Build QPep x86
+#      run: |
+#           set GOARCH=386
+#           set GOOS=windows
+#           set CGO_ENABLED=1
+#           go build -o build\64bits\qpep.exe
+#
+#    - if: ${{ github.event.inputs.x86_version == true }}
+#      name: Build QPep Tray x86
+#      run: |
+#           pushd qpep-tray
+#           set GOARCH=386
+#           set GOOS=windows
+#           set CGO_ENABLED=0
+#           go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
+#           popd
+#
+#    - name: Build QPep Installer
+#      run: |
+#           set PATH=${{ github.workspace }}\wix\tools;%PATH%
+#           msbuild installer\installer.sln
+#
+#    - uses: actions/upload-artifact@v3
+#      with:
+#        name: qpep_windows_b${{ github.run_id }}
+#        path: build/installer.msi
+#

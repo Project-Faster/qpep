@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -194,17 +195,29 @@ func GetConfigurationPaths() (string, string, string) {
 
 	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
 	if _, err := os.Stat(confDir); errors.Is(err, os.ErrNotExist) {
-		_ = os.Mkdir(confDir, 0666)
+		err = os.Mkdir(confDir, 0666)
+		log.Printf("Folder creating: %v\n", err)
+
+		_, err = os.Stat(confDir)
+		log.Printf("Folder creating 2: %v\n", err)
 	}
 
 	confFile := filepath.Join(confDir, CONFIG_FILENAME)
 	if _, err := os.Stat(confFile); errors.Is(err, os.ErrNotExist) {
-		_ = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0666)
+		err = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0666)
+		log.Printf("Main config creating: %v\n", err)
+
+		_, err = os.Stat(confFile)
+		log.Printf("Main config creating 2: %v\n", err)
 	}
 
 	confUserFile := filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
 	if _, err := os.Stat(confUserFile); errors.Is(err, os.ErrNotExist) {
-		_ = os.WriteFile(confUserFile, []byte(`\n`), 0666)
+		err = os.WriteFile(confUserFile, []byte(`\n`), 0666)
+		log.Printf("User config creating: %v\n", err)
+
+		_, err = os.Stat(confUserFile)
+		log.Printf("User config creating 2: %v\n", err)
 	}
 
 	return confDir, confFile, confUserFile
