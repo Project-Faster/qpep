@@ -27,13 +27,14 @@ jobs:
         
     - name: Prepare
       run: |
-        mkdir -p ${{ runner.workspace }}/.gocache
-        set GOTMPDIR=${{ runner.workspace }}/.gocache
         mkdir build
         go install github.com/jstemmer/go-junit-report@latest
 
     - name: Build 64bits
       run: |
+        mkdir -p ${{ runner.workspace }}/.gocache
+        set GOTMPDIR=${{ runner.workspace }}/.gocache
+        echo $GOTMPDIR
         set GOARCH=amd64
         set GOOS=linux
         set CGO_ENABLED=1
