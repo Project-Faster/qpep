@@ -43,9 +43,9 @@ jobs:
         set GOARCH=amd64
         set GOOS=linux
         set CGO_ENABLED=0
-        go test -v -gcflags=-l 2>&1 ./... > tests.dat
-        cat tests.dat
-        cat tests.dat | go-junit-report -set-exit-code > unit_tests.xml
+        go test -v -gcflags=-l 2>&1 ./... > tests.dat || true
+        cat tests.dat || true
+        cat tests.dat | go-junit-report -set-exit-code > unit_tests.xml || true
       continue-on-error: true
       
     - name: Publish Test Results
