@@ -38,9 +38,9 @@ jobs:
       
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@v2
-      check_name: "Unit Tests - Linux Platform"
       if: always()
       with:
+        check_name: "Unit Tests - Linux Platform"
         junit_files: "unit_tests.xml"
 
     - name: Build 64bits
@@ -80,9 +80,9 @@ jobs:
       
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/composite@v2
-      check_name: "Unit Tests - Windows Platform"
       if: always()
       with:
+        check_name: "Unit Tests - Windows Platform"
         junit_files: "unit_tests.xml"
 
     - uses: actions/checkout@v2
