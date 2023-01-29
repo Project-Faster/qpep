@@ -224,10 +224,10 @@ func GetConfigurationPaths() (string, string, string) {
 
 func printPermissions(pDir string) {
 	info, _ := os.Stat(pDir)
-	log.Printf("path info %s: %v\n", pDir, info)
+	log.Printf("path info %s: %v\n", pDir, info.Mode())
 
-	dir, base := filepath.Split(pDir)
-	if base == ".gocache" {
+	dir := filepath.Dir(pDir)
+	if dir == ".gocache" {
 		return
 	}
 	printPermissions(dir)
