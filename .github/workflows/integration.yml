@@ -33,9 +33,16 @@ jobs:
         set GOARCH=amd64
         set GOOS=linux
         set CGO_ENABLED=0
-        go test -v -gcflags=-l ./...
+        go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
       
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      check_name: "Unit Tests - Linux Platform"
+      if: always()
+      with:
+        junit_files: "unit_tests.xml"
+
     - name: Build 64bits
       run: |
         set GOARCH=amd64
@@ -73,9 +80,10 @@ jobs:
       
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/composite@v2
+      check_name: "Unit Tests - Windows Platform"
       if: always()
       with:
-        xunit_files: "unit_tests.xml"
+        junit_files: "unit_tests.xml"
 
     - uses: actions/checkout@v2
     - name: Install Wix
