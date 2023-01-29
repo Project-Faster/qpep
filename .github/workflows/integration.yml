@@ -32,9 +32,6 @@ jobs:
 
     - name: Build 64bits
       run: |
-        mkdir -p ${{ runner.workspace }}/.gocache
-        set GOTMPDIR=${{ runner.workspace }}/.gocache
-        echo $GOTMPDIR
         set GOARCH=amd64
         set GOOS=linux
         set CGO_ENABLED=1
@@ -43,6 +40,9 @@ jobs:
 
     - name: Test
       run: |
+        mkdir -p ${{ runner.workspace }}/.gocache
+        set GOTMPDIR=${{ runner.workspace }}/.gocache
+        echo $GOTMPDIR
         set GOARCH=amd64
         set GOOS=linux
         set CGO_ENABLED=0
