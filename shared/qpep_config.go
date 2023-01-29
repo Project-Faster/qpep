@@ -195,16 +195,15 @@ func GetConfigurationPaths() (string, string, string) {
 
 	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
 	if _, err := os.Stat(confDir); err != nil {
-		err = os.Mkdir(confDir, 0666)
+		err = os.Mkdir(confDir, 0777)
 		log.Printf("Folder creating: %v\n", err)
 
-		_, err = os.Stat(confDir)
-		log.Printf("Folder creating 2: %v\n", err)
+		printPermissions(confDir)
 	}
 
 	confFile := filepath.Join(confDir, CONFIG_FILENAME)
 	if _, err := os.Stat(confFile); err != nil {
-		err = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0666)
+		err = os.WriteFile(confFile, []byte(DEFAULT_CONFIG), 0777)
 		log.Printf("Main config creating: %v\n", err)
 
 		_, err = os.Stat(confFile)
@@ -213,7 +212,7 @@ func GetConfigurationPaths() (string, string, string) {
 
 	confUserFile := filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
 	if _, err := os.Stat(confUserFile); err != nil {
-		err = os.WriteFile(confUserFile, []byte(`\n`), 0666)
+		err = os.WriteFile(confUserFile, []byte(`\n`), 0777)
 		log.Printf("User config creating: %v\n", err)
 
 		_, err = os.Stat(confUserFile)
@@ -221,6 +220,17 @@ func GetConfigurationPaths() (string, string, string) {
 	}
 
 	return confDir, confFile, confUserFile
+}
+
+func printPermissions(pDir string) {
+	info, _ := os.Stat(pDir)
+	log.Printf("path info %s: %v\n", info)
+
+	dir, base := filepath.Split(pDir)
+	if base == ".gocache" {
+		return
+	}
+	printPermissions(dir)
 }
 
 // ReadConfiguration method loads the global configuration from the yaml files, if the _ignoreCustom_ value is true
