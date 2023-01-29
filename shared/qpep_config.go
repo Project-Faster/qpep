@@ -194,7 +194,7 @@ func GetConfigurationPaths() (string, string, string) {
 
 	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
 	if _, err := os.Stat(confDir); errors.Is(err, os.ErrNotExist) {
-		os.Mkdir(confDir, 0664)
+		_ = os.Mkdir(confDir, 0666)
 	}
 
 	confFile := filepath.Join(confDir, CONFIG_FILENAME)
