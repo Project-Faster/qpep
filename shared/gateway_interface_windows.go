@@ -2,8 +2,8 @@ package shared
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
+	"github.com/parvit/qpep/logger"
 	"log"
 	"net/url"
 	"os/exec"
@@ -13,32 +13,40 @@ import (
 	"syscall"
 )
 
-/**
-* Parts of the code similar to the github.com/jackpal/gateway module
-* but the command output parse is different to allow extract also the
-* interface ID for interface filtering in the divert engine and the
-* local ip addresses to use as source addresses
- */
-
 const (
+	// PROXY_KEY_1 Registy key path related to the current user for proxy settings
 	PROXY_KEY_1 = `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+	// PROXY_KEY_2 Registy key path related to a specific user for proxy settings
 	PROXY_KEY_2 = `HKEY_USERS\%s\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-	PROXY_KEY_3 = `ProxyServer`
-	PROXY_KEY_4 = `REG_SZ`
+	// PROXY_KEY_ENABLE Registry key for enabling the system proxy
+	PROXY_KEY_ENABLE = `ProxyEnable`
+	// PROXY_KEY_HOST Registry key for indicating the address of the system proxy
+	PROXY_KEY_HOST = `ProxyServer`
+	// PROXY_TYPE_SZ Registry key value type for string values
+	PROXY_TYPE_SZ = `REG_SZ`
+	// PROXY_TYPE_DWORD Registry key value type for integer values
+	PROXY_TYPE_DWORD = `REG_DWORD`
 )
 
 var (
-	errNoGateway      = errors.New("no gateway found")
-	repl              = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_3, "", PROXY_KEY_4, "")
+	// proxyAddrReplacer cleans the value from registry command to extract the current proxy address
+	proxyAddrReplacer = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_HOST, "", PROXY_TYPE_SZ, "")
+	// usersRegistryKeys array of precomputed strings for every user's proxy settings key path
 	usersRegistryKeys = make([]string, 0, 8)
 )
 
+// runCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
+// an error if there was any issue with the command executed
 func runCommand(name string, cmd ...string) ([]byte, error) {
 	routeCmd := exec.Command(name, cmd...)
 	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	return routeCmd.CombinedOutput()
 }
 
+// getRouteGatewayInterfaces method extracts routing information using the "netsh" utility and returns specifically:
+// * Network Interface IDs list of all network interfaces configured
+// * Network Address List for every configured interface
+// * error in
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// Windows route output format is always like this:
 	// Tipo pubblicazione      Prefisso met.                  Gateway idx/Nome interfaccia
@@ -57,7 +65,8 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// get interfaces with default routes set
 	output, err := runCommand("netsh", "interface", "ip", "show", "route")
 	if err != nil {
-		return nil, nil, err
+		logger.Error("ERR: %v", err)
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	var routeInterfaceMap = make(map[string]int64)
@@ -76,13 +85,14 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 		routeInterfaceMap[fields[4]] = value
 	}
 	if len(routeInterfaceMap) == 0 {
-		return nil, nil, errNoGateway
+		logger.Error("ERR: %v", err)
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	// get the associated names of the interfaces
 	output, err = runCommand("netsh", "interface", "ip", "show", "interface")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	lines = strings.Split(string(output), "\n")
@@ -105,7 +115,8 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// parse the configuration of the interfaces to extract the addresses
 	output, err = runCommand("netsh", "interface", "ip", "show", "config")
 	if err != nil {
-		return nil, nil, err
+		logger.Error("ERR: %v", err)
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	rx := regexp.MustCompile(`.+"([^"]+)"`)
@@ -161,11 +172,11 @@ func SetSystemProxy(active bool) {
 		for _, userKey := range usersRegistryKeys {
 			log.Printf("Clearing system proxy settings\n")
 			_, _ = runCommand("reg", "add", userKey,
-				"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+				"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
 				"", "/f")
 
 			_, _ = runCommand("reg", "add", userKey,
-				"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
+				"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d", "0", "/f")
 		}
 
 		UsingProxy = false
@@ -176,11 +187,12 @@ func SetSystemProxy(active bool) {
 	log.Printf("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
 	for _, userKey := range usersRegistryKeys {
 		_, _ = runCommand("reg", "add", userKey,
-			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+			"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
 			fmt.Sprintf("%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort), "/f")
 
 		_, _ = runCommand("reg", "add", userKey,
-			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
+			"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d",
+			"1", "/f")
 	}
 
 	Flush()
@@ -195,20 +207,20 @@ func SetSystemProxy(active bool) {
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
 	data, err := runCommand("reg", "query", PROXY_KEY_1,
-		"/v", "ProxyEnable")
+		"/v", PROXY_KEY_ENABLE)
 	if err != nil {
 		log.Printf("ERR: %v\n", err)
 		return false, nil
 	}
 	if strings.Index(string(data), "0x1") != -1 {
 		data, err = runCommand("reg", "query", PROXY_KEY_1,
-			"/v", "ProxyServer")
+			"/v", PROXY_KEY_HOST)
 		if err != nil {
 			log.Printf("ERR: %v\n", err)
 			return false, nil
 		}
 
-		proxyUrlString := strings.TrimSpace(repl.Replace(string(data)))
+		proxyUrlString := strings.TrimSpace(proxyAddrReplacer.Replace(string(data)))
 		proxyUrl, err := url.Parse("http://" + proxyUrlString)
 		if err == nil {
 			return true, proxyUrl

@@ -2,10 +2,9 @@ package api
 
 import (
 	"fmt"
+	"github.com/parvit/qpep/logger"
 	"strings"
 	"sync"
-
-	. "github.com/parvit/qpep/logger"
 )
 
 const (
@@ -42,7 +41,7 @@ func (s *statistics) init() {
 		return
 	}
 
-	Debug("Statistics init.")
+	logger.Debug("Statistics init.")
 	s.semCounters = &sync.RWMutex{}
 	s.semState = &sync.RWMutex{}
 	s.hosts = make([]string, 0, 32)
@@ -53,22 +52,26 @@ func (s *statistics) Reset() {
 	s.semState = nil
 	s.init()
 
-	Debug("Statistics reset.")
+	logger.Debug("Statistics reset.")
 	s.counters = make(map[string]float64)
 	s.state = make(map[string]string)
 }
 
 func (s *statistics) asKey(prefix string, values ...string) string {
-	if len(values) == 0 {
-		return strings.ToLower(prefix) + "[]"
+	switch len(values) {
+	case 0:
+		return strings.ToLower(prefix + "[]")
+	case 1:
+		return strings.ToLower(prefix + "[" + values[0] + "]")
+	default:
+		return strings.ToLower(prefix + "[" + strings.Join(values, "-") + "]")
 	}
-	return strings.ToLower(prefix + "[" + strings.Join(values, "-") + "]")
 }
 
 // ---- Counters ---- //
 func (s *statistics) GetCounter(prefix string, keyparts ...string) float64 {
 	key := s.asKey(prefix, keyparts...)
-	if len(key) == 0 {
+	if len(key) <= 2 {
 		return -1
 	}
 
@@ -76,7 +79,7 @@ func (s *statistics) GetCounter(prefix string, keyparts ...string) float64 {
 	s.semCounters.RLock()
 	defer s.semCounters.RUnlock()
 
-	//Info("GET counter: %s = %.2f\n", key, s.counters[key])
+	logger.Debug("GET counter: %s = %.2f\n", key, s.counters[key])
 	if val, ok := s.counters[key]; ok {
 		return val
 	}
@@ -85,7 +88,7 @@ func (s *statistics) GetCounter(prefix string, keyparts ...string) float64 {
 
 func (s *statistics) SetCounter(value float64, prefix string, keyparts ...string) float64 {
 	key := s.asKey(prefix, keyparts...)
-	if len(key) == 0 {
+	if len(key) <= 2 {
 		return -1
 	}
 	if value < 0 {
@@ -97,13 +100,13 @@ func (s *statistics) SetCounter(value float64, prefix string, keyparts ...string
 	defer s.semCounters.Unlock()
 
 	s.counters[key] = value
-	//Info("SET counter: %s = %.2f\n", key, s.counters[key])
+	logger.Debug("SET counter: %s = %.2f\n", key, s.counters[key])
 	return value
 }
 
 func (s *statistics) GetCounterAndClear(prefix string, keyparts ...string) float64 {
 	key := s.asKey(prefix, keyparts...)
-	if len(key) == 0 {
+	if len(key) <= 2 {
 		return -1
 	}
 
@@ -111,7 +114,7 @@ func (s *statistics) GetCounterAndClear(prefix string, keyparts ...string) float
 	s.semCounters.Lock()
 	defer s.semCounters.Unlock()
 
-	//Info("GET+CLEAR counter: %s = %.2f\n", key, s.counters[key])
+	logger.Debug("GET+CLEAR counter: %s = %.2f\n", key, s.counters[key])
 	if val, ok := s.counters[key]; ok {
 		s.counters[key] = 0.0
 		return val
@@ -125,7 +128,7 @@ func (s *statistics) IncrementCounter(incr float64, prefix string, keyparts ...s
 	}
 
 	key := s.asKey(prefix, keyparts...)
-	if len(key) == 0 {
+	if len(key) <= 2 {
 		return -1
 	}
 	s.init()
@@ -148,7 +151,7 @@ func (s *statistics) DecrementCounter(decr float64, prefix string, keyparts ...s
 	}
 
 	key := s.asKey(prefix, keyparts...)
-	if len(key) == 0 {
+	if len(key) <= 2 {
 		return -1.0
 	}
 
@@ -162,7 +165,7 @@ func (s *statistics) DecrementCounter(decr float64, prefix string, keyparts ...s
 		return 0.0
 	}
 
-	//Info("counter: %s = %.2f\n", key, value-decr)
+	logger.Debug("counter: %s = %.2f\n", key, value-decr)
 	s.counters[key] = value - decr
 	return value - decr
 }
@@ -170,7 +173,7 @@ func (s *statistics) DecrementCounter(decr float64, prefix string, keyparts ...s
 // ---- State ---- //
 func (s *statistics) GetState(prefix string, keyparts ...string) string {
 	key := s.asKey(prefix, keyparts...)
-	if len(key) == 0 {
+	if len(key) <= 2 {
 		return ""
 	}
 
@@ -186,7 +189,7 @@ func (s *statistics) GetState(prefix string, keyparts ...string) string {
 
 func (s *statistics) SetState(value, prefix string, keyparts ...string) string {
 	key := s.asKey(prefix, keyparts...)
-	if len(key) == 0 {
+	if len(key) <= 2 {
 		return ""
 	}
 
@@ -216,15 +219,12 @@ func (s *statistics) SetMappedAddress(source string, dest string) {
 	defer s.semState.Unlock()
 
 	if _, ok := s.state[source]; !ok {
-		found := false
-		for i := 0; i < len(s.hosts); i++ {
-			if strings.EqualFold(s.hosts[i], dest) {
-				found = true
-				break
-			}
-		}
-		if !found {
+		key := "host-" + dest
+		if _, found := s.counters[key]; !found {
 			s.hosts = append(s.hosts, dest)
+			s.counters[key] = 1
+		} else {
+			s.counters[key]++
 		}
 	}
 	s.state[source] = dest
@@ -237,12 +237,19 @@ func (s *statistics) DeleteMappedAddress(source string) {
 
 	if _, ok := s.state[source]; ok {
 		mapped := s.state[source]
-		for i := 0; i < len(s.hosts); i++ {
-			if !strings.EqualFold(s.hosts[i], mapped) {
-				continue
+		key := "host-" + mapped
+		if counter, found := s.counters[key]; found && counter > 1 {
+			s.counters[key]--
+
+		} else {
+			delete(s.counters, key)
+			for i := 0; i < len(s.hosts); i++ {
+				if !strings.EqualFold(s.hosts[i], mapped) {
+					continue
+				}
+				s.hosts = append(s.hosts[:i], s.hosts[i+1:]...)
+				break
 			}
-			s.hosts = append(s.hosts[:i], s.hosts[i+1:]...)
-			break
 		}
 	}
 	delete(s.state, source)
@@ -255,7 +262,7 @@ func (s *statistics) GetHosts() []string {
 	defer s.semState.RUnlock()
 
 	// for test
-	//Info("hosts: %v\n", strings.Join(s.hosts, ","))
+	logger.Debug("hosts: %v\n", strings.Join(s.hosts, ","))
 	//v := append([]string{}, "127.0.0.1")
 	v := append([]string{}, s.hosts...)
 	return v

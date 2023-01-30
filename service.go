@@ -49,6 +49,8 @@ type QPepService struct {
 }
 
 func serviceMain() {
+	flags.ParseFlags(os.Args)
+
 	execPath, err := os.Executable()
 	if err != nil {
 		Info("Could not find executable: %s", err)

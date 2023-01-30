@@ -1,3 +1,11 @@
+/*
+ * This file in shared package handles the global configuration coming from yaml files.
+ * It loads the two files "config.yaml" and "config.user.yaml" from the "config" folder
+ * (in the binary directory).
+ * The first file is required and will be created with default values if it does not exist.
+ * The values in the user file (if present) will be merged with the main configuration and
+ * overrides it.
+ */
 package shared
 
 import (
