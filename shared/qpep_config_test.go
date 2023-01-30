@@ -42,7 +42,7 @@ type QPepConfigSuite struct{ suite.Suite }
 func (s *QPepConfigSuite) BeforeTest() {
 }
 
-func (s *QPepConfigSuite) AfterTest() {
+func (s *QPepConfigSuite) AfterTest(_, _ string) {
 	monkey.UnpatchAll()
 
 	basedir, _ := os.Executable()
@@ -140,8 +140,9 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithoutUserConfig() {
 func (s *QPepConfigSuite) TestReadConfiguration_WithUserConfigOverride() {
 	basedir, _ := os.Executable()
 	expectConfDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
+	_ = os.Mkdir(expectConfDir, 0777)
 	expectConfFile := filepath.Join(expectConfDir, CONFIG_OVERRIDE_FILENAME)
-	_ = ioutil.WriteFile(expectConfFile, []byte(`port: 9090`), 0666)
+	_ = ioutil.WriteFile(expectConfFile, []byte("port: 9090\n"), 0666)
 
 	assert.Nil(s.T(), ReadConfiguration(false))
 
@@ -182,6 +183,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_errorMainReadFile() {
 func (s *QPepConfigSuite) TestReadConfiguration_errorMainFailedUnmarshal() {
 	basedir, _ := os.Executable()
 	expectConfDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
+	_ = os.Mkdir(expectConfDir, 0777)
 	expectConfFile := filepath.Join(expectConfDir, CONFIG_FILENAME)
 	_ = ioutil.WriteFile(expectConfFile, []byte("port: 9090\nport: 9090"), 0666)
 

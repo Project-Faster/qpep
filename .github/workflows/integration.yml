@@ -59,16 +59,6 @@ jobs:
         name: qpep_linux_b${{ github.run_id }}
         path: build/qpep
 
-    - uses: actions/upload-artifact@v3
-      with:
-        name: tests_raw
-        path: tests.dat
-
-    - uses: actions/upload-artifact@v3
-      with:
-        name: tests_xml
-        path: unit_tests.xml
-
   build-windows:
     runs-on: windows-latest
     defaults:

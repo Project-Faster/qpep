@@ -33,6 +33,12 @@ var (
 	usersRegistryKeys = make([]string, 0, 8)
 )
 
+func runCommand(name string, cmd ...string) ([]byte, error) {
+	routeCmd := exec.Command(name, cmd...)
+	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return routeCmd.CombinedOutput()
+}
+
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// Windows route output format is always like this:
 	// Tipo pubblicazione      Prefisso met.                  Gateway idx/Nome interfaccia
@@ -49,9 +55,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// No       Sistema   256  192.168.1.255/32           18  Wi-Fi
 
 	// get interfaces with default routes set
-	routeCmd := exec.Command("netsh", "interface", "ip", "show", "route")
-	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err := routeCmd.CombinedOutput()
+	output, err := runCommand("netsh", "interface", "ip", "show", "route")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -76,9 +80,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	}
 
 	// get the associated names of the interfaces
-	interfaceCmd := exec.Command("netsh", "interface", "ip", "show", "interface")
-	interfaceCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err = interfaceCmd.CombinedOutput()
+	output, err = runCommand("netsh", "interface", "ip", "show", "interface")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -101,9 +103,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	}
 
 	// parse the configuration of the interfaces to extract the addresses
-	configCmd := exec.Command("netsh", "interface", "ip", "show", "config")
-	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err = configCmd.CombinedOutput()
+	output, err = runCommand("netsh", "interface", "ip", "show", "config")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -157,20 +157,15 @@ BLOCK:
 func SetSystemProxy(active bool) {
 	preloadRegistryKeysForUsers()
 
-	var configCmd *exec.Cmd
 	if !active {
 		for _, userKey := range usersRegistryKeys {
 			log.Printf("Clearing system proxy settings\n")
-			configCmd = exec.Command("reg", "add", userKey,
+			_, _ = runCommand("reg", "add", userKey,
 				"/v", "ProxyServer", "/t", "REG_SZ", "/d",
 				"", "/f")
-			configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			configCmd.Run()
 
-			configCmd = exec.Command("reg", "add", userKey,
+			_, _ = runCommand("reg", "add", userKey,
 				"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
-			configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			configCmd.Run()
 		}
 
 		UsingProxy = false
@@ -180,15 +175,12 @@ func SetSystemProxy(active bool) {
 
 	log.Printf("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
 	for _, userKey := range usersRegistryKeys {
-		configCmd = exec.Command("reg", "add", userKey,
+		_, _ = runCommand("reg", "add", userKey,
 			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
 			fmt.Sprintf("%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort), "/f")
-		configCmd.Run()
 
-		configCmd = exec.Command("reg", "add", userKey,
+		_, _ = runCommand("reg", "add", userKey,
 			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
-		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		configCmd.Run()
 	}
 
 	Flush()
@@ -202,25 +194,21 @@ func SetSystemProxy(active bool) {
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
-	configCmd := exec.Command("reg", "query", PROXY_KEY_1,
+	data, err := runCommand("reg", "query", PROXY_KEY_1,
 		"/v", "ProxyEnable")
-	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	data, err := configCmd.CombinedOutput()
 	if err != nil {
 		log.Printf("ERR: %v\n", err)
 		return false, nil
 	}
 	if strings.Index(string(data), "0x1") != -1 {
-		proxyCmd := exec.Command("reg", "query", PROXY_KEY_1,
+		data, err = runCommand("reg", "query", PROXY_KEY_1,
 			"/v", "ProxyServer")
-		proxyCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		data2, err := proxyCmd.CombinedOutput()
 		if err != nil {
 			log.Printf("ERR: %v\n", err)
 			return false, nil
 		}
 
-		proxyUrlString := strings.TrimSpace(repl.Replace(string(data2)))
+		proxyUrlString := strings.TrimSpace(repl.Replace(string(data)))
 		proxyUrl, err := url.Parse("http://" + proxyUrlString)
 		if err == nil {
 			return true, proxyUrl
@@ -234,9 +222,7 @@ func preloadRegistryKeysForUsers() {
 		return
 	}
 
-	configCmd := exec.Command("wmic", "useraccount", "get", "sid")
-	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	data, err := configCmd.CombinedOutput()
+	data, err := runCommand("wmic", "useraccount", "get", "sid")
 	if err != nil {
 		log.Printf("ERR: %v\n", err)
 		panic(fmt.Sprintf("ERR: %v", err))
