@@ -99,7 +99,7 @@ func apiFilter(next httprouter.Handle) httprouter.Handle {
 		Info("apiFilter - %s\n", formatRequest(r))
 
 		// Request API request must accept JSON
-		accepts := r.Header.Get(textproto.CanonicalMIMEHeaderKey("accept"))
+		accepts := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Accept"))
 		if len(accepts) > 0 {
 			if !strings.Contains(accepts, "application/json") &&
 				!strings.Contains(accepts, "application/*") &&
@@ -124,7 +124,7 @@ func (n *notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Request not found for API request will accept JSON
 	accepts := r.Header.Get(textproto.CanonicalMIMEHeaderKey("accept"))
 	if len(accepts) > 0 && strings.EqualFold(accepts, "application/json") {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
