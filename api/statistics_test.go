@@ -260,7 +260,7 @@ func (s *StatisticsSuite) TestGetSetState() {
 	st.Reset()
 
 	assert.Equal(t, "", st.GetState("test", TOTAL_CONNECTIONS))
-	assert.Equal(t, "X", st.SetState("X", "test", TOTAL_CONNECTIONS))
+	assert.Equal(t, "X", st.SetState("test", "X", TOTAL_CONNECTIONS))
 	assert.Equal(t, "X", st.GetState("test", TOTAL_CONNECTIONS))
 }
 
@@ -271,7 +271,7 @@ func (s *StatisticsSuite) TestGetSetState_BadKey() {
 	st.Reset()
 
 	assert.Equal(t, "", st.GetState(""))
-	assert.Equal(t, "", st.SetState("X", ""))
+	assert.Equal(t, "", st.SetState("", "X"))
 }
 
 func (s *StatisticsSuite) TestGetMappedAddress() {

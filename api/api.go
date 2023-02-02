@@ -27,17 +27,17 @@ func formatRequest(r *http.Request) string {
 }
 
 // path /status
-func apiStatus(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	var counter float64 = -1.0
+func apiStatus(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 	addr := ps.ByName("addr")
 
-	if len(addr) > 0 {
-		counter = Statistics.GetCounter(PERF_CONN, addr)
+	if len(addr) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	data, err := json.Marshal(StatusReponse{
 		LastCheck:         time.Now().Format(time.RFC3339Nano),
-		ConnectionCounter: int(counter),
+		ConnectionCounter: int(Statistics.GetCounter(PERF_CONN, addr)),
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -49,7 +49,7 @@ func apiStatus(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 }
 
 // path /echo
-func apiEcho(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func apiEcho(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mappedAddr := r.RemoteAddr
 
 	if !strings.HasPrefix(r.RemoteAddr, "127.") {
@@ -60,14 +60,12 @@ func apiEcho(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 	}
 
-	dataAddr := strings.Split(mappedAddr, ":")
 	port := int64(0)
+	dataAddr := strings.Split(mappedAddr, ":")
 
 	switch len(dataAddr) {
 	default:
-		fallthrough
-	case 0:
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	case 1:
 		break
@@ -93,14 +91,14 @@ func apiEcho(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 }
 
 // path /versions
-func apiVersions(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func apiVersions(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	server := "N/A"
 	client := "N/A"
 	if strings.Contains(r.URL.String(), API_PREFIX_SERVER) {
 		server = version.Version()
 	} else {
-		server = Statistics.GetState(INFO_OTHER_VERSION)
 		client = version.Version()
+		server = Statistics.GetState(INFO_OTHER_VERSION)
 	}
 
 	data, err := json.Marshal(VersionsResponse{
@@ -117,7 +115,7 @@ func apiVersions(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 }
 
 // path /statistics/hosts
-func apiStatisticsHosts(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func apiStatisticsHosts(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	info := StatsInfoReponse{}
 	hosts := Statistics.GetHosts()
 
@@ -141,7 +139,7 @@ func apiStatisticsHosts(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 }
 
 // path /statistics/info, /statistics/info/:addr
-func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func apiStatisticsInfo(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 	reqAddress := ps.ByName("addr")
 
 	lastUpdate := ""
@@ -186,7 +184,7 @@ func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 }
 
 // path /statistics/data , /statistics/data/:addr
-func apiStatisticsData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func apiStatisticsData(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 	reqAddress := ps.ByName("addr")
 
 	currConnections := Statistics.GetCounter(PERF_CONN, reqAddress)

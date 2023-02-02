@@ -17,6 +17,12 @@ import (
 )
 
 func getClientForAPI(localAddr net.Addr) *http.Client {
+	dialer := &net.Dialer{
+		LocalAddr: localAddr,
+		Timeout:   5 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
 	return &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
@@ -27,12 +33,7 @@ func getClientForAPI(localAddr net.Addr) *http.Client {
 				}
 				return nil, nil
 			},
-			DialContext: (&net.Dialer{
-				LocalAddr: localAddr,
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
-				DualStack: true,
-			}).DialContext,
+			DialContext:     dialer.DialContext,
 			MaxIdleConns:    1,
 			IdleConnTimeout: 10 * time.Second,
 			//TLSHandshakeTimeout:   10 * time.Second,

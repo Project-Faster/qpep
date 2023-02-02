@@ -187,7 +187,7 @@ func (s *statistics) GetState(prefix string, keyparts ...string) string {
 	return ""
 }
 
-func (s *statistics) SetState(value, prefix string, keyparts ...string) string {
+func (s *statistics) SetState(prefix, value string, keyparts ...string) string {
 	key := s.asKey(prefix, keyparts...)
 	if len(key) <= 2 {
 		return ""
