@@ -23,12 +23,12 @@ type StatusReponse struct {
 	ConnectionCounter int    `json:"connection_counter"`
 }
 
-type StatsInfoRow struct {
+type StatsInfo struct {
 	ID        int    `json:"id"`
 	Attribute string `json:"attribute"`
 	Value     string `json:"value"`
 	Name      string `json:"name"`
 }
 type StatsInfoReponse struct {
-	Data []StatsInfoRow `json:"data"`
+	Data []StatsInfo `json:"data"`
 }
