@@ -291,6 +291,9 @@ func (s *StatisticsSuite) TestSetMappedAddress() {
 	var st = &statistics{}
 	st.Reset()
 
+	st.SetMappedAddress("", "8.8.8.8")
+	st.SetMappedAddress("127.0.0.1", "")
+
 	assert.Equal(t, "", st.GetMappedAddress("127.0.0.1"))
 	st.SetMappedAddress("127.0.0.1", "8.8.8.8")
 	assert.Equal(t, "8.8.8.8", st.GetMappedAddress("127.0.0.1"))
@@ -312,6 +315,11 @@ func (s *StatisticsSuite) TestDeleteMappedAddress() {
 	st.SetMappedAddress("192.168.1.1", "8.8.8.8")
 	assert.Equal(t, "8.8.8.8", st.GetMappedAddress("192.168.1.1"))
 
+	// present and then removed
+	st.DeleteMappedAddress("127.0.0.1")
+	assert.Equal(t, "", st.GetMappedAddress("127.0.0.1"))
+
+	// not present
 	st.DeleteMappedAddress("127.0.0.1")
 	assert.Equal(t, "", st.GetMappedAddress("127.0.0.1"))
 

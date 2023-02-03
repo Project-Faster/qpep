@@ -16,6 +16,8 @@ import (
 	"github.com/parvit/qpep/shared"
 )
 
+// getClientForAPI method returns a correctly configured http client to be able to
+// contact the qpep APIs (dynamically adapting to either diverter mode or proxy mode)
 func getClientForAPI(localAddr net.Addr) *http.Client {
 	dialer := &net.Dialer{
 		LocalAddr: localAddr,
@@ -42,6 +44,8 @@ func getClientForAPI(localAddr net.Addr) *http.Client {
 	}
 }
 
+// doAPIRequest method encapsulates the common logic required to execute an api request
+// for the qpep APIs, client value is supposed to have been obtained from getClientForAPI
 func doAPIRequest(addr string, client *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", addr, nil)
 	if err != nil {
@@ -59,6 +63,8 @@ func doAPIRequest(addr string, client *http.Client) (*http.Response, error) {
 	return resp, nil
 }
 
+// RequestEcho method wraps the entire API connection logic to obtain an object of type
+// EchoResponse to check for connection to a qpep server.
 func RequestEcho(localAddress, address string, apiPort int, toServer bool) *EchoResponse {
 	prefix := API_PREFIX_CLIENT
 	if toServer {
@@ -115,7 +121,9 @@ func RequestEcho(localAddress, address string, apiPort int, toServer bool) *Echo
 	return respData
 }
 
-func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddress string, toServer bool) *StatusReponse {
+// RequestStatus method wraps the entire API connection logic to obtain an object of type
+// StatusResponse to query the current status of a server
+func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddress string, toServer bool) *StatusResponse {
 	prefix := API_PREFIX_CLIENT
 	if toServer {
 		prefix = API_PREFIX_SERVER
@@ -161,7 +169,7 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 		logger.Info("%s\n", str.String())
 	}
 
-	respData := &StatusReponse{}
+	respData := &StatusResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
 		logger.Error("7  %v\n", jsonErr)
@@ -171,7 +179,9 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 	return respData
 }
 
-func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicAddress string) *StatsInfoReponse {
+// RequestStatistics method wraps the entire API connection logic to obtain an object of type
+// StatsInfoResponse to obtain info about an host from a qpep server.
+func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicAddress string) *StatsInfoResponse {
 	apiPath := strings.Replace(API_PREFIX_SERVER+API_STATS_DATA_SRV_PATH, ":addr", publicAddress, -1)
 	addr := fmt.Sprintf("http://%s:%d%s", gatewayAddress, apiPort, apiPath)
 
@@ -213,7 +223,7 @@ func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicA
 		logger.Info("%s\n", str.String())
 	}
 
-	respData := &StatsInfoReponse{}
+	respData := &StatsInfoResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
 		logger.Error("10  %v\n", jsonErr)

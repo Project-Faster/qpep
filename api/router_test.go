@@ -78,10 +78,10 @@ func (s *RouterSuite) TestNewServer() {
 
 	ctx := context.Background()
 
-	router := NewRouter()
+	router := newRouter()
 	assert.NotNil(t, router)
 
-	srv := NewServer("127.0.0.1", router, ctx)
+	srv := newServer("127.0.0.1", router, ctx)
 	assert.NotNil(t, srv)
 }
 

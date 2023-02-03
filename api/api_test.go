@@ -78,7 +78,7 @@ func (s *APISuite) TestApiStatus() {
 	assert.Equal(t, http.StatusOK, w.status)
 	t.Logf("%v\n", w.Body.String())
 
-	var resp StatusReponse
+	var resp StatusResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 
@@ -255,7 +255,7 @@ func (s *APISuite) TestApiStatisticsHosts() {
 	assert.Equal(t, http.StatusOK, w.status)
 	t.Logf("%v\n", w.Body.String())
 
-	var resp StatsInfoReponse
+	var resp StatsInfoResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 
@@ -279,7 +279,7 @@ func (s *APISuite) TestApiStatisticsHosts_EmptyHosts() {
 	assert.Equal(t, http.StatusOK, w.status)
 	t.Logf("%v\n", w.Body.String())
 
-	var resp StatsInfoReponse
+	var resp StatsInfoResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 
@@ -310,7 +310,7 @@ func (s *APISuite) TestApiStatisticsInfo() {
 	assert.Equal(t, http.StatusOK, w.status)
 	t.Logf("%v\n", w.Body.String())
 
-	var resp StatsInfoReponse
+	var resp StatsInfoResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 
@@ -319,7 +319,7 @@ func (s *APISuite) TestApiStatisticsInfo() {
 	assert.Equal(t, 1, resp.Data[0].ID)
 	assert.Equal(t, "Address", resp.Data[0].Attribute)
 	assert.Equal(t, shared.QPepConfig.ListenHost, resp.Data[0].Value)
-	assert.Equal(t, "", resp.Data[0].Name)
+	assert.Equal(t, INFO_ADDRESS, resp.Data[0].Name)
 
 	assert.Equal(t, 2, resp.Data[1].ID)
 	assert.Equal(t, "Last Update", resp.Data[1].Attribute)
@@ -346,7 +346,7 @@ func (s *APISuite) TestApiStatisticsInfo_WithAddressParam() {
 	assert.Equal(t, http.StatusOK, w.status)
 	t.Logf("%v\n", w.Body.String())
 
-	var resp StatsInfoReponse
+	var resp StatsInfoResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 
@@ -355,7 +355,7 @@ func (s *APISuite) TestApiStatisticsInfo_WithAddressParam() {
 	assert.Equal(t, 1, resp.Data[0].ID)
 	assert.Equal(t, "Address", resp.Data[0].Attribute)
 	assert.Equal(t, "127.0.0.1", resp.Data[0].Value)
-	assert.Equal(t, "", resp.Data[0].Name)
+	assert.Equal(t, INFO_ADDRESS, resp.Data[0].Name)
 
 	assert.Equal(t, 2, resp.Data[1].ID)
 	assert.Equal(t, "Last Update", resp.Data[1].Attribute)
@@ -390,7 +390,7 @@ func (s *APISuite) TestApiStatisticsData() {
 	assert.Equal(t, http.StatusOK, w.status)
 	t.Logf("%v\n", w.Body.String())
 
-	var resp StatsInfoReponse
+	var resp StatsInfoResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 
@@ -439,7 +439,7 @@ func (s *APISuite) TestApiStatisticsData_WithAddressParam() {
 	assert.Equal(t, http.StatusOK, w.status)
 	t.Logf("%v\n", w.Body.String())
 
-	var resp StatsInfoReponse
+	var resp StatsInfoResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.Nil(t, err)
 
