@@ -11,6 +11,7 @@ import (
 	"github.com/parvit/qpep/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"os"
 	"testing"
 	"time"
 )
@@ -38,6 +39,10 @@ func (s *WinDivertSuite) AfterTest(_, _ string) {
 }
 
 func (s *WinDivertSuite) BeforeTest(_, _ string) {
+	if value := os.Getenv("QPEP_CI_ENV"); len(value) > 0 {
+		s.T().Skip("Skipping because CI environment does not support windivert execution")
+		return
+	}
 
 	flags.Globals.Client = false
 	shared.QPepConfig.Verbose = true

@@ -43,6 +43,7 @@ jobs:
         set GOARCH=amd64
         set GOOS=linux
         set CGO_ENABLED=0
+        set QPEP_CI_ENV=1
         go test -v -gcflags=-l 2>&1 ./... > tests.dat || true
         cat tests.dat | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
@@ -116,6 +117,7 @@ jobs:
         set GOARCH=amd64
         set GOOS=windows
         set CGO_ENABLED=1
+        set QPEP_CI_ENV=1
         go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
 

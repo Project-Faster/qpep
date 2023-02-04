@@ -25,12 +25,12 @@ func (s *WinDivertSuite) BeforeTest(_, _ string) {}
 func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	t := s.T()
 
-	addr, itFaces := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
 		shared.QPepConfig.GatewayAPIPort, 445,
-		4, itFaces[0])
+		4, 0)
 
 	assert.Equal(t, DIVERT_OK, code)
 }
@@ -38,12 +38,12 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 	t := s.T()
 
-	addr, itFaces := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
 		0, 0,
-		4, itFaces[0])
+		4, 0)
 
 	assert.NotEqual(t, DIVERT_OK, code)
 }
@@ -51,12 +51,12 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 func (s *WinDivertSuite) TestCloseWinDivertEngine() {
 	t := s.T()
 
-	addr, itFaces := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
 		shared.QPepConfig.GatewayAPIPort, 445,
-		4, itFaces[0])
+		4, 0)
 
 	assert.Equal(t, DIVERT_OK, code)
 
