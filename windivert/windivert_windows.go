@@ -2,9 +2,9 @@
 
 package windivert
 
-//#cgo windows CPPFLAGS: -DWIN32 -D_WIN32_WINNT=0x0600 -I include/
-//#cgo windows,amd64 LDFLAGS: windivert/x64/WinDivert.dll
-//#cgo windows,386 LDFLAGS: windivert/x86/WinDivert.dll
+//#cgo windows CPPFLAGS: -DWIN32 -D_WIN32_WINNT=0x0600 -I ${SRCDIR}/include/
+//#cgo windows,amd64 LDFLAGS: ${SRCDIR}/x64/WinDivert.dll
+//#cgo windows,386 LDFLAGS: ${SRCDIR}/x86/WinDivert.dll
 //#include "windivert_wrapper.h"
 import "C"
 
@@ -14,13 +14,13 @@ import (
 	. "github.com/parvit/qpep/logger"
 )
 
-const (
-	DIVERT_OK                  = 0
-	DIVERT_ERROR_NOTINITILIZED = 1
-	DIVERT_ERROR_ALREADY_INIT  = 2
-	DIVERT_ERROR_FAILED        = 3
-)
-
+// InitializeWinDivertEngine method invokes the initialization of the WinDivert library, specifying that:
+// * _gatewayAddr_ Packets must be redirected to this address
+// * _listenAddr_ Packets must have source on this address
+// * _gatewayPort_ Packets must be redirected to this port
+// * _listenPort_ Packets must have source from this port
+// * _numThreads_ Number of threads to use for the packet capturing routines
+// * _gatewayInterfaces_ Only accept divert of packets of this interface id
 func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) int {
 	gatewayStr := C.CString(gatewayAddr)
 	listenStr := C.CString(listenAddr)
@@ -33,10 +33,17 @@ func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, list
 	return response
 }
 
+// CloseWinDivertEngine method closes a running WinDivert engine
 func CloseWinDivertEngine() int {
 	return int(C.CloseWinDivertEngine())
 }
 
+// GetConnectionStateData method returns the data for a connection on the specified port:
+// * error code
+// * source port
+// * destination port
+// * source address
+// * destination address
 func GetConnectionStateData(port int) (int, int, int, string, string) {
 	const n = C.sizeof_char
 
@@ -60,6 +67,9 @@ func GetConnectionStateData(port int) (int, int, int, string, string) {
 	return int(result), -1, -1, "", ""
 }
 
+// EnableDiverterLogging method sets to active or not the verbose logging of the windivert library
+// !! Warning !! Activating this incurs in heavy performance cost (mostly in the C<->Go context switch
+// for logging to the go stream)
 func EnableDiverterLogging(enable bool) {
 	val := 0
 	msg := "Diverter debug messages won't be output"
