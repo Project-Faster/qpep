@@ -30,6 +30,10 @@ type WinDivertSuite struct {
 }
 
 func (s *WinDivertSuite) AfterTest(_, _ string) {
+	if s.T().Skipped() {
+		return
+	}
+
 	CloseWinDivertEngine()
 
 	// stops the launched server
