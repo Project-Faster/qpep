@@ -73,6 +73,16 @@ jobs:
       with:
         go-version: 1.18
 
+    - uses: actions/checkout@v2
+    - name: Install Wix
+      uses: actions/checkout@v2
+      with:
+        repository: fbarresi/wix
+        path: wix
+
+    - name: Install MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+
     - name: Prepare
       run: |
            MKDIR build
@@ -109,7 +119,7 @@ jobs:
         set GOOS=windows
         set CGO_ENABLED=1
         set QPEP_CI_ENV=1
-        go generate ./...
+        cd windivert && go generate ./...
         go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
 
@@ -143,16 +153,6 @@ jobs:
            set CGO_ENABLED=0
            go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
            popd
-
-    - uses: actions/checkout@v2
-    - name: Install Wix
-      uses: actions/checkout@v2
-      with:
-        repository: fbarresi/wix
-        path: wix
-
-    - name: Install MSBuild
-      uses: microsoft/setup-msbuild@v1.1
 
     - name: Build QPep Installer
       run: |
