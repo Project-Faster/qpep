@@ -1,6 +1,6 @@
 //go:build windows && cgo
 
-//go:generate cmd /c "robocopy x64\\ ."
+//go:generate cmd /c "robocopy x64\\ . *.lib *.sys *.dll" & exit 0
 
 package windivert
 

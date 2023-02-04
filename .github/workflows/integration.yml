@@ -119,7 +119,7 @@ jobs:
         set GOOS=windows
         set CGO_ENABLED=1
         set QPEP_CI_ENV=1
-        cd windivert && go generate ./...
+        go generate github.com/parvit/qpep/windivert
         go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
 
