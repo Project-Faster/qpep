@@ -45,20 +45,7 @@ var (
 		WinDivertThreads:     1,
 		Verbose:              false,
 	}
-	quicSession             quic.Connection
-	QuicClientConfiguration = quic.Config{
-		MaxIncomingStreams:      40000,
-		DisablePathMTUDiscovery: true,
-		//		Tracer: qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
-		//			filename := fmt.Sprintf("client_%x.qlog", connID)
-		//			f, err := os.Create(filename)
-		//			if err != nil {
-		//				log.Fatal(err)
-		//			}
-		//			Info("Creating qlog file %s.\n", filename)
-		//			return &shared.QLogWriter{Writer: bufio.NewWriter(f)}
-		//		}),
-	}
+	quicSession quic.Connection
 )
 
 type ClientConfig struct {
@@ -604,10 +591,10 @@ func openQuicSession() (quic.Connection, error) {
 	var session quic.Connection
 	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"qpep"}}
 	gatewayPath := ClientConfiguration.GatewayHost + ":" + strconv.Itoa(ClientConfiguration.GatewayPort)
-	quicClientConfig := QuicClientConfiguration
+	quicClientConfig := shared.GetQuicConfiguration()
 	Info("Dialing QUIC Session: %s\n", gatewayPath)
 	for i := 0; i < ClientConfiguration.MaxConnectionRetries; i++ {
-		session, err = quic.DialAddr(gatewayPath, tlsConf, &quicClientConfig)
+		session, err = quic.DialAddr(gatewayPath, tlsConf, quicClientConfig)
 		if err == nil {
 			return session, nil
 		} else {
