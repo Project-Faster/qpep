@@ -8,7 +8,11 @@ import (
 	"bou.ke/monkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"os"
+	"os/exec"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestServiceLinuxSuite(t *testing.T) {
@@ -52,7 +56,7 @@ func (s *ServiceLinuxSuite) TestSendProcessInterrupt() {
 	var start = time.Now()
 
 	routeCmd := exec.Command("bash", "-c", `sleep 30`)
-	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	routeCmd.SysProcAttr = &syscall.SysProcAttr{}
 	assert.Nil(s.T(), routeCmd.Start())
 
 	monkey.Patch(os.Getpid, func() int {

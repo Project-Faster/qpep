@@ -7,6 +7,7 @@ package logger
 import (
 	"errors"
 	log "github.com/rs/zerolog"
+	"github.com/stretchr/testify/suite"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func (s *LoggerSuite) TestServiceLinuxSuite(t *testing.T) {
+	var q LoggerSuite
+	suite.Run(t, &q)
+}
+
+type LoggerSuite struct{ suite.Suite }
+
 func (s *LoggerSuite) TestCloseLogger() {
 	SetupLogger("test")
 
@@ -24,7 +32,7 @@ func (s *LoggerSuite) TestCloseLogger() {
 	assert.NotEqual(s.T(), _log, prevlog)
 }
 
-func TestLogger_InfoLevel(t *testing.T) {
+func (s *LoggerSuite) TestLogger_InfoLevel(t *testing.T) {
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -47,7 +55,7 @@ func TestLogger_InfoLevel(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 }
 
-func TestLogger_DebugLevel(t *testing.T) {
+func (s *LoggerSuite) TestLogger_DebugLevel(t *testing.T) {
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -72,7 +80,7 @@ func TestLogger_DebugLevel(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 }
 
-func TestLogger_ErrorLevel(t *testing.T) {
+func (s *LoggerSuite) TestLogger_ErrorLevel(t *testing.T) {
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -97,7 +105,7 @@ func TestLogger_ErrorLevel(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 }
 
-func TestLogger_PanicMessage(t *testing.T) {
+func (s *LoggerSuite) TestLogger_PanicMessage(t *testing.T) {
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -126,7 +134,7 @@ func TestLogger_PanicMessage(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "PanicMessage"))
 }
 
-func TestLogger_getLoggerFileFailExecutable(t *testing.T) {
+func (s *LoggerSuite) TestLogger_getLoggerFileFailExecutable(t *testing.T) {
 	var guard *monkey.PatchGuard
 	guard = monkey.Patch(os.OpenFile, func(name string, flag int, perm os.FileMode) (*os.File, error) {
 		if !strings.Contains(name, "invalid") {
@@ -145,7 +153,7 @@ func TestLogger_getLoggerFileFailExecutable(t *testing.T) {
 	}
 }
 
-func TestLogger_getLoggerFileFailOpenFile(t *testing.T) {
+func (s *LoggerSuite) TestLogger_getLoggerFileFailOpenFile(t *testing.T) {
 	guard := monkey.Patch(os.Executable, func() (string, error) {
 		return "", errors.New("file not found")
 	})
