@@ -26,7 +26,7 @@ func (s *ServiceLinuxSuite) BeforeTest(_, _ string) {}
 
 func (s *ServiceLinuxSuite) TestSetCurrentWorkingDir() {
 	assert.NotPanics(s.T(), func() {
-		setCurrentWorkingDir("no-op")
+		assert.True(s.T(), setCurrentWorkingDir("no-op"))
 	})
 }
 

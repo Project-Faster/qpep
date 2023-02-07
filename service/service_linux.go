@@ -6,8 +6,8 @@ import (
 )
 
 // setCurrentWorkingDir method is currently a no-op
-func setCurrentWorkingDir(path string) {
-	return // no-op
+func setCurrentWorkingDir(path string) bool {
+	return true // no-op
 }
 
 // sendProcessInterrupt method send an interrupt signal to the service

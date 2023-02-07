@@ -114,10 +114,9 @@ jobs:
     - name: Test
       run: |
         go install github.com/jstemmer/go-junit-report@latest
-        go install github.com/parvit/go2array@latest
         set GOARCH=amd64
         set GOOS=windows
-        set CGO_ENABLED=1
+        set CGO_ENABLED=0
         set QPEP_CI_ENV=1
         go generate github.com/parvit/qpep/windivert
         go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
