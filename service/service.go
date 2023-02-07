@@ -1,8 +1,9 @@
-package main
+package service
 
 import (
 	"context"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/version"
 	"os"
 	"os/signal"
@@ -17,51 +18,68 @@ import (
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/client"
 	"github.com/parvit/qpep/flags"
-	. "github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/server"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
 )
 
 const (
+	// startingSvc indicates that the service is currently starting and is not ready to accept requests
 	startingSvc = iota
+	// startedSvc indicates that the service can handle incoming requests
 	startedSvc
+	// stoppingSvc indicates that the service is being stopped and will ignore new requests
 	stoppingSvc
+	// stoppedSvc indicates a stopped service that does not run and will not handle requests
 	stoppedSvc
 
+	// WIN32_RUNNING_CODE Win32 exit code for running status of service
 	WIN32_RUNNING_CODE = 0
+	// WIN32_STOPPED_CODE Win32 exit code for stopped status of service
 	WIN32_STOPPED_CODE = 6
+	// WIN32_UNKNOWN_CODE Win32 exit code for not installed status of service
 	WIN32_UNKNOWN_CODE = 255
 
+	// serverService server service name
 	serverService = "qpep-server"
+	// clientService client service name
 	clientService = "qpep-client"
 
+	// defaultLinuxWorkDir default working directory for linux platform
 	defaultLinuxWorkDir = "/var/run/qpep"
 )
 
+// QPepService struct models the service and its internal state to the operating system
 type QPepService struct {
 	service.Service
 
-	context    context.Context
+	// context Termination context
+	context context.Context
+	// cancelFunc Termination function
 	cancelFunc context.CancelFunc
-	status     int
-	exitValue  int
+	// status internal running state of the service
+	status int
+	// exitValue value to be use for exit code
+	exitValue int
 }
 
-func serviceMain() {
+// ServiceMain method wraps the starting logic of the qpep service
+func ServiceMain() int {
 	flags.ParseFlags(os.Args)
 
 	execPath, err := os.Executable()
 	if err != nil {
-		Info("Could not find executable: %s", err)
+		logger.Error("Could not find executable: %s", err)
 	}
 
 	workingDir := defaultLinuxWorkDir
 	if runtime.GOOS == "windows" {
 		workingDir = filepath.Dir(execPath)
-		setCurrentWorkingDir(workingDir)
+		if !setCurrentWorkingDir(workingDir) {
+			return 1
+		}
 	}
-	Info("Set workingdir for service child: %s", workingDir)
+	logger.Info("Set workingdir for service child: %s", workingDir)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	svc := QPepService{
@@ -69,8 +87,8 @@ func serviceMain() {
 		cancelFunc: cancel,
 	}
 
-	Info("=== QPep version %s ===", version.Version())
-	Info(spew.Sdump(flags.Globals))
+	logger.Info("=== QPep version %s ===", version.Version())
+	logger.Info(spew.Sdump(flags.Globals))
 
 	serviceName := serverService
 	if flags.Globals.Client {
@@ -102,8 +120,7 @@ func serviceMain() {
 
 	serviceInst, err := service.New(&svc, svcConfig)
 	if err != nil {
-		Info(err.Error())
-		panic(err)
+		logger.Panic(err.Error())
 	}
 
 	svcCommand := flags.Globals.Service
@@ -118,34 +135,33 @@ func serviceMain() {
 
 			switch status {
 			case service.StatusRunning:
-				os.Exit(WIN32_RUNNING_CODE)
+				return WIN32_RUNNING_CODE
 
 			case service.StatusStopped:
-				os.Exit(WIN32_STOPPED_CODE)
+				return WIN32_STOPPED_CODE
 
 			default:
 				fallthrough
 			case service.StatusUnknown:
-				os.Exit(WIN32_UNKNOWN_CODE)
+				return WIN32_UNKNOWN_CODE
 			}
 		}
 
 		err = service.Control(serviceInst, svcCommand)
 		if err != nil {
-			Info("Error %v\nPossible actions: %q\n", err.Error(), service.ControlAction)
-			os.Exit(WIN32_UNKNOWN_CODE)
-			return
+			logger.Info("Error %v\nPossible actions: %q\n", err.Error(), service.ControlAction)
+			return WIN32_UNKNOWN_CODE
 		}
 
 		if svcCommand == "install" {
 			_ = shared.ReadConfiguration(false)
 			setServiceUserPermissions(serviceName)
 			setInstallDirectoryPermissions(workingDir)
-			Info("Service installed correctly")
+			logger.Info("Service installed correctly")
 		}
 
-		Info("Service action %s executed\n", svcCommand)
-		return
+		logger.Info("Service action %s executed\n", svcCommand)
+		return WIN32_RUNNING_CODE
 	}
 
 	// As-service run
@@ -153,19 +169,20 @@ func serviceMain() {
 	if flags.Globals.Client {
 		logName = "qpep-client.log"
 	}
-	SetupLogger(logName)
+	logger.SetupLogger(logName)
 
 	err = serviceInst.Run()
 	if err != nil {
-		Info("Error while starting QPep service")
+		logger.Error("Error while starting QPep service")
 	}
 
-	Info("Exit errorcode: %d\n", svc.exitValue)
-	os.Exit(svc.exitValue)
+	logger.Info("Exit errorcode: %d\n", svc.exitValue)
+	return svc.exitValue
 }
 
-func (p *QPepService) Start(s service.Service) error {
-	Info("Start")
+// Start method sets the internal state to startingSvc and then start the Main method.
+func (p *QPepService) Start(_ service.Service) error {
+	logger.Info("Start")
 
 	p.status = startingSvc
 
@@ -174,15 +191,16 @@ func (p *QPepService) Start(s service.Service) error {
 	return nil // Service is now started
 }
 
-func (p *QPepService) Stop(s service.Service) error {
+// Stop method executes the stopping of the qpep service and sets the status to stoppedSvc
+func (p *QPepService) Stop(_ service.Service) error {
 	defer func() {
 		if err := recover(); err != nil {
-			Info("PANIC: %v\n", err)
+			logger.Error("PANIC: %v\n", err)
 		}
 		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
-	Info("Stop")
+	logger.Info("Stop")
 
 	if p.status != startedSvc {
 		p.status = stoppedSvc
@@ -201,15 +219,18 @@ func (p *QPepService) Stop(s service.Service) error {
 	return nil
 }
 
+// Main method is called when the service is started and actually initializes all the functionalities
+// of the service
 func (p *QPepService) Main() {
 	defer func() {
 		if err := recover(); err != nil {
-			Info("PANIC: %v\n", err)
+			logger.Error("PANIC: %v\n", err)
+			p.exitValue = 1
 		}
 		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
-	Info("Main")
+	logger.Info("Main")
 
 	if err := shared.ReadConfiguration(false); err != nil {
 		panic(err)
@@ -241,25 +262,25 @@ TERMINATIONLOOP:
 	p.cancelFunc()
 	<-p.context.Done()
 
-	Info("Shutdown...")
-	Info("%d", windivert.CloseWinDivertEngine())
+	logger.Info("Shutdown...")
+	logger.Info("%d", windivert.CloseWinDivertEngine())
 
 	<-time.After(1 * time.Second)
 
-	Info("Exiting...")
-	os.Exit(1)
+	logger.Info("Exiting...")
+	p.exitValue = 0
 }
 
+// runAsClient method wraps the logic to setup the system as client mode
 func runAsClient(execContext context.Context, cancel context.CancelFunc) {
-	Info("Running Client")
-
+	logger.Info("Running Client")
 	windivert.EnableDiverterLogging(shared.QPepConfig.Verbose)
-
 	go client.RunClient(execContext, cancel)
 }
 
+// runAsServer method wraps the logic to setup the system as server mode
 func runAsServer(execContext context.Context, cancel context.CancelFunc) {
-	Info("Running Server")
+	logger.Info("Running Server")
 	go server.RunServer(execContext, cancel)
 	go api.RunServer(execContext, cancel, false)
 }

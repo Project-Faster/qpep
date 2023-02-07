@@ -5,20 +5,42 @@
 package logger
 
 import (
+	"bou.ke/monkey"
 	"errors"
 	"fmt"
 	dbg "github.com/nyaosorg/go-windows-dbg"
 	log "github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"bou.ke/monkey"
-	"github.com/stretchr/testify/assert"
 )
 
-func TestLogger_InfoLevel(t *testing.T) {
+func TestLoggerSuite(t *testing.T) {
+	var q LoggerSuite
+	suite.Run(t, &q)
+}
+
+type LoggerSuite struct{ suite.Suite }
+
+func (s *LoggerSuite) AfterTest(_, _ string) {
+	monkey.UnpatchAll()
+}
+
+func (s *LoggerSuite) BeforeTest(_, _ string) {}
+
+func (s *LoggerSuite) TestCloseLogger() {
+	SetupLogger("test")
+
+	var prevlog = _log
+	CloseLogger()
+	assert.NotEqual(s.T(), _log, prevlog)
+}
+
+func (s *LoggerSuite) TestLogger_InfoLevel() {
+	t := s.T()
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -41,7 +63,8 @@ func TestLogger_InfoLevel(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 }
 
-func TestLogger_DebugLevel(t *testing.T) {
+func (s *LoggerSuite) TestLogger_DebugLevel() {
+	t := s.T()
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -66,7 +89,8 @@ func TestLogger_DebugLevel(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 }
 
-func TestLogger_ErrorLevel(t *testing.T) {
+func (s *LoggerSuite) TestLogger_ErrorLevel() {
+	t := s.T()
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -91,7 +115,8 @@ func TestLogger_ErrorLevel(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 }
 
-func TestLogger_PanicMessage(t *testing.T) {
+func (s *LoggerSuite) TestLogger_PanicMessage() {
+	t := s.T()
 	execPath, _ := os.Executable()
 
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
@@ -120,7 +145,8 @@ func TestLogger_PanicMessage(t *testing.T) {
 	assert.NotEqual(t, -1, strings.Index(strData, "PanicMessage"))
 }
 
-func TestLogger_OutputDebugString_DebugLevel(t *testing.T) {
+func (s *LoggerSuite) TestLogger_OutputDebugString_DebugLevel() {
+	t := s.T()
 	SetupLogger("test")
 
 	log.SetGlobalLevel(log.DebugLevel)
@@ -147,7 +173,9 @@ func TestLogger_OutputDebugString_DebugLevel(t *testing.T) {
 	assert.Equal(t, 4, counter)
 }
 
-func TestLogger_getLoggerFileFailExecutable(t *testing.T) {
+func (s *LoggerSuite) TestLogger_getLoggerFileFailExecutable() {
+	t := s.T()
+
 	var guard *monkey.PatchGuard
 	guard = monkey.Patch(os.OpenFile, func(name string, flag int, perm os.FileMode) (*os.File, error) {
 		if !strings.Contains(name, "invalid") {
@@ -166,7 +194,9 @@ func TestLogger_getLoggerFileFailExecutable(t *testing.T) {
 	}
 }
 
-func TestLogger_getLoggerFileFailOpenFile(t *testing.T) {
+func (s *LoggerSuite) TestLogger_getLoggerFileFailOpenFile() {
+	t := s.T()
+
 	guard := monkey.Patch(os.Executable, func() (string, error) {
 		return "", errors.New("file not found")
 	})

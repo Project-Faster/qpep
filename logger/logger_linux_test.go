@@ -16,6 +16,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func (s *LoggerSuite) TestCloseLogger() {
+	SetupLogger("test")
+
+	var prevlog = _log
+	CloseLogger()
+	assert.NotEqual(s.T(), _log, prevlog)
+}
+
 func TestLogger_InfoLevel(t *testing.T) {
 	execPath, _ := os.Executable()
 

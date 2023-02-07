@@ -20,10 +20,14 @@ import (
 	"github.com/nyaosorg/go-windows-dbg"
 )
 
-var _log log.Logger // customized logger instance
+// _log customized logger instance
+var _log log.Logger
+
+// _logFile customized logger output file
+var _logFile *os.File //
 
 func init() {
-	_log = log.New(os.Stdout)
+	CloseLogger()
 }
 
 // getLoggerFile Sets up a new logging file overwriting the previous one if found
@@ -35,21 +39,35 @@ func getLoggerFile(logName string) *os.File {
 
 	logFile := filepath.Join(filepath.Dir(execPath), logName)
 
-	f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	_logFile, err = os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		Panic("%v", err)
 	}
-	return f
+	return _logFile
 }
 
 // SetupLogger Sets up a new logger destroying the previous one to a file with name "qpep_<logName>.log"
 func SetupLogger(logName string) {
-	f := getLoggerFile(logName)
+	CloseLogger()
+
+	_logFile = getLoggerFile(logName)
 
 	log.SetGlobalLevel(log.InfoLevel)
 
-	_log = log.New(f).Level(log.DebugLevel).
+	_log = log.New(_logFile).Level(log.DebugLevel).
 		With().Timestamp().Logger()
+}
+
+// CloseLogger Terminates the current log and resets it to stdout output
+func CloseLogger() {
+	if _logFile == nil {
+		return
+	}
+	_ = _logFile.Sync()
+	_ = _logFile.Close()
+	_logFile = nil
+
+	_log = log.New(os.Stdout)
 }
 
 // Info Outputs a new formatted string with the provided parameters to the logger instance with Info level
