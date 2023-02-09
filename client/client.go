@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lucas-clemente/quic-go"
+	"github.com/Project-Faster/quic-go"
 
 	"github.com/parvit/qpep/api"
 	. "github.com/parvit/qpep/logger"

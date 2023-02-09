@@ -8,6 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/Project-Faster/quic-go"
+
 	//"github.com/lucas-clemente/quic-go/logging"
 	//"github.com/lucas-clemente/quic-go/qlog"
 	"io"
@@ -23,8 +25,6 @@ import (
 	"github.com/parvit/qpep/client"
 	. "github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-
-	"github.com/lucas-clemente/quic-go"
 )
 
 const (
