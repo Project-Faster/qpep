@@ -3,6 +3,7 @@
 package client
 
 import (
+	"github.com/parvit/qpep/shared"
 	"net"
 )
 
@@ -18,21 +19,29 @@ func (listener *ClientProxyListener) Accept() (net.Conn, error) {
 
 // AcceptTProxy method accepts the connections and casts those to a tcp connection type
 func (listener *ClientProxyListener) AcceptTProxy() (*net.TCPConn, error) {
+	if listener.base == nil {
+		return nil, shared.ErrFailed
+	}
 	tcpConn, err := listener.base.(*net.TCPListener).AcceptTCP()
 	if err != nil {
 		return nil, err
 	}
 	return tcpConn, nil
-	//return &ProxyConn{TCPConn: tcpConn}, nil
 }
 
 // Addr method returns the listening address
 func (listener *ClientProxyListener) Addr() net.Addr {
+	if listener.base == nil {
+		return nil
+	}
 	return listener.base.Addr()
 }
 
 // Addr method close the listener
 func (listener *ClientProxyListener) Close() error {
+	if listener.base == nil {
+		return nil
+	}
 	return listener.base.Close()
 }
 
