@@ -3,6 +3,7 @@ package shared
 import (
 	"bufio"
 	"github.com/lucas-clemente/quic-go"
+	"time"
 )
 
 // GetQuicConfiguration method returns the configuration to be used for the
@@ -11,6 +12,8 @@ func GetQuicConfiguration() *quic.Config {
 	cfg := &quic.Config{
 		MaxIncomingStreams:      40000,
 		DisablePathMTUDiscovery: true,
+
+		HandshakeIdleTimeout: 5 * time.Second,
 	}
 
 	// Only used in debug sessions

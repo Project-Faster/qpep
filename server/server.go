@@ -148,7 +148,7 @@ func handleQuicStream(stream quic.Stream) {
 	qpepHeader, err := shared.QPepHeaderFromBytes(stream)
 	if err != nil {
 		logger.Info("Unable to decode QPEP header: %s\n", err)
-		stream.Close()
+		_ = stream.Close()
 		return
 	}
 
