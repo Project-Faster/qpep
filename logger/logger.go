@@ -16,6 +16,7 @@ import (
 	"runtime"
 
 	log "github.com/rs/zerolog"
+	stdlog "log"
 
 	"github.com/nyaosorg/go-windows-dbg"
 )
@@ -74,8 +75,10 @@ func CloseLogger() {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Info(format string, values ...interface{}) {
 	_log.Info().Msgf(format, values...)
+	stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
+		return
 	}
 }
 
@@ -83,8 +86,10 @@ func Info(format string, values ...interface{}) {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Debug(format string, values ...interface{}) {
 	_log.Debug().Msgf(format, values...)
+	stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
+		return
 	}
 }
 
@@ -92,8 +97,10 @@ func Debug(format string, values ...interface{}) {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Error(format string, values ...interface{}) {
 	_log.Error().Msgf(format, values...)
+	stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
+		return
 	}
 }
 

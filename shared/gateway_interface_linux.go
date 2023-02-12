@@ -7,7 +7,7 @@ package shared
  */
 
 import (
-	"log"
+	"github.com/parvit/qpep/logger"
 	"net/url"
 )
 
@@ -17,10 +17,10 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 
 func SetSystemProxy(active bool) {
 	if !active {
-		log.Printf("Clearing system proxy settings\n")
+		logger.Info("Clearing system proxy settings\n")
 		return
 	}
-	log.Printf("Setting system proxy not yet supported\n")
+	logger.Info("Setting system proxy not yet supported\n")
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {

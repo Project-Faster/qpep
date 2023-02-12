@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/parvit/qpep/logger"
-	"log"
 	"net/url"
 	"os/exec"
 	"regexp"
@@ -170,7 +169,7 @@ func SetSystemProxy(active bool) {
 
 	if !active {
 		for _, userKey := range usersRegistryKeys {
-			log.Printf("Clearing system proxy settings\n")
+			logger.Info("Clearing system proxy settings\n")
 			_, _ = RunCommand("reg", "add", userKey,
 				"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
 				"", "/f")
@@ -184,7 +183,7 @@ func SetSystemProxy(active bool) {
 		return
 	}
 
-	log.Printf("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
+	logger.Info("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
 	for _, userKey := range usersRegistryKeys {
 		_, _ = RunCommand("reg", "add", userKey,
 			"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
@@ -209,14 +208,14 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 	data, err := RunCommand("reg", "query", PROXY_KEY_1,
 		"/v", PROXY_KEY_ENABLE)
 	if err != nil {
-		log.Printf("ERR: %v\n", err)
+		logger.Info("ERR: %v\n", err)
 		return false, nil
 	}
 	if strings.Index(string(data), "0x1") != -1 {
 		data, err = RunCommand("reg", "query", PROXY_KEY_1,
 			"/v", PROXY_KEY_HOST)
 		if err != nil {
-			log.Printf("ERR: %v\n", err)
+			logger.Info("ERR: %v\n", err)
 			return false, nil
 		}
 
@@ -236,7 +235,7 @@ func preloadRegistryKeysForUsers() {
 
 	data, err := RunCommand("wmic", "useraccount", "get", "sid")
 	if err != nil {
-		log.Printf("ERR: %v\n", err)
+		logger.Info("ERR: %v\n", err)
 		panic(fmt.Sprintf("ERR: %v", err))
 	}
 
@@ -276,7 +275,7 @@ func Flush() {
 		0, 0,
 		0, 0)
 	if ret != 1 {
-		log.Printf("Error propagating proxy setting: %s\n", infoPtr)
+		logger.Info("Error propagating proxy setting: %s\n", infoPtr)
 	}
 
 	ret, _, infoPtr = syscall.Syscall6(internetSetOption,
@@ -286,7 +285,7 @@ func Flush() {
 		0, 0,
 		0, 0)
 	if ret != 1 {
-		log.Printf("Error refreshing proxy setting: %s\n", infoPtr)
+		logger.Info("Error refreshing proxy setting: %s\n", infoPtr)
 	}
 }
 
