@@ -25,6 +25,8 @@ func TestLoggerSuite(t *testing.T) {
 
 type LoggerSuite struct{ suite.Suite }
 
+var testerr = errors.New("test-error")
+
 func (s *LoggerSuite) AfterTest(_, _ string) {
 	monkey.UnpatchAll()
 }
@@ -55,12 +57,16 @@ func (s *LoggerSuite) TestLogger_InfoLevel() {
 	Info("InfoMessage")
 	Debug("DebugMessage")
 	Error("ErrorMessage")
+	OnError(nil, "OnErrorEmpty")
+	OnError(testerr, "OnErrorPresent")
 
 	data, _ := os.ReadFile(logFile)
 	var strData = string(data)
 	assert.NotEqual(t, -1, strings.Index(strData, "InfoMessage"))
 	assert.Equal(t, -1, strings.Index(strData, "DebugMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
+	assert.Equal(t, -1, strings.Index(strData, "OnErrorEmpty"))
+	assert.NotEqual(t, -1, strings.Index(strData, "OnErrorPresent"))
 }
 
 func (s *LoggerSuite) TestLogger_DebugLevel() {
@@ -81,12 +87,16 @@ func (s *LoggerSuite) TestLogger_DebugLevel() {
 	Info("InfoMessage")
 	Debug("DebugMessage")
 	Error("ErrorMessage")
+	OnError(nil, "OnErrorEmpty")
+	OnError(testerr, "OnErrorPresent")
 
 	data, _ := os.ReadFile(logFile)
 	var strData = string(data)
 	assert.NotEqual(t, -1, strings.Index(strData, "InfoMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "DebugMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
+	assert.Equal(t, -1, strings.Index(strData, "OnErrorEmpty"))
+	assert.NotEqual(t, -1, strings.Index(strData, "OnErrorPresent"))
 }
 
 func (s *LoggerSuite) TestLogger_ErrorLevel() {
@@ -107,12 +117,16 @@ func (s *LoggerSuite) TestLogger_ErrorLevel() {
 	Info("InfoMessage")
 	Debug("DebugMessage")
 	Error("ErrorMessage")
+	OnError(nil, "OnErrorEmpty")
+	OnError(testerr, "OnErrorPresent")
 
 	data, _ := os.ReadFile(logFile)
 	var strData = string(data)
 	assert.Equal(t, -1, strings.Index(strData, "InfoMessage"))
 	assert.Equal(t, -1, strings.Index(strData, "DebugMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
+	assert.Equal(t, -1, strings.Index(strData, "OnErrorEmpty"))
+	assert.NotEqual(t, -1, strings.Index(strData, "OnErrorPresent"))
 }
 
 func (s *LoggerSuite) TestLogger_PanicMessage() {

@@ -41,11 +41,8 @@ func listenTCPConn(wg *sync.WaitGroup) {
 	}()
 	for {
 		conn, err := proxyListener.Accept()
+		logger.OnError(err, "Unrecoverable error while accepting connection")
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
-				logger.Info("Temporary error when accepting connection: %s", netErr)
-			}
-			logger.Info("Unrecoverable error while accepting connection: %s", err)
 			return
 		}
 
@@ -64,40 +61,10 @@ func handleTCPConn(tcpConn net.Conn) {
 	logger.Info("Accepting TCP connection from %s with destination of %s", tcpConn.RemoteAddr().String(), tcpConn.LocalAddr().String())
 	defer tcpConn.Close()
 
-	var quicStream quic.Stream = nil
-	// if we allow for multiple streams in a session, lets try and open on the existing session
-	if ClientConfiguration.MultiStream {
-		//if we have already opened a quic session, lets check if we've expired our stream
-		if quicSession != nil {
-			var err error
-			logger.Info("Trying to open on existing session")
-			quicStream, err = quicSession.OpenStream()
-			// if we weren't able to open a quicStream on that session (usually inactivity timeout), we can try to open a new session
-			if err != nil {
-				logger.Info("Unable to open new stream on existing QUIC session: %s\n", err)
-				quicStream = nil
-			} else {
-				logger.Info("Opened a new stream: %d", quicStream.StreamID())
-			}
-		}
-	}
-	// if we haven't opened a stream from multistream, we can open one with a new session
-	if quicStream == nil {
-		// open a new quicSession (with all the TLS jazz)
-		var err error
-		quicSession, err = openQuicSession()
-		// if we were unable to open a quic session, drop the TCP connection with RST
-		if err != nil {
-			return
-		}
-
-		//Open a stream to send data on this new session
-		quicStream, err = quicSession.OpenStreamSync(context.Background())
-		// if we cannot open a stream on this session, send a TCP RST and let the client decide to try again
-		if err != nil {
-			logger.Info("Unable to open QUIC stream: %s\n", err)
-			return
-		}
+	var quicStream, err = getQuicStream()
+	if err != nil {
+		tcpConn.Close()
+		return
 	}
 	defer quicStream.Close()
 
@@ -127,43 +94,89 @@ func handleTCPConn(tcpConn net.Conn) {
 
 		logger.Info("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
 		_, err := quicStream.Write(sessionHeader.ToBytes())
-		if err != nil {
-			logger.Info("Error writing to quic stream: %s", err.Error())
-		}
+		logger.OnError(err, "writing to quic stream")
 	} else {
-		_ = handleProxyOpenConnection(&sessionHeader, tcpConn, quicStream)
+		// proxy open connection
+		err := handleProxyOpenConnection(&sessionHeader, tcpConn, quicStream)
+		logger.OnError(err, "opening proxy connection")
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), ClientConfiguration.IdleTimeout)
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
 	logger.Info("== Stream %d Start ==", quicStream.StreamID())
-	go tcpToQuicHandler(ctx, &streamWait, quicStream, tcpConn.(*net.TCPConn))
-	go quicToTCPHandler(ctx, &streamWait, tcpConn.(*net.TCPConn), quicStream)
+	go handleTcpToQuic(ctx, &streamWait, quicStream, tcpConn)
+	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream)
 
 	//we exit (and close the TCP connection) once both streams are done copying
 	streamWait.Wait()
-	tcpConn.(*net.TCPConn).SetLinger(3)
 	tcpConn.Close()
 
 	quicStream.CancelWrite(0)
 	quicStream.CancelRead(0)
 	quicStream.Close()
 	logger.Info("== Stream %d End ==", quicStream.StreamID())
+
+	if !ClientConfiguration.MultiStream {
+		// destroy the session so a new one is created next time
+		quicSession = nil
+	}
 }
 
+// getQuicStream method handles the opening or reutilization of the quic session, and launches a new
+// quic stream for communication
+func getQuicStream() (quic.Stream, error) {
+	var err error
+	var quicStream quic.Stream = nil
+
+	// if we allow for multiple streams in a session, try and open on the existing session
+	if ClientConfiguration.MultiStream && quicSession != nil {
+		logger.Info("Trying to open on existing session")
+		quicStream, err = quicSession.OpenStream()
+		if err == nil {
+			logger.Info("Opened a new stream: %d", quicStream.StreamID())
+			return quicStream, nil
+		}
+		// if we weren't able to open a quicStream on that session (usually inactivity timeout), we can try to open a new session
+		logger.OnError(err, "Unable to open new stream on existing QUIC session")
+		quicStream = nil
+	}
+
+	// open a new quicSession (with all the TLS jazz)
+	quicSession, err = openQuicSession()
+	// if we were unable to open a quic session, drop the TCP connection with RST
+	if err != nil {
+		return nil, err
+	}
+
+	//Open a stream to send writtenData on this new session
+	quicStream, err = quicSession.OpenStreamSync(context.Background())
+	// if we cannot open a stream on this session, send a TCP RST and let the client decide to try again
+	logger.OnError(err, "Unable to open QUIC stream")
+	if err != nil {
+		return nil, err
+	}
+	return quicStream, nil
+}
+
+// handleProxyOpenConnection method wraps the logic for intercepting an http request with CONNECT or
+// standard method to open the proxy connection correctly via the quic stream
 func handleProxyOpenConnection(header *shared.QPepHeader, tcpConn net.Conn, stream quic.Stream) error {
 	// proxy check
-	tcpConn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	_ = tcpConn.SetReadDeadline(time.Now().Add(1 * time.Second))
 
-	buf := bytes.NewBuffer([]byte{})
-	io.Copy(buf, tcpConn)
+	buf := bytes.NewBuffer(make([]byte, 0, INITIAL_BUFF_SIZE))
+	if n, err := io.Copy(buf, tcpConn); err != nil || n == 0 {
+		_ = tcpConn.Close()
+		logger.Error("Failed to receive request: %v\n", err)
+		return shared.ErrNonProxyableRequest
+	}
 
 	rd := bufio.NewReader(buf)
 	req, err := http.ReadRequest(rd)
 	if err != nil {
-		tcpConn.Close()
-		logger.Info("Failed to parse request: %v\n", err)
+		_ = tcpConn.Close()
+		logger.Error("Failed to parse request: %v\n", err)
 		return shared.ErrNonProxyableRequest
 	}
 
@@ -179,6 +192,8 @@ func handleProxyOpenConnection(header *shared.QPepHeader, tcpConn net.Conn, stre
 	case http.MethodHead:
 		fallthrough
 	case http.MethodOptions:
+		fallthrough
+	case http.MethodTrace:
 		fallthrough
 	case http.MethodGet:
 		address, port, proxyable := getAddressPortFromHost(req.Host)
@@ -261,21 +276,19 @@ func handleProxyOpenConnection(header *shared.QPepHeader, tcpConn net.Conn, stre
 		t.Write(tcpConn)
 		tcpConn.Close()
 		logger.Error("Proxy returns BadGateway\n")
-		return shared.ErrFailed
+		return shared.ErrNonProxyableRequest
 	}
 	return nil
 }
 
-func tcpToQuicHandler(ctx context.Context, streamWait *sync.WaitGroup, dst quic.Stream, src *net.TCPConn) {
+// handleTcpToQuic method implements the tcp connection to quic connection side of the connection
+func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst quic.Stream, src net.Conn) {
 	defer func() {
 		_ = recover()
 		streamWait.Done()
 	}()
 
-	err1 := src.SetLinger(1)
-	if err1 != nil {
-		logger.Info("error on setLinger: %s\n", err1)
-	}
+	setLinger(src)
 
 	var buffSize = INITIAL_BUFF_SIZE
 	var loopTimeout = 150 * time.Millisecond
@@ -295,7 +308,6 @@ func tcpToQuicHandler(ctx context.Context, streamWait *sync.WaitGroup, dst quic.
 			if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
 				continue
 			}
-			//logger.Info("Error on Copy %s\n", err)
 			break
 		}
 
@@ -307,16 +319,14 @@ func tcpToQuicHandler(ctx context.Context, streamWait *sync.WaitGroup, dst quic.
 	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.StreamID())
 }
 
-func quicToTCPHandler(ctx context.Context, streamWait *sync.WaitGroup, dst *net.TCPConn, src quic.Stream) {
+// handleQuicToTcp method implements the quic connection to tcp connection side of the connection
+func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src quic.Stream) {
 	defer func() {
 		_ = recover()
 		streamWait.Done()
 	}()
 
-	err1 := dst.SetLinger(1)
-	if err1 != nil {
-		logger.Info("error on setLinger: %s\n", err1)
-	}
+	setLinger(dst)
 
 	var buffSize = INITIAL_BUFF_SIZE
 	var loopTimeout = 150 * time.Millisecond
@@ -336,7 +346,6 @@ func quicToTCPHandler(ctx context.Context, streamWait *sync.WaitGroup, dst *net.
 			if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
 				continue
 			}
-			//logger.Info("Error on Copy %s\n", err)
 			break
 		}
 
@@ -345,7 +354,14 @@ func quicToTCPHandler(ctx context.Context, streamWait *sync.WaitGroup, dst *net.
 			buffSize = INITIAL_BUFF_SIZE
 		}
 	}
-	//logger.Info("Finished Copying Stream ID %d, TCP Conn %s->%s\n", src.StreamID(), dst.LocalAddr().String(), dst.RemoteAddr().String())
+	//logger.Info("Finished Copying Stream ID %d, TCP Conn %s->%s\n", srcConn.StreamID(), dst.LocalAddr().String(), dst.RemoteAddr().String())
+}
+
+func setLinger(c net.Conn) {
+	if conn, ok := c.(*net.TCPConn); ok {
+		err1 := conn.SetLinger(1)
+		logger.OnError(err1, "error on setLinger")
+	}
 }
 
 // getAddressPortFromHost method returns an address splitted in the corresponding IP, port and if the indicated
@@ -353,24 +369,33 @@ func quicToTCPHandler(ctx context.Context, streamWait *sync.WaitGroup, dst *net.
 func getAddressPortFromHost(host string) (net.IP, int, bool) {
 	var proxyable = false
 	var port int64 = 0
+	var err error = nil
 	var address net.IP
 	urlParts := strings.Split(host, ":")
 	if len(urlParts) > 2 {
 		return nil, 0, false
 	}
 	if len(urlParts) == 2 {
-		port, _ = strconv.ParseInt(urlParts[1], 10, 64)
+		port, err = strconv.ParseInt(urlParts[1], 10, 64)
+		if err != nil {
+			return nil, 0, false
+		}
 	}
 
-	ips, _ := net.LookupIP(urlParts[0])
-	for _, ip := range ips {
-		address = ip.To4()
-		if address == nil {
-			continue
-		}
-
+	if urlParts[0] == "" {
+		address = net.ParseIP("127.0.0.1")
 		proxyable = true
-		break
+	} else {
+		ips, _ := net.LookupIP(urlParts[0])
+		for _, ip := range ips {
+			address = ip.To4()
+			if address == nil {
+				continue
+			}
+
+			proxyable = true
+			break
+		}
 	}
 	return address, int(port), proxyable
 }

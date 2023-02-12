@@ -107,3 +107,11 @@ func Panic(format string, values ...interface{}) {
 	}
 	panic(fmt.Sprintf(format, values...))
 }
+
+// OnError method sends an error log only if the err value in input is not nil
+func OnError(err error, msg string) {
+	if err == nil {
+		return
+	}
+	Error("error %v "+msg, err.Error())
+}

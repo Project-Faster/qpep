@@ -39,6 +39,7 @@ type ClientSuite struct {
 func (s *ClientSuite) BeforeTest(_, testName string) {
 	shared.SetSystemProxy(false)
 	api.Statistics.Reset()
+	proxyListener = nil
 
 	shared.UsingProxy = false
 	shared.ProxyAddress = nil
