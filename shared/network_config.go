@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jackpal/gateway"
 	"net/url"
+	"runtime"
 	"strings"
 
 	"github.com/parvit/qpep/logger"
@@ -56,6 +57,12 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 		return defaultListeningAddress, detectedGatewayInterfaces
 	}
 
+	if runtime.GOOS != "windows" {
+		logger.Info("WARNING: Autodetect is not yet implemented client-side for platforms other than win32, defaulting to provided address")
+		defaultListeningAddress = currentAddress
+		detectedGatewayInterfaces = []int64{}
+		return defaultListeningAddress, detectedGatewayInterfaces
+	}
 	logger.Info("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
 
 	searchIdx := -1
