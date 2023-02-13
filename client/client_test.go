@@ -19,6 +19,7 @@ import (
 	"math/big"
 	"net"
 	"net/url"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -172,7 +173,9 @@ func (s *ClientSuite) TestRunClient_ErrorListener() {
 func (s *ClientSuite) TestHandleServices() {
 	proxyListener, _ = net.Listen("tcp", "127.0.0.1:9090")
 	defer func() {
-		_ = proxyListener.Close()
+		if proxyListener != nil {
+			_ = proxyListener.Close()
+		}
 	}()
 
 	wg2 := &sync.WaitGroup{}
@@ -380,6 +383,10 @@ func (s *ClientSuite) TestStopProxy() {
 }
 
 func (s *ClientSuite) TestInitDiverter() {
+	if runtime.GOOS != "windows" {
+		assert.False(s.T(), initDiverter())
+		return
+	}
 	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
 		return windivert.DIVERT_OK
 	})
@@ -387,6 +394,10 @@ func (s *ClientSuite) TestInitDiverter() {
 }
 
 func (s *ClientSuite) TestInitDiverter_Fail() {
+	if runtime.GOOS != "windows" {
+		assert.False(s.T(), initDiverter())
+		return
+	}
 	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
 		return windivert.DIVERT_ERROR_ALREADY_INIT
 	})
@@ -394,6 +405,10 @@ func (s *ClientSuite) TestInitDiverter_Fail() {
 }
 
 func (s *ClientSuite) TestStopDiverter() {
+	if runtime.GOOS != "windows" {
+		assert.False(s.T(), initDiverter())
+		return
+	}
 	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
 		return windivert.DIVERT_OK
 	})
