@@ -92,6 +92,9 @@ jobs:
         format: 'markdown'
         output: 'both'
 
+    - name: Write to Job Summary
+      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+
     - uses: actions/upload-artifact@v3
       with:
         name: qpep_linux_b${{ github.run_id }}
@@ -212,6 +215,9 @@ jobs:
         badge: true
         format: 'markdown'
         output: 'both'
+
+    - name: Write to Job Summary
+      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
 
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Set up MinGW
