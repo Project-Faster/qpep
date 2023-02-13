@@ -19,7 +19,6 @@ import (
 	"math/big"
 	"net"
 	"net/url"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -115,7 +114,7 @@ func (s *ClientSuite) TestValidateConfiguration_BadConnectionRetries() {
 }
 
 func (s *ClientSuite) TestValidateConfiguration_BadDiverterThreads() {
-	for _, val := range []int{0, -1, runtime.GOMAXPROCS(0) + 1} {
+	for _, val := range []int{0, -1, 64} {
 		shared.QPepConfig.WinDivertThreads = val
 		assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed,
 			func() {

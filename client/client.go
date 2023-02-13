@@ -2,8 +2,6 @@ package client
 
 import (
 	"github.com/parvit/qpep/logger"
-	"runtime"
-
 	"net"
 	"runtime/debug"
 	"strconv"
@@ -345,8 +343,7 @@ func validateConfiguration() {
 	shared.AssertParamPort("api port", ClientConfiguration.APIPort)
 
 	shared.AssertParamNumeric("max connection retries", ClientConfiguration.MaxConnectionRetries, 1, 300)
-	shared.AssertParamNumeric("max diverter threads", ClientConfiguration.WinDivertThreads,
-		1, runtime.GOMAXPROCS(0))
+	shared.AssertParamNumeric("max diverter threads", ClientConfiguration.WinDivertThreads, 1, 32)
 
 	shared.AssertParamHostsDifferent("hosts", ClientConfiguration.GatewayHost, ClientConfiguration.ListenHost)
 	shared.AssertParamPortsDifferent("ports", ClientConfiguration.GatewayPort,
