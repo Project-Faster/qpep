@@ -1,9 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -17,7 +14,7 @@ const (
 	CMD_SERVICE = `%s -service %s %s %s`
 )
 
-func getCommand(start, client bool) *exec.Cmd {
+func getServiceCommand(start, client bool) *exec.Cmd {
 	exeFile, _ := filepath.Abs(filepath.Join(ExeDir, EXENAME))
 
 	var serviceFlag = "start"
@@ -33,12 +30,9 @@ func getCommand(start, client bool) *exec.Cmd {
 		verboseFlag = ""
 	}
 
-	attr := &syscall.SysProcAttr{
-		HideWindow: true,
-		CmdLine:    fmt.Sprintf(CMD_SERVICE, exeFile, serviceFlag, clientFlag, verboseFlag),
-	}
+	attr := &syscall.SysProcAttr{}
 
-	cmd := exec.Command(exeFile)
+	cmd := exec.Command(exeFile, serviceFlag, clientFlag, verboseFlag)
 	if cmd == nil {
 		ErrorMsg("Could not create client command")
 		return nil

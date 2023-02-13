@@ -53,6 +53,9 @@ jobs:
       run: |
         mkdir build
         go install github.com/jstemmer/go-junit-report@latest
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/matm/gocov-html/cmd/gocov-html@latest
+        go install github.com/AlekSi/gocov-xml@latest
 
     - name: Build 64bits
       run: |
@@ -68,8 +71,10 @@ jobs:
         set GOOS=linux
         set CGO_ENABLED=0
         set QPEP_CI_ENV=1
-        go test -v -gcflags=-l 2>&1 ./... > tests.dat || true
-        cat tests.dat | go-junit-report -set-exit-code > unit_tests.xml
+        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+        gocov convert cover.out > temp_tests.json
+        cat temp_tests.json | gocov-xml > cover_tests.xml
+        cat temp_tests.json | gocov-html -s .style.css > report.html
       continue-on-error: true
       
     - name: Publish Test Results
@@ -79,10 +84,22 @@ jobs:
         check_name: "Unit Tests - Linux Platform"
         junit_files: "unit_tests.xml"
 
+    - name: Publish Coverage Test Results
+      uses: EnricoMi/publish-unit-test-result-action/composite@v2
+      if: always()
+      with:
+        check_name: "Coverage - Linux Platform"
+        junit_files: "cover_tests.xml"
+
     - uses: actions/upload-artifact@v3
       with:
         name: qpep_linux_b${{ github.run_id }}
         path: build/qpep
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: linux_coverage_report
+        path: report.html
 
   build-windows:
     runs-on: windows-latest
@@ -160,23 +177,39 @@ jobs:
            go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
            popd
 
-    - name: Test
+    - name: Prepare Test
       run: |
         go install github.com/jstemmer/go-junit-report@latest
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/matm/gocov-html/cmd/gocov-html@latest
+        go install github.com/AlekSi/gocov-xml@latest
+
+    - name: Test
+      run: |
         set GOARCH=amd64
         set GOOS=windows
         set CGO_ENABLED=0
         set QPEP_CI_ENV=1
         go generate github.com/parvit/qpep/windivert
-        go test -v -gcflags=-l 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+        gocov convert cover.out > temp_tests.json
+        cat temp_tests.json | gocov-xml > cover_tests.xml
+        cat temp_tests.json | gocov-html -s .style.css > report.html
       continue-on-error: true
 
-    - name: Publish Test Results
+    - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action/composite@v2
       if: always()
       with:
         check_name: "Unit Tests - Windows Platform"
         junit_files: "unit_tests.xml"
+
+    - name: Publish Coverage Test Results
+      uses: EnricoMi/publish-unit-test-result-action/composite@v2
+      if: always()
+      with:
+        check_name: "Coverage - Windows Platform"
+        junit_files: "cover_tests.xml"
 
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Set up MinGW
@@ -212,3 +245,7 @@ jobs:
         name: qpep_windows_b${{ github.run_id }}
         path: build/installer.msi
 
+    - uses: actions/upload-artifact@v3
+      with:
+        name: windows_coverage_report
+        path: report.html

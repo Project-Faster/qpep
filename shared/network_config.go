@@ -3,7 +3,6 @@ package shared
 import (
 	"github.com/jackpal/gateway"
 	"net/url"
-	"runtime"
 	"strings"
 
 	"github.com/parvit/qpep/logger"
@@ -27,9 +26,6 @@ var (
 func init() {
 	var err error
 	detectedGatewayInterfaces, detectedGatewayAddresses, err = getRouteGatewayInterfaces()
-	if runtime.GOOS != "windows" {
-		detectedGatewayInterfaces = []int64{} // not necessary on linux as diverter is not supported
-	}
 
 	if err != nil {
 		panic(err)
@@ -48,7 +44,7 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 		return currentAddress, detectedGatewayInterfaces
 	}
 
-	if len(gatewayAddress) == 0 || runtime.GOOS != "windows" {
+	if len(gatewayAddress) == 0 {
 		defaultIP, err := gateway.DiscoverInterface()
 		if err != nil {
 			logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)

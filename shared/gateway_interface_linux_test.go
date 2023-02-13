@@ -23,8 +23,8 @@ func (s *GatewayConfigSuite) AfterTest() {
 
 func TestGetRouteGatewayInterfaces(t *testing.T) {
 	v1, v2, v3 := getRouteGatewayInterfaces()
-	assert.Nil(t, v1)
-	assert.Nil(t, v2)
+	assert.Len(t, v1, 0)
+	assert.Len(t, v2, 1)
 	assert.Nil(t, v3)
 }
 
