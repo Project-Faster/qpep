@@ -1,7 +1,6 @@
 package shared
 
 import (
-	"fmt"
 	"github.com/jackpal/gateway"
 	"net/url"
 	"runtime"
@@ -28,6 +27,9 @@ var (
 func init() {
 	var err error
 	detectedGatewayInterfaces, detectedGatewayAddresses, err = getRouteGatewayInterfaces()
+	if runtime.GOOS != "windows" {
+		detectedGatewayInterfaces = []int64{} // not necessary on linux as diverter is not supported
+	}
 
 	if err != nil {
 		panic(err)
@@ -46,10 +48,10 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 		return currentAddress, detectedGatewayInterfaces
 	}
 
-	if len(gatewayAddress) == 0 {
+	if len(gatewayAddress) == 0 || runtime.GOOS != "windows" {
 		defaultIP, err := gateway.DiscoverInterface()
 		if err != nil {
-			panic(fmt.Sprintf("PANIC: Could not discover default lan address and the requested one is not suitable, error: %v\n", err))
+			logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
 		}
 
 		defaultListeningAddress = defaultIP.String()
@@ -57,12 +59,6 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 		return defaultListeningAddress, detectedGatewayInterfaces
 	}
 
-	if runtime.GOOS != "windows" {
-		logger.Info("WARNING: Autodetect is not yet implemented client-side for platforms other than win32, defaulting to provided address")
-		defaultListeningAddress = currentAddress
-		detectedGatewayInterfaces = []int64{}
-		return defaultListeningAddress, detectedGatewayInterfaces
-	}
 	logger.Info("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
 
 	searchIdx := -1
