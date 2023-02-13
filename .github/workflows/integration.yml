@@ -8,7 +8,7 @@ on:
             type: boolean
             default: false
   push:
-    branches: [ "main", "testing-*" ]
+    branches: [ "main", "testing-*", "issue*" ]
 
 jobs:
   build-linux:
@@ -19,23 +19,44 @@ jobs:
         
     steps:
     - uses: actions/checkout@v3
-
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
         go-version: 1.18
-        
+#
+#    # Get values for cache paths to be used in later steps
+#    - id: go-cache-paths
+#      run: |
+#        export GOCACHE=~\.cache\go-build
+#        echo "::set-output name=go-build::$(go env GOCACHE)"
+#        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
+#
+#    # Cache go build cache, used to speedup go test
+#    - name: Go Build Cache
+#      uses: actions/cache@v3
+#      with:
+#        path:
+#          ${{ steps.go-cache-paths.outputs.go-build }}
+#        key:
+#          ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+#
+#    # Cache go mod cache, used to speedup builds
+#    - name: Go Mod Cache
+#      uses: actions/cache@v3
+#      with:
+#        path:
+#          ${{ steps.go-cache-paths.outputs.go-mod }}
+#        key:
+#          ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
     - name: Prepare
-      run: mkdir build
-        
-    - name: Test
       run: |
-        set GOARCH=amd64
-        set GOOS=linux
-        set CGO_ENABLED=0
-        go test -v ./...
-      continue-on-error: true
-      
+        mkdir build
+        go install github.com/jstemmer/go-junit-report@latest
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/matm/gocov-html/cmd/gocov-html@latest
+        go install github.com/AlekSi/gocov-xml@latest
+
     - name: Build 64bits
       run: |
         set GOARCH=amd64
@@ -43,33 +64,52 @@ jobs:
         set CGO_ENABLED=1
         go clean -cache
         go build -v -o build/qpep
-      
+
+    - name: Test
+      run: |
+        set GOARCH=amd64
+        set GOOS=linux
+        set CGO_ENABLED=0
+        set QPEP_CI_ENV=1
+        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+      continue-on-error: true
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        check_name: "Unit Tests - Linux Platform"
+        junit_files: "unit_tests.xml"
+
+    - name: Test Results
+      run: |
+        gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY
+        gocov convert cover.out | gocov-html -s .style.css > report.html
+      continue-on-error: true
+
     - uses: actions/upload-artifact@v3
       with:
         name: qpep_linux_b${{ github.run_id }}
         path: build/qpep
 
+    - uses: actions/upload-artifact@v3
+      with:
+        name: linux_coverage_report
+        path: report.html
+
   build-windows:
     runs-on: windows-latest
     defaults:
-      run: 
+      run:
         shell: cmd
-    
+
     steps:
     - uses: actions/checkout@v3
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
         go-version: 1.18
-        
-    - name: Test
-      run: |
-        set GOARCH=amd64
-        set GOOS=windows
-        set CGO_ENABLED=1
-        go test -v ./...
-      continue-on-error: true
-      
+
     - uses: actions/checkout@v2
     - name: Install Wix
       uses: actions/checkout@v2
@@ -79,7 +119,32 @@ jobs:
 
     - name: Install MSBuild
       uses: microsoft/setup-msbuild@v1.1
-      
+#
+#    # Get values for cache paths to be used in later steps
+#    - id: go-cache-paths
+#      run: |
+#        set GOCACHE=~\.cache\go-build
+#        echo "::set-output name=go-build::~\.cache\go-build"
+#        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
+#
+#    # Cache go build cache, used to speedup go test
+#    - name: Go Build Cache
+#      uses: actions/cache@v3
+#      with:
+#        path:
+#          ${{ steps.go-cache-paths.outputs.go-build }}
+#        key:
+#          ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+#
+#    # Cache go mod cache, used to speedup builds
+#    - name: Go Mod Cache
+#      uses: actions/cache@v3
+#      with:
+#        path:
+#          ${{ steps.go-cache-paths.outputs.go-mod }}
+#        key:
+#          ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
     - name: Prepare
       run: |
            MKDIR build
@@ -92,13 +157,13 @@ jobs:
            set GOARCH=386
            go clean -cache
            COPY /Y windivert\x64\* build\64bits
-           
+
     - name: Build QPep 64bits
       run: |
            set GOARCH=amd64
            set CGO_ENABLED=1
            go build -o build\64bits\qpep.exe
-           
+
     - name: Build QPep Tray 64bits
       run: |
            pushd qpep-tray
@@ -107,13 +172,43 @@ jobs:
            set CGO_ENABLED=0
            go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
            popd
-           
+
+    - name: Prepare Test
+      run: |
+        go install github.com/jstemmer/go-junit-report@latest
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/matm/gocov-html/cmd/gocov-html@latest
+        go install github.com/AlekSi/gocov-xml@latest
+
+    - name: Test
+      run: |
+        set GOARCH=amd64
+        set GOOS=windows
+        set CGO_ENABLED=0
+        set QPEP_CI_ENV=1
+        go generate github.com/parvit/qpep/windivert
+        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+      continue-on-error: true
+
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action/composite@v2
+      if: always()
+      with:
+        check_name: "Unit Tests - Windows Platform"
+        junit_files: "unit_tests.xml"
+
+    - name: Test Results
+      run: |
+        gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY
+        gocov convert cover.out | gocov-html -s .style.css > report.html
+      continue-on-error: true
+
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Set up MinGW
       uses: egor-tensin/setup-mingw@v2
       with:
         platform: x86
-        
+
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Build QPep x86
       run: |
@@ -121,7 +216,7 @@ jobs:
            set GOOS=windows
            set CGO_ENABLED=1
            go build -o build\64bits\qpep.exe
-           
+
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Build QPep Tray x86
       run: |
@@ -131,14 +226,18 @@ jobs:
            set CGO_ENABLED=0
            go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
            popd
-      
+
     - name: Build QPep Installer
       run: |
            set PATH=${{ github.workspace }}\wix\tools;%PATH%
            msbuild installer\installer.sln
-   
+
     - uses: actions/upload-artifact@v3
       with:
         name: qpep_windows_b${{ github.run_id }}
         path: build/installer.msi
-        
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: windows_coverage_report
+        path: report.html

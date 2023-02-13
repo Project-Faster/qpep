@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/parvit/qpep/logger"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,27 +13,29 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 )
 
+// getClientForAPI method returns a correctly configured http client to be able to
+// contact the qpep APIs (dynamically adapting to either diverter mode or proxy mode)
 func getClientForAPI(localAddr net.Addr) *http.Client {
+	dialer := &net.Dialer{
+		LocalAddr: localAddr,
+		Timeout:   5 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
 	return &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			Proxy: func(*http.Request) (*url.URL, error) {
-				Info("API Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
+				logger.Info("API Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
 				if shared.UsingProxy {
 					return shared.ProxyAddress, nil
 				}
 				return nil, nil
 			},
-			DialContext: (&net.Dialer{
-				LocalAddr: localAddr,
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
-				DualStack: true,
-			}).DialContext,
+			DialContext:     dialer.DialContext,
 			MaxIdleConns:    1,
 			IdleConnTimeout: 10 * time.Second,
 			//TLSHandshakeTimeout:   10 * time.Second,
@@ -41,31 +44,45 @@ func getClientForAPI(localAddr net.Addr) *http.Client {
 	}
 }
 
-func RequestEcho(localAddress, address string, port int, toServer bool) *EchoResponse {
+// doAPIRequest method encapsulates the common logic required to execute an api request
+// for the qpep APIs, client value is supposed to have been obtained from getClientForAPI
+func doAPIRequest(addr string, client *http.Client) (*http.Response, error) {
+	req, err := http.NewRequest("GET", addr, nil)
+	if err != nil {
+		logger.Error("%v\n", err)
+		return nil, err
+	}
+	req.Header.Set("User-Agent", runtime.GOOS)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Error("%v\n", err)
+		return nil, err
+	}
+	return resp, nil
+}
+
+// RequestEcho method wraps the entire API connection logic to obtain an object of type
+// EchoResponse to check for connection to a qpep server.
+func RequestEcho(localAddress, address string, apiPort int, toServer bool) *EchoResponse {
 	prefix := API_PREFIX_CLIENT
 	if toServer {
 		prefix = API_PREFIX_SERVER
 	}
-	addr := fmt.Sprintf("http://%s:%d%s", address, port, prefix+API_ECHO_PATH)
 
 	resolvedAddr, errAddr := net.ResolveTCPAddr("tcp", localAddress+":0")
 	if errAddr != nil {
-		Info("ERROR: %v\n", errAddr)
+		logger.Error("%v\n", errAddr)
 		return nil
 	}
 
 	clientInst := getClientForAPI(resolvedAddr)
 
-	req, err := http.NewRequest("GET", addr, nil)
+	addr := fmt.Sprintf("http://%s:%d%s", address, apiPort, prefix+API_ECHO_PATH)
+	resp, err := doAPIRequest(addr, clientInst)
 	if err != nil {
-		Info("1 ERROR: %v\n", err)
-		return nil
-	}
-	req.Header.Set("User-Agent", runtime.GOOS)
-
-	resp, err := clientInst.Do(req)
-	if err != nil {
-		Info("2 ERROR: %v\n", err)
+		logger.Error("%v\n", err)
 		return nil
 	}
 	defer func() {
@@ -73,29 +90,30 @@ func RequestEcho(localAddress, address string, port int, toServer bool) *EchoRes
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		Info("ERROR: BAD status code %d\n", resp.StatusCode)
+		logger.Error(" BAD status code %d\n", resp.StatusCode)
 		return nil
 	}
 
 	str := &bytes.Buffer{}
+	str.Grow(8192)
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		str.WriteString(scanner.Text())
+		str.Write(scanner.Bytes())
 	}
 
 	if scanner.Err() != nil {
-		Info("3 ERROR: %v\n", scanner.Err())
+		logger.Error("%v\n", scanner.Err())
 		return nil
 	}
 
 	if shared.QPepConfig.Verbose {
-		Info("%s\n", str.String())
+		logger.Info("%s\n", str.String())
 	}
 
 	respData := &EchoResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		Info("4 ERROR: %v\n", jsonErr)
+		logger.Error("%v\n", jsonErr)
 		return nil
 	}
 
@@ -103,7 +121,9 @@ func RequestEcho(localAddress, address string, port int, toServer bool) *EchoRes
 	return respData
 }
 
-func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddress string, toServer bool) *StatusReponse {
+// RequestStatus method wraps the entire API connection logic to obtain an object of type
+// StatusResponse to query the current status of a server
+func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddress string, toServer bool) *StatusResponse {
 	prefix := API_PREFIX_CLIENT
 	if toServer {
 		prefix = API_PREFIX_SERVER
@@ -111,13 +131,17 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 	apiPath := strings.Replace(prefix+API_STATUS_PATH, ":addr", publicAddress, -1)
 	addr := fmt.Sprintf("http://%s:%d%s", gatewayAddress, apiPort, apiPath)
 
-	client := getClientForAPI(&net.TCPAddr{
-		IP: net.ParseIP(localAddress),
-	})
+	resolvedAddr, errAddr := net.ResolveTCPAddr("tcp", localAddress+":0")
+	if errAddr != nil {
+		logger.Error("%v\n", errAddr)
+		return nil
+	}
 
-	resp, err := client.Get(addr)
+	clientInst := getClientForAPI(resolvedAddr)
+
+	resp, err := doAPIRequest(addr, clientInst)
 	if err != nil {
-		Info("5 ERROR: %v\n", err)
+		logger.Error("%v\n", err)
 		return nil
 	}
 	defer func() {
@@ -125,46 +149,53 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		Info("ERROR: BAD status code %d\n", resp.StatusCode)
+		logger.Error(" BAD status code %d\n", resp.StatusCode)
 		return nil
 	}
 
 	str := &bytes.Buffer{}
+	str.Grow(8192)
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		str.WriteString(scanner.Text())
+		str.Write(scanner.Bytes())
 	}
 
 	if scanner.Err() != nil {
-		Info("6 ERROR: %v\n", scanner.Err())
+		logger.Error("6  %v\n", scanner.Err())
 		return nil
 	}
 
 	if shared.QPepConfig.Verbose {
-		Info("%s\n", str.String())
+		logger.Info("%s\n", str.String())
 	}
 
-	respData := &StatusReponse{}
+	respData := &StatusResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		Info("7 ERROR: %v\n", jsonErr)
+		logger.Error("7  %v\n", jsonErr)
 		return nil
 	}
 
 	return respData
 }
 
-func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicAddress string) *StatsInfoReponse {
+// RequestStatistics method wraps the entire API connection logic to obtain an object of type
+// StatsInfoResponse to obtain info about an host from a qpep server.
+func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicAddress string) *StatsInfoResponse {
 	apiPath := strings.Replace(API_PREFIX_SERVER+API_STATS_DATA_SRV_PATH, ":addr", publicAddress, -1)
 	addr := fmt.Sprintf("http://%s:%d%s", gatewayAddress, apiPort, apiPath)
 
-	clientInst := getClientForAPI(&net.TCPAddr{
-		IP: net.ParseIP(localAddress),
-	})
+	resolvedAddr, errAddr := net.ResolveTCPAddr("tcp", localAddress+":0")
+	if errAddr != nil {
+		logger.Error("%v\n", errAddr)
+		return nil
+	}
 
-	resp, err := clientInst.Get(addr)
+	clientInst := getClientForAPI(resolvedAddr)
+
+	resp, err := doAPIRequest(addr, clientInst)
 	if err != nil {
-		Info("8 ERROR: %v\n", err)
+		logger.Error("%v\n", err)
 		return nil
 	}
 	defer func() {
@@ -172,29 +203,30 @@ func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicA
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		Info("ERROR: BAD status code %d\n", resp.StatusCode)
+		logger.Error(" BAD status code %d\n", resp.StatusCode)
 		return nil
 	}
 
 	str := &bytes.Buffer{}
+	str.Grow(8192)
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		str.WriteString(scanner.Text())
+		str.Write(scanner.Bytes())
 	}
 
 	if scanner.Err() != nil {
-		Info("9 ERROR: %v\n", scanner.Err())
+		logger.Error("9  %v\n", scanner.Err())
 		return nil
 	}
 
 	if shared.QPepConfig.Verbose {
-		Info("%s\n", str.String())
+		logger.Info("%s\n", str.String())
 	}
 
-	respData := &StatsInfoReponse{}
+	respData := &StatsInfoResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		Info("10 ERROR: %v\n", jsonErr)
+		logger.Error("10  %v\n", jsonErr)
 		return nil
 	}
 

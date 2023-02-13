@@ -7,20 +7,27 @@ package shared
  */
 
 import (
-	"log"
+	"github.com/jackpal/gateway"
+	"github.com/parvit/qpep/logger"
 	"net/url"
 )
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
-	return nil, nil, nil
+	defaultIP, err := gateway.DiscoverInterface()
+	if err != nil {
+		logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
+	}
+
+	logger.Info("Found default ip address: %s\n", defaultIP.String())
+	return []int64{}, []string{defaultIP.String()}, nil
 }
 
 func SetSystemProxy(active bool) {
 	if !active {
-		log.Printf("Clearing system proxy settings\n")
+		logger.Info("Clearing system proxy settings\n")
 		return
 	}
-	log.Printf("Setting system proxy not yet supported\n")
+	logger.Info("Setting system proxy not yet supported\n")
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {

@@ -2,9 +2,8 @@ package shared
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"log"
+	"github.com/parvit/qpep/logger"
 	"net/url"
 	"os/exec"
 	"regexp"
@@ -13,26 +12,40 @@ import (
 	"syscall"
 )
 
-/**
-* Parts of the code similar to the github.com/jackpal/gateway module
-* but the command output parse is different to allow extract also the
-* interface ID for interface filtering in the divert engine and the
-* local ip addresses to use as source addresses
- */
-
 const (
+	// PROXY_KEY_1 Registy key path related to the current user for proxy settings
 	PROXY_KEY_1 = `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
+	// PROXY_KEY_2 Registy key path related to a specific user for proxy settings
 	PROXY_KEY_2 = `HKEY_USERS\%s\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-	PROXY_KEY_3 = `ProxyServer`
-	PROXY_KEY_4 = `REG_SZ`
+	// PROXY_KEY_ENABLE Registry key for enabling the system proxy
+	PROXY_KEY_ENABLE = `ProxyEnable`
+	// PROXY_KEY_HOST Registry key for indicating the address of the system proxy
+	PROXY_KEY_HOST = `ProxyServer`
+	// PROXY_TYPE_SZ Registry key value type for string values
+	PROXY_TYPE_SZ = `REG_SZ`
+	// PROXY_TYPE_DWORD Registry key value type for integer values
+	PROXY_TYPE_DWORD = `REG_DWORD`
 )
 
 var (
-	errNoGateway      = errors.New("no gateway found")
-	repl              = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_3, "", PROXY_KEY_4, "")
+	// proxyAddrReplacer cleans the value from registry command to extract the current proxy address
+	proxyAddrReplacer = strings.NewReplacer(PROXY_KEY_1, "", PROXY_KEY_HOST, "", PROXY_TYPE_SZ, "")
+	// usersRegistryKeys array of precomputed strings for every user's proxy settings key path
 	usersRegistryKeys = make([]string, 0, 8)
 )
 
+// RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
+// an error if there was any issue with the command executed
+func RunCommand(name string, cmd ...string) ([]byte, error) {
+	routeCmd := exec.Command(name, cmd...)
+	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return routeCmd.CombinedOutput()
+}
+
+// getRouteGatewayInterfaces method extracts routing information using the "netsh" utility and returns specifically:
+// * Network Interface IDs list of all network interfaces configured
+// * Network Address List for every configured interface
+// * error in
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// Windows route output format is always like this:
 	// Tipo pubblicazione      Prefisso met.                  Gateway idx/Nome interfaccia
@@ -49,11 +62,10 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// No       Sistema   256  192.168.1.255/32           18  Wi-Fi
 
 	// get interfaces with default routes set
-	routeCmd := exec.Command("netsh", "interface", "ip", "show", "route")
-	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err := routeCmd.CombinedOutput()
+	output, err := RunCommand("netsh", "interface", "ip", "show", "route")
 	if err != nil {
-		return nil, nil, err
+		logger.Error("ERR: %v", err)
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	var routeInterfaceMap = make(map[string]int64)
@@ -72,15 +84,14 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 		routeInterfaceMap[fields[4]] = value
 	}
 	if len(routeInterfaceMap) == 0 {
-		return nil, nil, errNoGateway
+		logger.Error("ERR: %v", err)
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	// get the associated names of the interfaces
-	interfaceCmd := exec.Command("netsh", "interface", "ip", "show", "interface")
-	interfaceCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err = interfaceCmd.CombinedOutput()
+	output, err = RunCommand("netsh", "interface", "ip", "show", "interface")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	lines = strings.Split(string(output), "\n")
@@ -101,11 +112,10 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	}
 
 	// parse the configuration of the interfaces to extract the addresses
-	configCmd := exec.Command("netsh", "interface", "ip", "show", "config")
-	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, err = configCmd.CombinedOutput()
+	output, err = RunCommand("netsh", "interface", "ip", "show", "config")
 	if err != nil {
-		return nil, nil, err
+		logger.Error("ERR: %v", err)
+		return nil, nil, ErrFailedGatewayDetect
 	}
 
 	rx := regexp.MustCompile(`.+"([^"]+)"`)
@@ -157,20 +167,15 @@ BLOCK:
 func SetSystemProxy(active bool) {
 	preloadRegistryKeysForUsers()
 
-	var configCmd *exec.Cmd
 	if !active {
 		for _, userKey := range usersRegistryKeys {
-			log.Printf("Clearing system proxy settings\n")
-			configCmd = exec.Command("reg", "add", userKey,
-				"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+			logger.Info("Clearing system proxy settings\n")
+			_, _ = RunCommand("reg", "add", userKey,
+				"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
 				"", "/f")
-			configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			configCmd.Run()
 
-			configCmd = exec.Command("reg", "add", userKey,
-				"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f")
-			configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-			configCmd.Run()
+			_, _ = RunCommand("reg", "add", userKey,
+				"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d", "0", "/f")
 		}
 
 		UsingProxy = false
@@ -178,17 +183,15 @@ func SetSystemProxy(active bool) {
 		return
 	}
 
-	log.Printf("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
+	logger.Info("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
 	for _, userKey := range usersRegistryKeys {
-		configCmd = exec.Command("reg", "add", userKey,
-			"/v", "ProxyServer", "/t", "REG_SZ", "/d",
+		_, _ = RunCommand("reg", "add", userKey,
+			"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
 			fmt.Sprintf("%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort), "/f")
-		configCmd.Run()
 
-		configCmd = exec.Command("reg", "add", userKey,
-			"/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
-		configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		configCmd.Run()
+		_, _ = RunCommand("reg", "add", userKey,
+			"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d",
+			"1", "/f")
 	}
 
 	Flush()
@@ -202,25 +205,21 @@ func SetSystemProxy(active bool) {
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
-	configCmd := exec.Command("reg", "query", PROXY_KEY_1,
-		"/v", "ProxyEnable")
-	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	data, err := configCmd.CombinedOutput()
+	data, err := RunCommand("reg", "query", PROXY_KEY_1,
+		"/v", PROXY_KEY_ENABLE)
 	if err != nil {
-		log.Printf("ERR: %v\n", err)
+		logger.Info("ERR: %v\n", err)
 		return false, nil
 	}
 	if strings.Index(string(data), "0x1") != -1 {
-		proxyCmd := exec.Command("reg", "query", PROXY_KEY_1,
-			"/v", "ProxyServer")
-		proxyCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-		data2, err := proxyCmd.CombinedOutput()
+		data, err = RunCommand("reg", "query", PROXY_KEY_1,
+			"/v", PROXY_KEY_HOST)
 		if err != nil {
-			log.Printf("ERR: %v\n", err)
+			logger.Info("ERR: %v\n", err)
 			return false, nil
 		}
 
-		proxyUrlString := strings.TrimSpace(repl.Replace(string(data2)))
+		proxyUrlString := strings.TrimSpace(proxyAddrReplacer.Replace(string(data)))
 		proxyUrl, err := url.Parse("http://" + proxyUrlString)
 		if err == nil {
 			return true, proxyUrl
@@ -234,11 +233,9 @@ func preloadRegistryKeysForUsers() {
 		return
 	}
 
-	configCmd := exec.Command("wmic", "useraccount", "get", "sid")
-	configCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	data, err := configCmd.CombinedOutput()
+	data, err := RunCommand("wmic", "useraccount", "get", "sid")
 	if err != nil {
-		log.Printf("ERR: %v\n", err)
+		logger.Info("ERR: %v\n", err)
 		panic(fmt.Sprintf("ERR: %v", err))
 	}
 
@@ -278,7 +275,7 @@ func Flush() {
 		0, 0,
 		0, 0)
 	if ret != 1 {
-		log.Printf("Error propagating proxy setting: %s\n", infoPtr)
+		logger.Info("Error propagating proxy setting: %s\n", infoPtr)
 	}
 
 	ret, _, infoPtr = syscall.Syscall6(internetSetOption,
@@ -288,7 +285,7 @@ func Flush() {
 		0, 0,
 		0, 0)
 	if ret != 1 {
-		log.Printf("Error refreshing proxy setting: %s\n", infoPtr)
+		logger.Info("Error refreshing proxy setting: %s\n", infoPtr)
 	}
 }
 

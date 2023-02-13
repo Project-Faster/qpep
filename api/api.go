@@ -17,6 +17,8 @@ import (
 	"github.com/parvit/qpep/version"
 )
 
+// formatRequest method formats to a string the request in input, if verbose configuration
+// is set then also the body of the request is extracted
 func formatRequest(r *http.Request) string {
 	data, err := httputil.DumpRequest(r, shared.QPepConfig.Verbose)
 	if err != nil {
@@ -26,18 +28,19 @@ func formatRequest(r *http.Request) string {
 	return string(data)
 }
 
-// path /status
-func apiStatus(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	var counter float64 = -1.0
+// apiStatus handles the api path /status , which sends as output a json object
+// of type StatusResponse
+func apiStatus(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 	addr := ps.ByName("addr")
 
-	if len(addr) > 0 {
-		counter = Statistics.GetCounter(PERF_CONN, addr)
+	if len(addr) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
-	data, err := json.Marshal(StatusReponse{
+	data, err := json.Marshal(StatusResponse{
 		LastCheck:         time.Now().Format(time.RFC3339Nano),
-		ConnectionCounter: int(counter),
+		ConnectionCounter: int(Statistics.GetCounter(PERF_CONN, addr)),
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -48,8 +51,9 @@ func apiStatus(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	_, _ = w.Write(data)
 }
 
-// path /echo
-func apiEcho(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// apiEcho handles the api path /echo , which sends as output a json object
+// of type EchoResponse
+func apiEcho(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	mappedAddr := r.RemoteAddr
 
 	if !strings.HasPrefix(r.RemoteAddr, "127.") {
@@ -60,14 +64,12 @@ func apiEcho(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 	}
 
-	dataAddr := strings.Split(mappedAddr, ":")
 	port := int64(0)
+	dataAddr := strings.Split(mappedAddr, ":")
 
 	switch len(dataAddr) {
 	default:
-		fallthrough
-	case 0:
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	case 1:
 		break
@@ -92,15 +94,16 @@ func apiEcho(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	Statistics.SetState(INFO_UPDATE, time.Now().Format(time.RFC1123Z))
 }
 
-// path /versions
-func apiVersions(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// apiVersions handles the api path /versions , which sends as output a json object
+// of type VersionsResponse
+func apiVersions(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	server := "N/A"
 	client := "N/A"
 	if strings.Contains(r.URL.String(), API_PREFIX_SERVER) {
 		server = version.Version()
 	} else {
-		server = Statistics.GetState(INFO_OTHER_VERSION)
 		client = version.Version()
+		server = Statistics.GetState(INFO_OTHER_VERSION)
 	}
 
 	data, err := json.Marshal(VersionsResponse{
@@ -116,14 +119,16 @@ func apiVersions(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	_, _ = w.Write(data)
 }
 
-// path /statistics/hosts
-func apiStatisticsHosts(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	info := StatsInfoReponse{}
+// apiStatisticsHosts handles the api path /statistics/hosts , which responds using a json object
+// of type StatsInfoResponse, containing an attribute object StatsInfo of value "Address" for
+// every host tracked
+func apiStatisticsHosts(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+	info := StatsInfoResponse{}
 	hosts := Statistics.GetHosts()
 
 	sort.Strings(hosts)
 	for i := 0; i < len(hosts); i++ {
-		info.Data = append(info.Data, StatsInfoRow{
+		info.Data = append(info.Data, StatsInfo{
 			ID:        i + 1,
 			Attribute: "Address",
 			Value:     hosts[i],
@@ -140,8 +145,14 @@ func apiStatisticsHosts(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 	_, _ = w.Write(data)
 }
 
-// path /statistics/info, /statistics/info/:addr
-func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// apiStatisticsInfo handles the api paths /statistics/info, /statistics/info/:addr, which responds
+// using a json object of type StatsInfoResponse, containing attribute objects of type StatsInfo with
+// values:
+// * INFO_ADDRESS
+// * INFO_UPDATE
+// * INFO_PLATFORM
+// for the requested address (via the _addr_ parameter) or for the responding system if not specified
+func apiStatisticsInfo(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 	reqAddress := ps.ByName("addr")
 
 	lastUpdate := ""
@@ -155,20 +166,21 @@ func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		lastUpdate = time.Now().Format(time.RFC1123Z)
 	}
 
-	info := StatsInfoReponse{}
-	info.Data = make([]StatsInfoRow, 0, 3)
-	info.Data = append(info.Data, StatsInfoRow{
+	info := StatsInfoResponse{}
+	info.Data = make([]StatsInfo, 0, 3)
+	info.Data = append(info.Data, StatsInfo{
 		ID:        1,
 		Attribute: "Address",
 		Value:     address,
+		Name:      INFO_ADDRESS,
 	})
-	info.Data = append(info.Data, StatsInfoRow{
+	info.Data = append(info.Data, StatsInfo{
 		ID:        2,
 		Attribute: "Last Update",
 		Value:     lastUpdate,
 		Name:      INFO_UPDATE,
 	})
-	info.Data = append(info.Data, StatsInfoRow{
+	info.Data = append(info.Data, StatsInfo{
 		ID:        3,
 		Attribute: "Platform",
 		Value:     platform,
@@ -185,8 +197,16 @@ func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	_, _ = w.Write(data)
 }
 
-// path /statistics/data , /statistics/data/:addr
-func apiStatisticsData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+// apiStatisticsInfo handles the api paths /statistics/data/:addr, which responds
+// using a json object of type StatsInfoResponse, containing attribute objects of type StatsInfo with
+// values:
+// * PERF_CONN
+// * PERF_UP_SPEED
+// * PERF_DW_SPEED
+// * PERF_UP_TOTAL
+// * PERF_DW_TOTAL
+// for the requested address or for the responding system if not specified
+func apiStatisticsData(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 	reqAddress := ps.ByName("addr")
 
 	currConnections := Statistics.GetCounter(PERF_CONN, reqAddress)
@@ -211,33 +231,33 @@ func apiStatisticsData(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 		dwTotal = 0.0
 	}
 
-	info := StatsInfoReponse{}
-	info.Data = make([]StatsInfoRow, 0, 5)
-	info.Data = append(info.Data, StatsInfoRow{
+	info := StatsInfoResponse{}
+	info.Data = make([]StatsInfo, 0, 5)
+	info.Data = append(info.Data, StatsInfo{
 		ID:        1,
 		Attribute: "Current Connections",
 		Value:     strconv.Itoa(int(currConnections)),
 		Name:      PERF_CONN,
 	})
-	info.Data = append(info.Data, StatsInfoRow{
+	info.Data = append(info.Data, StatsInfo{
 		ID:        2,
 		Attribute: "Current Upload Speed",
 		Value:     fmt.Sprintf("%.2f", upSpeed),
 		Name:      PERF_UP_SPEED,
 	})
-	info.Data = append(info.Data, StatsInfoRow{
+	info.Data = append(info.Data, StatsInfo{
 		ID:        3,
 		Attribute: "Current Download Speed",
 		Value:     fmt.Sprintf("%.2f", dwSpeed),
 		Name:      PERF_DW_SPEED,
 	})
-	info.Data = append(info.Data, StatsInfoRow{
+	info.Data = append(info.Data, StatsInfo{
 		ID:        4,
 		Attribute: "Total Uploaded Bytes",
 		Value:     fmt.Sprintf("%.2f", upTotal),
 		Name:      PERF_UP_TOTAL,
 	})
-	info.Data = append(info.Data, StatsInfoRow{
+	info.Data = append(info.Data, StatsInfo{
 		ID:        5,
 		Attribute: "Total Downloaded Bytes",
 		Value:     fmt.Sprintf("%.2f", dwTotal),

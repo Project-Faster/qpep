@@ -1,24 +1,29 @@
 package main
 
 import (
+	"github.com/parvit/qpep/service"
+	"os"
 	"runtime/debug"
 
-	. "github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/logger"
 )
 
 func init() {
-	SetupLogger("qpep-service.log")
+	logger.SetupLogger("qpep-service.log")
 }
 
 func main() {
 	defer func() {
 		if err := recover(); err != nil {
-			Info("PANIC: %v", err)
+			logger.Error("PANIC: %v", err)
 			debug.PrintStack()
 		}
 	}()
 
-	serviceMain()
+	retcode := service.ServiceMain()
 
-	Info("=== EXIT ===")
+	logger.Info("=== EXIT - code(%d) ===", retcode)
+	logger.CloseLogger()
+
+	os.Exit(retcode)
 }
