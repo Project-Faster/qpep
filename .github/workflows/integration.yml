@@ -74,18 +74,18 @@ jobs:
         go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
 
-    - name: Test Results
-      run: |
-        gocov convert cover.out | gocov report >> $GITHUB_STEP_SUMMARY
-        gocov convert cover.out | gocov-html -s .style.css > report.html
-      continue-on-error: true
-
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always()
       with:
         check_name: "Unit Tests - Linux Platform"
         junit_files: "unit_tests.xml"
+
+    - name: Test Results
+      run: |
+        gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY
+        gocov convert cover.out | gocov-html -s .style.css > report.html
+      continue-on-error: true
 
     - uses: actions/upload-artifact@v3
       with:
@@ -190,18 +190,18 @@ jobs:
         go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
 
-    - name: Test Results
-      run: |
-        gocov convert cover.out | gocov report >> $GITHUB_STEP_SUMMARY
-        gocov convert cover.out | gocov-html -s .style.css > report.html
-      continue-on-error: true
-
     - name: Publish Unit Test Results
       uses: EnricoMi/publish-unit-test-result-action/composite@v2
       if: always()
       with:
         check_name: "Unit Tests - Windows Platform"
         junit_files: "unit_tests.xml"
+
+    - name: Test Results
+      run: |
+        gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY
+        gocov convert cover.out | gocov-html -s .style.css > report.html
+      continue-on-error: true
 
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Set up MinGW
