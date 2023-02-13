@@ -84,12 +84,13 @@ jobs:
         check_name: "Unit Tests - Linux Platform"
         junit_files: "unit_tests.xml"
 
-    - name: Publish Coverage Test Results
-      uses: EnricoMi/publish-unit-test-result-action/composite@v2
-      if: always()
+    - name: Code Coverage Summary Report
+      uses: irongut/CodeCoverageSummary@v1.3.0
       with:
-        check_name: "Coverage - Linux Platform"
-        junit_files: "cover_tests.xml"
+        filename: cover_tests.xml
+        badge: true
+        format: 'markdown'
+        output: 'both'
 
     - uses: actions/upload-artifact@v3
       with:
@@ -204,12 +205,13 @@ jobs:
         check_name: "Unit Tests - Windows Platform"
         junit_files: "unit_tests.xml"
 
-    - name: Publish Coverage Test Results
-      uses: EnricoMi/publish-unit-test-result-action/composite@v2
-      if: always()
+    - name: Code Coverage Summary Report
+      uses: irongut/CodeCoverageSummary@v1.3.0
       with:
-        check_name: "Coverage - Windows Platform"
-        junit_files: "cover_tests.xml"
+        filename: cover_tests.xml
+        badge: true
+        format: 'markdown'
+        output: 'both'
 
     - if: ${{ github.event.inputs.x86_version == true }}
       name: Set up MinGW
