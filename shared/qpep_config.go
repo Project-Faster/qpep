@@ -86,6 +86,9 @@ type QPepConfigType struct {
 	// WinDivertThreads (yaml:threads) Indicates the number of threads that the diverter should use to handle packages
 	WinDivertThreads int `yaml:"threads"`
 
+	// Limits (yaml:limits) Declares the incoming and outgoing speed limits for clients and destination addresses
+	Limits LimitsDefinition `yaml:"limits"`
+
 	// -- Unused values -- //
 
 	// Acks unused currently
@@ -103,6 +106,20 @@ type QPepConfigType struct {
 	Congestion int `yaml:"congestion"`
 
 	// -- Unused values -- //
+}
+
+// LimitsDefinition struct models the map of possible speed limits for incoming and outgoing connections
+// an example of a limit definition would be "wikipedia.org: 100K"
+// which would limit the speed to 100Kb/s (or a suffix M for 100Mb/s) either for clients connecting
+// from wikipedia.org or for connections established to it.
+// Domain names can have wildcards and addresses can be subnets (eg. 192.168.1.1/24, which indicates 192.168.1.1 - 192.168.1.127)
+// Negative values will be set to 0, which has the effective function of a blacklist, connections with an address
+// in a range with 0 speed will be blocked
+type LimitsDefinition struct {
+	// Clients key defines the speed limits for incoming connections
+	Clients map[string]string `yaml:"clients"`
+	// Destinations key defines the speed limits for outgoing connections
+	Destinations map[string]string `yaml:"destinations"`
 }
 
 // rawConfigType struct that allows to decode and overwrite the main configuration

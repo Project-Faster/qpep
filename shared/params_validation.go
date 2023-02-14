@@ -91,3 +91,7 @@ func AssertParamHostsDifferent(name string, values ...string) {
 		}
 	}
 }
+
+func CheckAddressSpeedLimit(address string) (int, bool) {
+	return 0, false //TODO
+}
