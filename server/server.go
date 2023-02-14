@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"github.com/Project-Faster/quic-go"
 
-	//"github.com/lucas-clemente/quic-go/logging"
-	//"github.com/lucas-clemente/quic-go/qlog"
+	//"github.com/Project-Faster/quic-go/logging"
+	//"github.com/Project-Faster/quic-go/qlog"
 	"io"
 	"io/ioutil"
 	"math/big"

@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/lucas-clemente/quic-go"
+	"github.com/Project-Faster/quic-go"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
