@@ -19,13 +19,14 @@ require (
 )
 
 require (
+	bou.ke/monkey v1.0.2
 	github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nyaosorg/go-windows-dbg v0.0.0-20210914123807-2acba179a4e5
+	github.com/stretchr/testify v1.5.1
 )
 
 require (
-	bou.ke/monkey v1.0.2 // indirect
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
 	github.com/getlantern/errors v0.0.0-20190325191628-abdb3e3e36f7 // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/onsi/ginkgo/v2 v2.8.0 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
@@ -49,4 +51,5 @@ require (
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/tools v0.5.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
