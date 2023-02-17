@@ -2,19 +2,23 @@ package server
 
 import (
 	"bou.ke/monkey"
+	"bufio"
 	"context"
 	"crypto/tls"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/Project-Faster/quic-go"
+	"github.com/julienschmidt/httprouter"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"github.com/rs/cors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -22,6 +26,40 @@ import (
 	"testing"
 	"time"
 )
+
+const TEST_LIMITS_CONFIG = `
+maxretries: 10
+gateway: 127.0.0.1
+port: 443
+apiport: 444
+listenaddress: 0.0.0.0
+listenport: 9443
+multistream: true
+verbose: false
+preferproxy: false
+threads: 4
+
+limits:
+  clients:
+    %s/25: %dK
+
+  destinations:
+    google.com: 0
+    %s/25: %dK
+`
+
+const TEST_CONFIG = `
+maxretries: 10
+gateway: 127.0.0.1
+port: 443
+apiport: 444
+listenaddress: 0.0.0.0
+listenport: 9443
+multistream: true
+verbose: false
+preferproxy: false
+threads: 4
+`
 
 func TestServerSuite(t *testing.T) {
 	var q ServerSuite
@@ -339,6 +377,355 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 	cancel()
 
 	wg.Wait()
+}
+
+func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
+	// incoming speed limit
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+
+	clientsMap := map[string]string{
+		addr + "/32": "0",
+	}
+	destMap := map[string]string{
+		addr + "/32": "100K",
+		"google.com": "0",
+	}
+
+	shared.QPepConfig.Limits = shared.LimitsDefinition{
+		Clients:      clientsMap,
+		Destinations: destMap,
+	}
+
+	// incoming speed limits
+	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+
+	// outgoing speed limit
+	shared.LoadAddressSpeedLimitMap(destMap, false)
+
+	// launch request servers
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		RunServer(ctx, cancel)
+	}()
+	go func() {
+		defer wg.Done()
+		api.RunServer(ctx, cancel, false)
+	}()
+
+	// open connection and send
+	conn, err := openQuicSession_test(addr, 9090)
+	assert.Nil(s.T(), err)
+
+	stream, err := conn.OpenStreamSync(ctx)
+	assert.Nil(s.T(), err)
+
+	sessionHeader := shared.QPepHeader{
+		SourceAddr: &net.TCPAddr{
+			IP: net.ParseIP(addr),
+		},
+		DestAddr: &net.TCPAddr{
+			IP:   net.ParseIP(addr),
+			Port: 9443,
+		},
+	}
+
+	stream.Write(sessionHeader.ToBytes())
+
+	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+	_, _ = stream.Write(sendData)
+
+	receiveData := make([]byte, 1024)
+	recv, _ := stream.Read(receiveData)
+
+	matchStr := strings.ReplaceAll(string(receiveData[:recv]), "\r", "")
+
+	assert.Len(s.T(), matchStr, 0)
+
+	stream.CancelWrite(0)
+	stream.CancelRead(0)
+	stream.Close()
+
+	cancel()
+
+	wg.Wait()
+}
+
+func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
+	// incoming speed limit
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+
+	clientsMap := map[string]string{
+		addr + "/32": "100K",
+	}
+	destMap := map[string]string{
+		addr + "/32": "0",
+		"google.com": "0",
+	}
+
+	shared.QPepConfig.Limits = shared.LimitsDefinition{
+		Clients:      clientsMap,
+		Destinations: destMap,
+	}
+
+	// incoming speed limits
+	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+
+	// outgoing speed limit
+	shared.LoadAddressSpeedLimitMap(destMap, false)
+
+	// launch request servers
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		RunServer(ctx, cancel)
+	}()
+	go func() {
+		defer wg.Done()
+		api.RunServer(ctx, cancel, false)
+	}()
+
+	// open connection and send
+	conn, err := openQuicSession_test(addr, 9090)
+	assert.Nil(s.T(), err)
+
+	stream, err := conn.OpenStreamSync(ctx)
+	assert.Nil(s.T(), err)
+
+	sessionHeader := shared.QPepHeader{
+		SourceAddr: &net.TCPAddr{
+			IP: net.ParseIP(addr),
+		},
+		DestAddr: &net.TCPAddr{
+			IP:   net.ParseIP(addr),
+			Port: 9443,
+		},
+	}
+
+	stream.Write(sessionHeader.ToBytes())
+
+	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+	_, _ = stream.Write(sendData)
+
+	receiveData := make([]byte, 1024)
+	recv, _ := stream.Read(receiveData)
+
+	matchStr := strings.ReplaceAll(string(receiveData[:recv]), "\r", "")
+
+	assert.Len(s.T(), matchStr, 0)
+
+	stream.CancelWrite(0)
+	stream.CancelRead(0)
+	stream.Close()
+
+	cancel()
+
+	wg.Wait()
+}
+
+func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
+	// incoming speed limit
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+
+	clientsMap := map[string]string{
+		addr + "/32": "300K",
+	}
+	destMap := map[string]string{
+		"google.com": "0",
+	}
+
+	shared.QPepConfig.Limits = shared.LimitsDefinition{
+		Clients:      clientsMap,
+		Destinations: destMap,
+	}
+
+	// incoming speed limits
+	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+
+	// outgoing speed limit
+	shared.LoadAddressSpeedLimitMap(destMap, false)
+
+	// launch request servers
+	ctx, cancel := context.WithCancel(context.Background())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		RunServer(ctx, cancel)
+	}()
+	go func() {
+		defer wg.Done()
+		api.RunServer(ctx, cancel, false)
+	}()
+
+	// open connection and send
+	conn, err := openQuicSession_test(addr, 9090)
+	assert.Nil(s.T(), err)
+
+	stream, err := conn.OpenStreamSync(ctx)
+	assert.Nil(s.T(), err)
+
+	sessionHeader := shared.QPepHeader{
+		SourceAddr: &net.TCPAddr{
+			IP: net.ParseIP(addr),
+		},
+		DestAddr: &net.TCPAddr{
+			IP:   net.ParseIP(addr),
+			Port: 9443,
+		},
+	}
+
+	var startSend = time.Now()
+	stream.Write(sessionHeader.ToBytes())
+
+	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n" +
+		strings.Repeat("N", 1024*1024) +
+		"\r\n\n")
+
+	stream.Write(sendData)
+
+	receiveData := make([]byte, 1024)
+	recv, _ := stream.Read(receiveData)
+	var sendEnd = time.Now()
+
+	matchStr := strings.ReplaceAll(string(receiveData[:recv]), "\r", "")
+
+	assert.Equal(s.T(), `HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Connection: close
+
+400 Bad Request`, matchStr)
+
+	stream.CancelWrite(0)
+	stream.CancelRead(0)
+	stream.Close()
+
+	cancel()
+
+	wg.Wait()
+
+	// very bland check for 300k/s upload speed
+	assert.True(s.T(), sendEnd.Sub(startSend) > 3*time.Second)
+	assert.True(s.T(), sendEnd.Sub(startSend) < 5*time.Second)
+}
+
+func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
+	// incoming speed limit
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+
+	clientsMap := map[string]string{}
+	destMap := map[string]string{
+		addr + "/32": "300K",
+		"google.com": "0",
+	}
+
+	shared.QPepConfig.Limits = shared.LimitsDefinition{
+		Clients:      clientsMap,
+		Destinations: destMap,
+	}
+
+	// incoming speed limits
+	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+
+	// outgoing speed limit
+	shared.LoadAddressSpeedLimitMap(destMap, false)
+
+	// launch request servers
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var apisrv *http.Server = nil
+	var expectSent = 0
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		RunServer(ctx, cancel)
+	}()
+	go func() {
+		defer wg.Done()
+
+		rtr := httprouter.New()
+		rtr.RedirectTrailingSlash = true
+		rtr.RedirectFixedPath = true
+		rtr.Handle(http.MethodGet, "/testapi", func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Add("Content-Type", "text/html")
+			for i := 0; i < 1024; i++ {
+				sent, _ := w.Write([]byte(strings.Repeat("X", 1024) + "\n"))
+				expectSent += sent
+			}
+		})
+		corsRouterHandler := cors.Default().Handler(rtr)
+
+		apisrv = &http.Server{
+			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
+			Handler: corsRouterHandler,
+			BaseContext: func(l net.Listener) context.Context {
+				return ctx
+			},
+		}
+
+		if err := apisrv.ListenAndServe(); err != nil {
+			logger.Info("Error running API server: %v", err)
+		}
+		apisrv = nil
+	}()
+
+	// open connection and send
+	conn, err := openQuicSession_test(addr, 9090)
+	assert.Nil(s.T(), err)
+
+	stream, err := conn.OpenStreamSync(ctx)
+	assert.Nil(s.T(), err)
+
+	sessionHeader := shared.QPepHeader{
+		SourceAddr: &net.TCPAddr{
+			IP: net.ParseIP(addr),
+		},
+		DestAddr: &net.TCPAddr{
+			IP:   net.ParseIP(addr),
+			Port: 9443,
+		},
+	}
+
+	var startSend = time.Now()
+	stream.Write(sessionHeader.ToBytes())
+
+	sendData := []byte("GET /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+
+	stream.Write(sendData)
+
+	total := 0
+	scn := bufio.NewScanner(stream)
+	for scn.Scan() {
+		total += len(scn.Text())
+	}
+
+	var sendEnd = time.Now()
+
+	stream.CancelWrite(0)
+	stream.CancelRead(0)
+	stream.Close()
+
+	cancel()
+
+	_ = apisrv.Close()
+
+	wg.Wait()
+
+	assert.True(s.T(), total > expectSent)
+
+	// very bland check for 300k/s upload speed
+	assert.True(s.T(), sendEnd.Sub(startSend) > 3*time.Second)
+	assert.True(s.T(), sendEnd.Sub(startSend) < 5*time.Second)
 }
 
 // --- utilities --- //
