@@ -12,7 +12,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/parvit/qpep/flags"
-	. "github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/webgui"
 	"github.com/rs/cors"
@@ -49,14 +49,14 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 	host := shared.QPepConfig.ListenHost
 	if localMode {
 		host = "127.0.0.1"
-		Info("Listening address for local api server set to 127.0.0.1")
+		logger.Info("Listening address for local api server set to 127.0.0.1")
 	} else {
 		host, _ = shared.GetDefaultLanListeningAddress(host, "")
 	}
 	apiPort := shared.QPepConfig.GatewayAPIPort
 
 	listenAddr := fmt.Sprintf("%s:%d", host, apiPort)
-	Info("Opening API Server on: %s", listenAddr)
+	logger.Info("Opening API Server on: %s", listenAddr)
 
 	rtr := newRouter()
 	rtr.clientMode = flags.Globals.Client
@@ -76,12 +76,12 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 	}()
 
 	if err := srv.ListenAndServe(); err != nil {
-		Info("Error running API server: %v", err)
+		logger.Info("Error running API server: %v", err)
 	}
 	srv = nil
 	cancel()
 
-	Info("Closed API Server")
+	logger.Info("Closed API Server")
 }
 
 // newServer method initializes a new api server instance listening on the specified local address
@@ -102,7 +102,7 @@ func newServer(addr string, rtr *APIRouter, ctx context.Context) *http.Server {
 // that the "Accept" header be compatible with json content, if not then it returns an http 400 error BadRequest
 func apiFilter(next httprouter.Handle) httprouter.Handle {
 	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		Info("apiFilter - %s\n", formatRequest(r))
+		logger.Info("apiFilter - %s\n", formatRequest(r))
 
 		// Request API request must accept JSON
 		accepts := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Accept"))
@@ -124,7 +124,7 @@ func apiFilter(next httprouter.Handle) httprouter.Handle {
 
 // apiForbidden method returns as response the http status code 403 Forbidden
 func apiForbidden(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	Info("apiForbidden - %s\n", formatRequest(r))
+	logger.Info("apiForbidden - %s\n", formatRequest(r))
 
 	w.WriteHeader(http.StatusForbidden)
 }
@@ -133,7 +133,7 @@ func apiForbidden(w http.ResponseWriter, r *http.Request, ps httprouter.Params) 
 // as all files served are contained in memory and the filesystem is not accessed.
 // Makes a best effort to return the correct "Content-Type" to the client in the response.
 func serveFile(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	Info("serveFile - %s\n", formatRequest(r))
+	logger.Info("serveFile - %s\n", formatRequest(r))
 
 	urlPath := r.URL.Path[1:]
 	if _, ok := webgui.FilesList[urlPath]; !ok {
@@ -172,7 +172,7 @@ func newRouter() *APIRouter {
 // * there is an internal exception during the api execution
 func (r *APIRouter) registerHandlers() {
 	r.handler.PanicHandler = func(w http.ResponseWriter, r *http.Request, i interface{}) {
-		Info("PanicHandler - %s\n", formatRequest(r))
+		logger.Info("PanicHandler - %s\n", formatRequest(r))
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	r.handler.NotFound = &notFoundHandler{}
@@ -200,7 +200,7 @@ func (r *APIRouter) registerAPIMethod(method, path string, handle httprouter.Han
 		panic(fmt.Sprintf("Requested registration of api method %s %s for neither server or client usage!", method, path))
 	}
 
-	Info("Register API: %s %s (srv:%v cli:%v cli-mode:%v)\n", method, path, allowServer, allowClient, r.clientMode)
+	logger.Info("Register API: %s %s (srv:%v cli:%v cli-mode:%v)\n", method, path, allowServer, allowClient, r.clientMode)
 	if allowServer && !r.clientMode {
 		r.handler.Handle(method, API_PREFIX_SERVER+path, handle)
 	} else {
@@ -229,7 +229,7 @@ func (r *APIRouter) registerStaticFiles() {
 // ServeHTTP (notFoundHandler) is invoked in scenarios were the requested path cannot be matched to any installed api path
 // returning to the client an error 404, or the index page if the request was not of api type
 func (n *notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	Info("notFoundHandler - %s\n", formatRequest(r))
+	logger.Info("notFoundHandler - %s\n", formatRequest(r))
 
 	// Request not found for API request will accept JSON
 	accepts := r.Header.Get(textproto.CanonicalMIMEHeaderKey("accept"))
@@ -245,6 +245,6 @@ func (n *notFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ServeHTTP (methodsNotAllowedHandler) is invoked in scenarios were the requested path was found installed but the
 // http method requested was not expected. The response in this case is status code 405 MethodNotAllowed
 func (n *methodsNotAllowedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	Info("methodsNotAllowedHandler - %s\n", formatRequest(r))
+	logger.Info("methodsNotAllowedHandler - %s\n", formatRequest(r))
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
