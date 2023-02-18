@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"math/rand"
 	"net"
+	"os"
 	"testing"
 )
 
@@ -186,10 +187,12 @@ func (s *ParamsValidationSuite) TestParseSpeedLimitAddressDefinition_Subnet() {
 }
 
 func (s *ParamsValidationSuite) TestParseSpeedLimitAddressDefinition_DomainFound() {
-	addr, err := net.ResolveTCPAddr("tcp", "google.com:0") // domain name
+	host, _ := os.Hostname()
+
+	addr, err := net.ResolveTCPAddr("tcp", host+":0") // domain name
 	assert.Nil(s.T(), err)
 
-	ip := parseSpeedLimitAddressDefinition("google.com")
+	ip := parseSpeedLimitAddressDefinition(host)
 	_, expectNet, _ := net.ParseCIDR(addr.IP.String() + "/32")
 	assert.Equal(s.T(), expectNet, ip)
 }
