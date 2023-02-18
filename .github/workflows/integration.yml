@@ -71,7 +71,7 @@ jobs:
         set GOOS=linux
         set CGO_ENABLED=0
         set QPEP_CI_ENV=1
-        cd api/
+        cd server/
         go test -v -gcflags=-l -cover -coverprofile=cover.out  2>&1 ./... > ../tests.log
         cd ..
         cat tests.log | go-junit-report > unit_tests.xml
