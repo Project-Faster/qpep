@@ -27,40 +27,6 @@ import (
 	"time"
 )
 
-const TEST_LIMITS_CONFIG = `
-maxretries: 10
-gateway: 127.0.0.1
-port: 443
-apiport: 444
-listenaddress: 0.0.0.0
-listenport: 9443
-multistream: true
-verbose: false
-preferproxy: false
-threads: 4
-
-limits:
-  clients:
-    %s/25: %dK
-
-  destinations:
-    google.com: 0
-    %s/25: %dK
-`
-
-const TEST_CONFIG = `
-maxretries: 10
-gateway: 127.0.0.1
-port: 443
-apiport: 444
-listenaddress: 0.0.0.0
-listenport: 9443
-multistream: true
-verbose: false
-preferproxy: false
-threads: 4
-`
-
 func TestServerSuite(t *testing.T) {
 	var q ServerSuite
 	suite.Run(t, &q)
