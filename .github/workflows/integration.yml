@@ -61,7 +61,7 @@ jobs:
       run: |
         set GOARCH=amd64
         set GOOS=linux
-        set CGO_ENABLED=1
+        set CGO_ENABLED=0
         go clean -cache
         go build -v -o build/qpep
 
