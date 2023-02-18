@@ -71,7 +71,8 @@ jobs:
         set GOOS=linux
         set CGO_ENABLED=0
         set QPEP_CI_ENV=1
-        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... > tests.log 
+        cat tests.log | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
 
     - name: Publish Test Results
@@ -96,6 +97,11 @@ jobs:
       with:
         name: linux_coverage_report
         path: report.html
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: linux_tests_log
+        path: tests.log
 
   build-windows:
     runs-on: windows-latest
@@ -187,7 +193,8 @@ jobs:
         set CGO_ENABLED=0
         set QPEP_CI_ENV=1
         go generate github.com/parvit/qpep/windivert
-        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... | go-junit-report -set-exit-code > unit_tests.xml
+        go test -v -gcflags=-l -cover -coverprofile=cover.out 2>&1 ./... > tests.log
+        cat tests.log | go-junit-report -set-exit-code > unit_tests.xml
       continue-on-error: true
 
     - name: Publish Unit Test Results
@@ -241,3 +248,8 @@ jobs:
       with:
         name: windows_coverage_report
         path: report.html
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: windows_tests_log
+        path: tests.log
