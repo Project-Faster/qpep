@@ -14,13 +14,6 @@ import (
 	"time"
 )
 
-const (
-	// INITIAL_BUFF_SIZE indicates the initial receive buffer for connections
-	INITIAL_BUFF_SIZE = int64(4096)
-
-	CHUNK_BUFF_SIZE = int64(409)
-)
-
 // listenQuicSession handles accepting the sessions and the launches goroutines to actually serve them
 func listenQuicSession() {
 	defer func() {

@@ -68,20 +68,15 @@ func TestServerSuite(t *testing.T) {
 
 type ServerSuite struct {
 	suite.Suite
-
-	lock sync.Mutex
 }
 
 func (s *ServerSuite) BeforeTest(_, testName string) {
-	s.lock.Lock()
 	shared.QPepConfig.ListenHost = "127.0.0.1"
 	shared.QPepConfig.ListenPort = 9090
 	shared.QPepConfig.GatewayAPIPort = 9443
 }
 
 func (s *ServerSuite) AfterTest(_, testName string) {
-	s.lock.Unlock()
-
 	monkey.UnpatchAll()
 	api.Statistics.Reset()
 }

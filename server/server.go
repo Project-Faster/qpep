@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"github.com/Project-Faster/quic-go"
-
 	//"github.com/Project-Faster/quic-go/logging"
 	//"github.com/Project-Faster/quic-go/qlog"
 	"io/ioutil"

@@ -9,6 +9,7 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/parvit/qpep/flags"
@@ -65,8 +66,12 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 		rtr.registerStaticFiles()
 	}
 
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
 	srv := newServer(listenAddr, rtr, ctx)
 	go func() {
+		defer wg.Done()
 		<-ctx.Done()
 		if srv != nil {
 			srv.Close()
@@ -80,6 +85,8 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 	}
 	srv = nil
 	cancel()
+
+	wg.Wait()
 
 	logger.Info("Closed API Server")
 }
