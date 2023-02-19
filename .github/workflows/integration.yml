@@ -78,6 +78,7 @@ jobs:
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
           ./qpep.$(basename $PWD).test -test.coverprofile=cover.out > unit_tests.out || true
           cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          cat ../unit_tests_$(basename $PWD).xml
           gocov convert cover.out | gocov report | grep "Total Coverage $(basename $PWD)" >> $GITHUB_STEP_SUMMARY || true
           gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
           popd
