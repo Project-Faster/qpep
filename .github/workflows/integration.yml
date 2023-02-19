@@ -71,7 +71,13 @@ jobs:
         set GOOS=linux
         set CGO_ENABLED=0
         set QPEP_CI_ENV=1
-        go test -v -gcflags=-l -cover -coverprofile=cover.out ./... -test.run "TestRouterSuite|TestServerSuite|TestStatistics|TestAPI" &> tests.log
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
+          ./qpep.$(basename pwd).test -coverprofile=qpep.$(basename $PWD).cover >> ../tests.log 2>&1 || true
+          popd
+        done
         cat tests.log | go-junit-report > unit_tests.xml
       continue-on-error: true
 
