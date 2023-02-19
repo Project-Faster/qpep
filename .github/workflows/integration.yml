@@ -78,8 +78,6 @@ jobs:
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
           ./qpep.$(basename $PWD).test -test.v -test.coverprofile=cover.out &> unit_tests.out || true
           cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
-          gocov convert cover.out | gocov report | grep "Total Coverage $(basename $PWD)" >> $GITHUB_STEP_SUMMARY || true
-          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
           popd
         done
       continue-on-error: true
@@ -90,6 +88,18 @@ jobs:
       with:
         check_name: "Unit Tests - Linux Platform"
         junit_files: "unit_tests_*.xml"
+
+    - name: Publish Coverage Results
+      run: |
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          echo "Package $i: "  >> $GITHUB_STEP_SUMMARY
+          gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
+          popd
+        done
+      continue-on-error: true
 
     - uses: actions/upload-artifact@v3
       with:
