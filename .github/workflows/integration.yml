@@ -75,10 +75,12 @@ jobs:
         do
           pushd $i
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-          ./qpep.$(basename pwd).test -coverprofile=qpep.$(basename $PWD).cover >> ../tests.log 2>&1 || true
+          ./qpep.$(basename $PWD).test -coverprofile=cover.out > unit_tests.out 2>&1 || true
+          cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          gocov convert cover.out | gocov report | grep "Total Coverage $(basename $PWD)" >> $GITHUB_STEP_SUMMARY || true
+          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
           popd
         done
-        cat tests.log | go-junit-report > unit_tests.xml
       continue-on-error: true
 
     - name: Publish Test Results
@@ -86,13 +88,7 @@ jobs:
       if: always()
       with:
         check_name: "Unit Tests - Linux Platform"
-        junit_files: "unit_tests.xml"
-
-    - name: Test Results
-      run: |
-        gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY
-        gocov convert cover.out | gocov-html -s .style.css > report.html
-      continue-on-error: true
+        junit_files: "unit_tests_*.xml"
 
     - uses: actions/upload-artifact@v3
       with:
@@ -102,12 +98,7 @@ jobs:
     - uses: actions/upload-artifact@v3
       with:
         name: linux_coverage_report
-        path: report.html
-
-    - uses: actions/upload-artifact@v3
-      with:
-        name: linux_tests_log
-        path: tests.log
+        path: report_*.html
 
 #  build-windows:
 #    runs-on: windows-latest
