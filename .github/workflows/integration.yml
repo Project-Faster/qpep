@@ -71,9 +71,7 @@ jobs:
         set GOOS=linux
         set CGO_ENABLED=0
         set QPEP_CI_ENV=1
-        cd server/
-        go test -v -gcflags=-l -cover -coverprofile=cover.out  2>&1 ./... -testify.f "TestRouterSuite|TestServerSuite" > ../tests.log
-        cd ..
+        go test -v -gcflags=-l -cover -coverprofile=cover.out  2>&1 ./... -testify.f "TestRouterSuite|TestServerSuite" > tests.log
         cat tests.log | go-junit-report > unit_tests.xml
       continue-on-error: true
 
