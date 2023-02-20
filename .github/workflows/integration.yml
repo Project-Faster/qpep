@@ -11,105 +11,105 @@ on:
     branches: [ "main", "testing-*", "issue*" ]
 
 jobs:
-#  build-linux:
-#    runs-on: ubuntu-latest
-#    defaults:
-#      run:
-#        shell: bash
+  build-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
 #
-#    steps:
-#    - uses: actions/checkout@v3
-#    - name: Set up Go
-#      uses: actions/setup-go@v3
-#      with:
-#        go-version: 1.18
-##
-##    # Get values for cache paths to be used in later steps
-##    - id: go-cache-paths
-##      run: |
-##        export GOCACHE=~\.cache\go-build
-##        echo "::set-output name=go-build::$(go env GOCACHE)"
-##        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
-##
-##    # Cache go build cache, used to speedup go test
-##    - name: Go Build Cache
-##      uses: actions/cache@v3
-##      with:
-##        path:
-##          ${{ steps.go-cache-paths.outputs.go-build }}
-##        key:
-##          ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
-##
-##    # Cache go mod cache, used to speedup builds
-##    - name: Go Mod Cache
-##      uses: actions/cache@v3
-##      with:
-##        path:
-##          ${{ steps.go-cache-paths.outputs.go-mod }}
-##        key:
-##          ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
-#
-#    - name: Prepare
+#    # Get values for cache paths to be used in later steps
+#    - id: go-cache-paths
 #      run: |
-#        mkdir build
-#        go install github.com/jstemmer/go-junit-report@latest
-#        go install github.com/axw/gocov/gocov@v1.1.0
-#        go install github.com/matm/gocov-html/cmd/gocov-html@latest
-#        go install github.com/AlekSi/gocov-xml@latest
+#        export GOCACHE=~\.cache\go-build
+#        echo "::set-output name=go-build::$(go env GOCACHE)"
+#        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 #
-#    - name: Build 64bits
-#      run: |
-#        export GOARCH=amd64
-#        export GOOS=linux
-#        export CGO_ENABLED=0
-#        go clean -cache
-#        go build -v -o build/qpep
-#
-#    - name: Test
-#      run: |
-#        set -x
-#        export GOARCH=amd64
-#        export GOOS=linux
-#        export CGO_ENABLED=0
-#        export QPEP_CI_ENV=1
-#        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
-#        do
-#          pushd $i
-#          go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-#          ./qpep.$(basename $PWD).test -test.v -test.coverprofile=cover.out &> unit_tests.out || true
-#          cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
-#          popd
-#        done
-#      continue-on-error: true
-#
-#    - name: Publish Test Results
-#      uses: EnricoMi/publish-unit-test-result-action@v2
-#      if: always()
+#    # Cache go build cache, used to speedup go test
+#    - name: Go Build Cache
+#      uses: actions/cache@v3
 #      with:
-#        check_name: "Unit Tests - Linux Platform"
-#        junit_files: "unit_tests_*.xml"
+#        path:
+#          ${{ steps.go-cache-paths.outputs.go-build }}
+#        key:
+#          ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 #
-#    - name: Publish Coverage Results
-#      run: |
-#        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
-#        do
-#          pushd $i
-#          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-#          gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
-#          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
-#          popd
-#        done
-#      continue-on-error: true
-#
-#    - uses: actions/upload-artifact@v3
+#    # Cache go mod cache, used to speedup builds
+#    - name: Go Mod Cache
+#      uses: actions/cache@v3
 #      with:
-#        name: qpep_linux_b${{ github.run_id }}
-#        path: build/qpep
-#
-#    - uses: actions/upload-artifact@v3
-#      with:
-#        name: linux_coverage_report
-#        path: report_*.html
+#        path:
+#          ${{ steps.go-cache-paths.outputs.go-mod }}
+#        key:
+#          ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+    - name: Prepare
+      run: |
+        mkdir build
+        go install github.com/jstemmer/go-junit-report@latest
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/matm/gocov-html/cmd/gocov-html@latest
+        go install github.com/AlekSi/gocov-xml@latest
+
+    - name: Build 64bits
+      run: |
+        export GOARCH=amd64
+        export GOOS=linux
+        export CGO_ENABLED=0
+        go clean -cache
+        go build -v -o build/qpep
+
+    - name: Test
+      run: |
+        set -x
+        export GOARCH=amd64
+        export GOOS=linux
+        export CGO_ENABLED=0
+        export QPEP_CI_ENV=1
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
+          ./qpep.$(basename $PWD).test -test.v -test.coverprofile=cover.out &> unit_tests.out || true
+          cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          popd
+        done
+      continue-on-error: true
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        check_name: "Unit Tests - Linux Platform"
+        junit_files: "unit_tests_*.xml"
+
+    - name: Publish Coverage Results
+      run: |
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+          gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
+          popd
+        done
+      continue-on-error: true
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: qpep_linux_b${{ github.run_id }}
+        path: build/qpep
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: linux_coverage_report
+        path: report_*.html
 
   build-windows:
     runs-on: windows-latest
@@ -209,9 +209,6 @@ jobs:
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
           ./qpep.$(basename $PWD).test -test.v -test.coverprofile=cover.out &> unit_tests.out || true
           cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
-          echo === dump ===
-          cat unit_tests.out || true
-          echo ============
           popd
         done
       continue-on-error: true
@@ -261,15 +258,15 @@ jobs:
            go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
            popd
 
-#    - name: Build QPep Installer
-#      run: |
-#           set PATH=${{ github.workspace }}\wix\tools;%PATH%
-#           msbuild installer\installer.sln
-#
-#    - uses: actions/upload-artifact@v3
-#      with:
-#        name: qpep_windows_b${{ github.run_id }}
-#        path: build/installer.msi
+    - name: Build QPep Installer
+      run: |
+           set PATH=${{ github.workspace }}\wix\tools;%PATH%
+           msbuild installer\installer.sln
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: qpep_windows_b${{ github.run_id }}
+        path: build/installer.msi
 
     - uses: actions/upload-artifact@v3
       with:

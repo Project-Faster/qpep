@@ -202,5 +202,5 @@ func (s *ServiceWinSuite) TestWaitChildProcessTermination() {
 
 	assert.LessOrEqual(s.T(), len(list), 1)
 
-	assert.LessOrEqual(s.T(), time.Now(), start.Add(30*time.Second))
+	assert.True(s.T(), time.Now().Before(start.Add(30*time.Second)))
 }
