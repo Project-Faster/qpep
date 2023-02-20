@@ -59,19 +59,19 @@ jobs:
 #
 #    - name: Build 64bits
 #      run: |
-#        set GOARCH=amd64
-#        set GOOS=linux
-#        set CGO_ENABLED=0
+#        export GOARCH=amd64
+#        export GOOS=linux
+#        export CGO_ENABLED=0
 #        go clean -cache
 #        go build -v -o build/qpep
 #
 #    - name: Test
 #      run: |
 #        set -x
-#        set GOARCH=amd64
-#        set GOOS=linux
-#        set CGO_ENABLED=0
-#        set QPEP_CI_ENV=1
+#        export GOARCH=amd64
+#        export GOOS=linux
+#        export CGO_ENABLED=0
+#        export QPEP_CI_ENV=1
 #        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
 #        do
 #          pushd $i
@@ -181,9 +181,9 @@ jobs:
     - name: Build QPep Tray 64bits
       run: |
            pushd qpep-tray
-           set GOARCH=amd64
-           set GOOS=windows
-           set CGO_ENABLED=0
+           export GOARCH=amd64
+           export GOOS=windows
+           export CGO_ENABLED=0
            go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
            popd
 
@@ -198,10 +198,10 @@ jobs:
       shell: bash
       run: |
         set -x
-        set GOARCH=amd64
-        set GOOS=windows
-        set CGO_ENABLED=0
-        set QPEP_CI_ENV=1
+        export GOARCH=amd64
+        export GOOS=windows
+        export CGO_ENABLED=0
+        export QPEP_CI_ENV=1
         go generate github.com/parvit/qpep/windivert
         for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
