@@ -209,6 +209,9 @@ jobs:
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
           ./qpep.$(basename $PWD).test -test.v -test.coverprofile=cover.out &> unit_tests.out || true
           cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          echo === dump ===
+          cat unit_tests.out || true
+          echo ============
           popd
         done
       continue-on-error: true
@@ -230,9 +233,6 @@ jobs:
           echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
           gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
           gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
-          echo === dump ===
-          cat cover.out
-          echo ============
           popd
         done
       continue-on-error: true
