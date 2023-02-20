@@ -272,3 +272,8 @@ jobs:
       with:
         name: windows_coverage_report
         path: report_*.html
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: windows_coverage_report
+        path: unit_tests_*.xml
