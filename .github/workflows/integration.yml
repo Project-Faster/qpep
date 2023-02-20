@@ -230,6 +230,9 @@ jobs:
           echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
           gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
           gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
+          echo === dump ===
+          cat cover.out
+          echo ============
           popd
         done
       continue-on-error: true
@@ -277,8 +280,3 @@ jobs:
       with:
         name: windows_coverage_report
         path: unit_tests_*.xml
-
-    - uses: actions/upload-artifact@v3
-      with:
-        name: windows_coverage_report
-        path: **/cover.out
