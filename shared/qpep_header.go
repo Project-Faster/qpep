@@ -1,5 +1,5 @@
 /*
- * This file in shared package handles the converstion to and from bytes
+ * This file in shared package handles the conversion to and from bytes
  * of the qpep header, used to instantiate new outer connections through
  * the quic connections.
  */
@@ -18,6 +18,8 @@ const (
 	IPV4                 = 0x04
 	IPV6                 = 0x06
 	IPNULL               = 0x00
+
+	QPEP_LOCALSERVER_DESTINATION = 0x01
 )
 
 // QPepHeader The structure that conveys the information about the destination and source of the connection
@@ -28,6 +30,8 @@ type QPepHeader struct {
 	SourceAddr *net.TCPAddr
 	// Destination of the connection (to be established by the server)
 	DestAddr *net.TCPAddr
+	// Flags for special options to be set for this connection
+	Flags uint16
 }
 
 // ToBytes method of QPepHeader struct converts the header instance to a bytes
@@ -39,7 +43,7 @@ func (header QPepHeader) ToBytes() []byte {
 		return nil
 	}
 
-	var byteOutput = make([]byte, 0, 42) // at most 2+16+4+16+4 = 42
+	var byteOutput = make([]byte, 0, 44) // at most 2+16+4+16+4+2 = 44
 	byteOutput = append(byteOutput, sourceType)
 	byteOutput = append(byteOutput, destType)
 
@@ -48,6 +52,8 @@ func (header QPepHeader) ToBytes() []byte {
 
 	byteOutput = append(byteOutput, ipToBytes(header.DestAddr.IP, destType)...)
 	byteOutput = append(byteOutput, portToBytes(header.DestAddr.Port)...)
+
+	byteOutput = append(byteOutput, flagsToBytes(header.Flags)...)
 
 	return byteOutput
 }
@@ -72,6 +78,12 @@ func portToBytes(port int) []byte {
 	}
 	result := make([]byte, 2)
 	binary.LittleEndian.PutUint16(result, uint16(port))
+	return result
+}
+
+func flagsToBytes(flags uint16) []byte {
+	result := make([]byte, 2)
+	binary.LittleEndian.PutUint16(result, flags)
 	return result
 }
 
@@ -122,9 +134,11 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 	}
 	destPortEnd := destIpEnd + 2
 
-	byteInput := make([]byte, destPortEnd)
+	flagsEnd := destPortEnd + 2
+
+	byteInput := make([]byte, flagsEnd)
 	readDataBytes, err := stream.Read(byteInput)
-	if readDataBytes != destPortEnd || err != nil {
+	if readDataBytes != flagsEnd || err != nil {
 		return nil, ErrInvalidHeaderDataLength
 	}
 
@@ -134,7 +148,13 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 	destIPAddr := net.IP(byteInput[sourcePortEnd:destIpEnd])
 	destPort := int(binary.LittleEndian.Uint16(byteInput[destIpEnd:destPortEnd]))
 
+	flags := binary.LittleEndian.Uint16(byteInput[destPortEnd:flagsEnd])
+
 	srcAddr := &net.TCPAddr{IP: srcIPAddr, Port: srcPort}
 	dstAddr := &net.TCPAddr{IP: destIPAddr, Port: destPort}
-	return &QPepHeader{SourceAddr: srcAddr, DestAddr: dstAddr}, nil
+	return &QPepHeader{
+		SourceAddr: srcAddr,
+		DestAddr:   dstAddr,
+		Flags:      flags,
+	}, nil
 }

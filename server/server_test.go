@@ -11,9 +11,9 @@ import (
 	"github.com/Project-Faster/quic-go"
 	"github.com/julienschmidt/httprouter"
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/rs/cors"
+	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io/ioutil"
@@ -27,7 +27,19 @@ import (
 	"time"
 )
 
+var testlog log.Logger
+
 func TestServerSuite(t *testing.T) {
+	_logFile, err := os.OpenFile("./speedtests.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	assert.Nil(t, err)
+
+	testlog = log.New(_logFile).Level(log.DebugLevel).
+		With().Timestamp().Logger()
+
+	defer func() {
+		_logFile.Close()
+	}()
+
 	var q ServerSuite
 	suite.Run(t, &q)
 }
@@ -640,7 +652,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 		}
 
 		if err := apisrv.ListenAndServe(); err != nil {
-			logger.Info("Error running API server: %v", err)
+			testlog.Info().Msgf("Error running API server: %v", err)
 		}
 		apisrv = nil
 	}()
@@ -674,7 +686,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	scn := bufio.NewScanner(stream)
 	for scn.Scan() {
 		total += len(scn.Bytes())
-		logger.Info("total: %d / %d / %d - %v", total, expectSent, (1024+1)*1024, time.Now().Sub(startSend))
+		testlog.Info().Msgf("total: %d / %d / %d - %v", total, expectSent, (1024+1)*1024, time.Now().Sub(startSend))
 
 		if total > expectSent {
 			sendEnd = time.Now()
@@ -699,13 +711,205 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	assert.True(s.T(), sendEnd.Sub(startSend) < 5*time.Second)
 }
 
+func (s *ServerSuite) TestRunServer_DownloadConnection() {
+	// incoming speed limit
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+
+	clientsMap := map[string]string{}
+	destMap := map[string]string{}
+
+	shared.QPepConfig.Limits = shared.LimitsDefinition{
+		Clients:      clientsMap,
+		Destinations: destMap,
+	}
+
+	// incoming speed limits
+	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+
+	// outgoing speed limit
+	shared.LoadAddressSpeedLimitMap(destMap, false)
+
+	// launch request servers
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var apisrv *http.Server = nil
+	var expectSent = 1024 * 1024 * 10
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		RunServer(ctx, cancel)
+	}()
+	go func() {
+		defer wg.Done()
+		rtr := httprouter.New()
+		rtr.RedirectTrailingSlash = true
+		rtr.RedirectFixedPath = true
+		rtr.Handle(http.MethodGet, "/testapi", func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Add("Content-Type", "text/html")
+			data := strings.Repeat("X", 1024*1024*5)
+			sent, _ := w.Write([]byte(data))
+			<-time.After(1 * time.Second)
+			assert.Equal(s.T(), 1024*1024*5, sent)
+			data = strings.Repeat("X", 1024*1024*5)
+			sent, _ = w.Write([]byte(data))
+		})
+		corsRouterHandler := cors.Default().Handler(rtr)
+
+		apisrv = &http.Server{
+			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
+			Handler: corsRouterHandler,
+			BaseContext: func(l net.Listener) context.Context {
+				return ctx
+			},
+		}
+
+		if err := apisrv.ListenAndServe(); err != nil {
+			testlog.Info().Msgf("Error running API server: %v", err)
+		}
+		apisrv = nil
+	}()
+
+	// open connection and send
+	conn, err := openQuicSession_test(addr, 9090)
+	assert.Nil(s.T(), err)
+
+	stream, err := conn.OpenStreamSync(ctx)
+	assert.Nil(s.T(), err)
+
+	sessionHeader := shared.QPepHeader{
+		SourceAddr: &net.TCPAddr{
+			IP: net.ParseIP(addr),
+		},
+		DestAddr: &net.TCPAddr{
+			IP:   net.ParseIP(addr),
+			Port: 9443,
+		},
+	}
+
+	stream.Write(sessionHeader.ToBytes())
+
+	sendData := []byte("GET /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+
+	stream.Write(sendData)
+
+	out, err := ioutil.ReadAll(stream)
+	assert.Nil(s.T(), err)
+
+	cancel()
+
+	_ = apisrv.Close()
+
+	wg.Wait()
+
+	assert.True(s.T(), len(out) >= expectSent)
+}
+
+func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
+	// incoming speed limit
+	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+
+	clientsMap := map[string]string{}
+	destMap := map[string]string{}
+
+	shared.QPepConfig.Limits = shared.LimitsDefinition{
+		Clients:      clientsMap,
+		Destinations: destMap,
+	}
+
+	// incoming speed limits
+	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+
+	// outgoing speed limit
+	shared.LoadAddressSpeedLimitMap(destMap, false)
+
+	// launch request servers
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var apisrv *http.Server = nil
+	var expectSent = 1024 * 1024 * 10
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		RunServer(ctx, cancel)
+	}()
+	go func() {
+		defer wg.Done()
+		rtr := httprouter.New()
+		rtr.RedirectTrailingSlash = true
+		rtr.RedirectFixedPath = true
+		rtr.Handle(http.MethodGet, "/testapi", func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Add("Content-Type", "text/html")
+			data := strings.Repeat("X", 1024*1024*5)
+			sent, _ := w.Write([]byte(data))
+			<-time.After(4 * time.Second)
+			assert.Equal(s.T(), 1024*1024*5, sent)
+			data = strings.Repeat("X", 1024*1024*5)
+			sent, _ = w.Write([]byte(data))
+		})
+		corsRouterHandler := cors.Default().Handler(rtr)
+
+		apisrv = &http.Server{
+			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
+			Handler: corsRouterHandler,
+			BaseContext: func(l net.Listener) context.Context {
+				return ctx
+			},
+		}
+
+		if err := apisrv.ListenAndServe(); err != nil {
+			testlog.Info().Msgf("Error running API server: %v", err)
+		}
+		apisrv = nil
+	}()
+
+	// open connection and send
+	conn, err := openQuicSession_test(addr, 9090)
+	assert.Nil(s.T(), err)
+
+	stream, err := conn.OpenStreamSync(ctx)
+	assert.Nil(s.T(), err)
+
+	sessionHeader := shared.QPepHeader{
+		SourceAddr: &net.TCPAddr{
+			IP: net.ParseIP(addr),
+		},
+		DestAddr: &net.TCPAddr{
+			IP:   net.ParseIP(addr),
+			Port: 9443,
+		},
+	}
+
+	stream.Write(sessionHeader.ToBytes())
+
+	sendData := []byte("GET /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+
+	stream.Write(sendData)
+
+	out, err := ioutil.ReadAll(stream)
+	assert.Nil(s.T(), err)
+
+	cancel()
+
+	_ = apisrv.Close()
+
+	wg.Wait()
+
+	assert.True(s.T(), len(out) >= expectSent)
+}
+
 // --- utilities --- //
 func openQuicSession_test(address string, port int) (quic.Connection, error) {
 	config := &quic.Config{DisablePathMTUDiscovery: true}
 	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"qpep"}}
 	gatewayPath := fmt.Sprintf("%s:%d", address, port) // "192.168.1.89:9090"
 
-	logger.Info("Dialing QUIC Session: %s\n", gatewayPath)
+	testlog.Info().Msgf("Dialing QUIC Session: %s\n", gatewayPath)
 	return quic.DialAddr(gatewayPath, tlsConf, config)
 }
 

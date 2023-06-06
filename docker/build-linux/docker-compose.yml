@@ -7,7 +7,7 @@ services:
       context: .
     environment:
       - QPEP_REPO=https://github.com/Project-Faster/qpep.git
-      - QPEP_BRANCH=main
+      - QPEP_BRANCH=issue-22-performance-testing
       - QPEP_REV=HEAD
     volumes:
       - ./build:/build

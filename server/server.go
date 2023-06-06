@@ -24,9 +24,10 @@ import (
 var (
 	// ServerConfiguration global variable that keeps track of the current server configuration
 	ServerConfiguration = ServerConfig{
-		ListenHost: "0.0.0.0",
-		ListenPort: 443,
-		APIPort:    444,
+		ListenHost:  "0.0.0.0",
+		ListenPort:  443,
+		APIPort:     444,
+		IdleTimeout: 3 * time.Second,
 	}
 	// quicListener instance of the quic server that receives the connections from clients
 	quicListener quic.Listener
@@ -40,6 +41,8 @@ type ServerConfig struct {
 	ListenPort int
 	// APIPort port [1-65535] on which the API server is launched
 	APIPort int
+	// IdleTimeout Timeout after which, without activity, a connected quic stream is closed
+	IdleTimeout time.Duration
 
 	BrokerConfig shared.AnalyticsDefinition
 }

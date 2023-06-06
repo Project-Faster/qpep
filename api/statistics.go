@@ -70,6 +70,8 @@ func (s *statistics) Reset() {
 	defer func() {
 		s.semState.Unlock()
 		s.semCounters.Unlock()
+
+		s.SetCounter(0.0, TOTAL_CONNECTIONS)
 	}()
 
 	logger.Debug("Statistics reset.")

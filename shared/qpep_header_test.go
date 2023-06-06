@@ -29,6 +29,7 @@ func TestQPepHeader_ToBytes(t *testing.T) {
 		0xe3, 0x24, // src port
 		0xc0, 0xa8, 0x01, 0x64, // dst ip
 		0xbd, 0x01, // dst port
+		0x00, 0x00, // flags
 	}
 
 	var outValue = header.ToBytes()
@@ -62,6 +63,7 @@ func TestQPepHeader_ToBytesV6(t *testing.T) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 		// dst port
 		0xbd, 0x01,
+		0x00, 0x00, // flags
 	}
 
 	var outValue = header.ToBytes()
@@ -92,6 +94,7 @@ func TestQPepHeader_ToBytesV4V6(t *testing.T) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 		// dst port
 		0xbd, 0x01,
+		0x00, 0x00, // flags
 	}
 
 	var outValue = header.ToBytes()
@@ -124,6 +127,7 @@ func TestQPepHeader_ToBytesV6V4(t *testing.T) {
 		0x7f, 0x00, 0x00, 0x01, // src ip
 		// dst port
 		0xbd, 0x01,
+		0x00, 0x00, // flags
 	}
 
 	var outValue = header.ToBytes()
@@ -177,6 +181,7 @@ func TestQPepHeader_FromBytes(t *testing.T) {
 	header := &QPepHeader{
 		SourceAddr: srcAddr,
 		DestAddr:   dstAddr,
+		Flags:      QPEP_LOCALSERVER_DESTINATION,
 	}
 	var testValue = []byte{
 		0x04,                   // type src
@@ -185,6 +190,7 @@ func TestQPepHeader_FromBytes(t *testing.T) {
 		0xe3, 0x24, // src port
 		0xc0, 0xa8, 0x01, 0x64, // dst ip
 		0xbd, 0x01, // dst port
+		0x01, 0x00, // flags
 	}
 
 	buf := bytes.NewReader(testValue)
@@ -222,6 +228,7 @@ func TestQPepHeader_FromBytesV6(t *testing.T) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 		// dst port
 		0xbd, 0x01,
+		0x00, 0x00, // flags
 	}
 
 	buf := bytes.NewReader(testValue)
@@ -256,6 +263,7 @@ func TestQPepHeader_FromBytesV4V6(t *testing.T) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 		// dst port
 		0xbd, 0x01,
+		0x00, 0x00, // flags
 	}
 
 	buf := bytes.NewReader(testValue)
@@ -292,6 +300,7 @@ func TestQPepHeader_FromBytesV6V4(t *testing.T) {
 		0x7f, 0x00, 0x00, 0x01, // src ip
 		// dst port
 		0xbd, 0x01,
+		0x00, 0x00, // flags
 	}
 
 	buf := bytes.NewReader(testValue)
@@ -324,6 +333,7 @@ func TestQPepHeader_FromBytes_NilSrc(t *testing.T) {
 		0x7f, 0x00, 0x00, 0x01, // src ip
 		// dst port
 		0xbd, 0x01,
+		0x00, 0x00, // flags
 	}
 
 	buf := bytes.NewReader(testValue)
@@ -342,6 +352,7 @@ func TestQPepHeader_FromBytes_NilDst(t *testing.T) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
 		// src port
 		0xe3, 0x24,
+		0x00, 0x00, // flags
 	}
 
 	buf := bytes.NewReader(testValue)
@@ -444,4 +455,6 @@ func assertHeadersEquals(t *testing.T, header *QPepHeader, header2 *QPepHeader) 
 		assert.Fail(t, "Destination addresses must be both nil or both the same value")
 		return
 	}
+
+	assert.Equal(t, header.Flags, header2.Flags, "Flags values are not equal")
 }

@@ -1,16 +1,16 @@
 
 # server
-gateway: 127.0.0.1
-port: 1443
+gateway: QPEP_GATEWAY
+port: 443
 apiport: 444
-listenaddress: 192.168.1.52
-listenport: 9443
+listenaddress: QPEP_ADDRESS # added via extra_hosts
+listenport: 1443
 
 # broker settings
 analytics:
   enabled: true
   topic: /qpep
-  address: MQTT
+  address: MQTT # added via extra_hosts
   port: 1883
   protocol: tcp
 

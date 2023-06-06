@@ -1,0 +1,48 @@
+# Performance data receiver
+
+version: "1.0"
+services:
+  collector:
+    user: root
+    environment:
+      - ELASTIC_CONTAINER=false
+    build:
+      context: ./logstash
+      dockerfile: Dockerfile
+    extra_hosts:
+      - "MQTT:${SERVER_ADDRESS}"
+      - "LOGSTASH:${SERVER_ADDRESS}"
+    ports:
+      - target: 5044
+        published: 5044
+        protocol: tcp
+        mode: host
+    network_mode: "host"
+    volumes:
+      - ./logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+      - ./logstash/mqtt.conf:/usr/share/logstash/pipeline/mqtt.conf
+      - ./output/:/usr/share/logstash/output
+
+  queue:
+    image: "project-faster/mosquitto"
+    build:
+      context: ./mosquitto
+      dockerfile: Dockerfile
+    extra_hosts:
+      - "MQTT:${SERVER_ADDRESS}"
+      - "LOGSTASH:${SERVER_ADDRESS}"
+    ports:
+      - target: 1883
+        published: 1883
+        protocol: tcp
+        mode: host
+    network_mode: "host"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/etc/mosquitto/mosquitto.conf
+
+  server-httpd:
+    image: "httpd:2.4"
+    network_mode: "host"
+    volumes:
+      - "./http-data:/usr/local/apache2/htdocs/"
+      - "./my-httpd.conf:/usr/local/apache2/conf/httpd.conf"

@@ -51,7 +51,13 @@ func AssertParamChoice(name, value string, choices []string) {
 // a valid ip address
 func AssertParamIP(name, value string) {
 	if ip := net.ParseIP(value); ip == nil {
-		logger.Info("Invalid parameter '%s' validated as ip address: %s\n", name, value)
+		addr, err := net.LookupIP(value)
+		if err == nil && len(addr) > 0 {
+			logger.Info("Hostname '%s' validated as ip address: %s\n", value, addr[0].String())
+			return
+		}
+
+		logger.Error("Invalid parameter '%s' validated as ip address: %s\n", name, value)
 		panic(ErrConfigurationValidationFailed)
 	}
 }
@@ -60,7 +66,7 @@ func AssertParamIP(name, value string) {
 // not inside the expected range [1-65536] for an address port
 func AssertParamPort(name string, value int) {
 	if value < 1 || value > 65536 {
-		logger.Info("Invalid parameter '%s' validated as port [1-65536]: %d\n", name, value)
+		logger.Error("Invalid parameter '%s' validated as port [1-65536]: %d\n", name, value)
 		panic(ErrConfigurationValidationFailed)
 	}
 }
@@ -77,7 +83,7 @@ func AssertParamPortsDifferent(name string, values ...int) {
 
 	case 2:
 		if values[0] == values[1] {
-			logger.Info("Ports '%s' must all be different: %v\n", name, values)
+			logger.Error("Ports '%s' must all be different: %v\n", name, values)
 			panic(ErrConfigurationValidationFailed)
 		}
 		AssertParamPort(name, values[0])
@@ -89,7 +95,7 @@ func AssertParamPortsDifferent(name string, values ...int) {
 		AssertParamPort(name, values[0])
 		for i := 1; i < len(values); i++ {
 			if values[i-1] == values[i] {
-				logger.Info("Ports '%s' must all be different: %v\n", name, values)
+				logger.Error("Ports '%s' must all be different: %v\n", name, values)
 				panic(ErrConfigurationValidationFailed)
 			}
 			AssertParamPort(name, values[i])
@@ -109,7 +115,7 @@ func AssertParamHostsDifferent(name string, values ...string) {
 
 	case 2:
 		if values[0] == values[1] {
-			logger.Info("Addresses '%s' must all be different: %v\n", name, values)
+			logger.Error("Addresses '%s' must all be different: %v\n", name, values)
 			panic(ErrConfigurationValidationFailed)
 		}
 		AssertParamIP(name, values[0])
@@ -121,7 +127,7 @@ func AssertParamHostsDifferent(name string, values ...string) {
 		AssertParamIP(name, values[0])
 		for i := 1; i < len(values); i++ {
 			if values[i-1] == values[i] {
-				logger.Info("Addresses '%s' must all be different: %v\n", name, values)
+				logger.Error("Addresses '%s' must all be different: %v\n", name, values)
 				panic(ErrConfigurationValidationFailed)
 			}
 			AssertParamIP(name, values[i])

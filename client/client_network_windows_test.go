@@ -545,7 +545,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream() {
 		return &fakeQuicConnection{}, nil
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), stream)
 
@@ -560,7 +560,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream_FailOpenSession() {
 		return nil, shared.ErrFailedGatewayConnect
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Equal(s.T(), shared.ErrFailedGatewayConnect, err)
 	assert.Nil(s.T(), stream)
 
@@ -575,14 +575,14 @@ func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
 		return &fakeQuicConnection{}, nil
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), stream)
 
 	assert.NotNil(s.T(), quicSession)
 
 	// second stream
-	stream2, err2 := getQuicStream()
+	stream2, err2 := getQuicStream(context.Background())
 	assert.Nil(s.T(), err2)
 	assert.NotNil(s.T(), stream2)
 
