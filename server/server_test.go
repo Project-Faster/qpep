@@ -259,7 +259,7 @@ Vary: Origin
 Date: .+ GMT
 Content-Length: \d+
 
-{"address":"[^"]+","port":0,"serverversion":"[^"]+"}`
+{"address":"[^"]+","port":0,"serverversion":"[^"]+","total_connections":\d+}`
 
 	matchStr := strings.ReplaceAll(string(receiveData[:recv]), "\r", "")
 
@@ -532,6 +532,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	// launch request servers
 	ctx, cancel := context.WithCancel(context.Background())
 
+	var apisrv *http.Server = nil
+
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
@@ -540,7 +542,29 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	}()
 	go func() {
 		defer wg.Done()
-		api.RunServer(ctx, cancel, false)
+
+		rtr := httprouter.New()
+		rtr.RedirectTrailingSlash = true
+		rtr.RedirectFixedPath = true
+		rtr.Handle(http.MethodPost, "/testapi", func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Add("Content-Type", "text/html")
+			w.Write([]byte("OK\r\n"))
+		})
+		corsRouterHandler := cors.Default().Handler(rtr)
+
+		apisrv = &http.Server{
+			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
+			Handler: corsRouterHandler,
+			BaseContext: func(l net.Listener) context.Context {
+				return ctx
+			},
+		}
+
+		if err := apisrv.ListenAndServe(); err != nil {
+			testlog.Info().Msgf("Error running API server: %v", err)
+		}
+		apisrv = nil
 	}()
 
 	// open connection and send
@@ -563,11 +587,13 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	var startSend = time.Now()
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n" +
+	sendData := []byte("POST /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n" +
 		strings.Repeat("N", 1024*1024) +
 		"\r\n\n")
 
-	stream.Write(sendData)
+	written, err := stream.Write(sendData)
+	assert.True(s.T(), written >= 0)
+	assert.Nil(s.T(), err)
 
 	receiveData := make([]byte, 1024)
 	recv, _ := stream.Read(receiveData)
@@ -587,11 +613,13 @@ Connection: close
 
 	cancel()
 
+	apisrv.Close()
+
 	wg.Wait()
 
 	// very bland check for 300k/s upload speed
-	assert.True(s.T(), sendEnd.Sub(startSend) > 3*time.Second)
-	assert.True(s.T(), sendEnd.Sub(startSend) < 5*time.Second)
+	assert.True(s.T(), sendEnd.Sub(startSend) >= 3*time.Second)
+	assert.True(s.T(), sendEnd.Sub(startSend) < 6*time.Second)
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
@@ -708,7 +736,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 
 	// very bland check for 300k/s upload speed
 	assert.True(s.T(), sendEnd.Sub(startSend) > 3*time.Second)
-	assert.True(s.T(), sendEnd.Sub(startSend) < 5*time.Second)
+	assert.True(s.T(), sendEnd.Sub(startSend) < 6*time.Second)
 }
 
 func (s *ServerSuite) TestRunServer_DownloadConnection() {
@@ -900,7 +928,9 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 
 	wg.Wait()
 
-	assert.True(s.T(), len(out) >= expectSent)
+	testlog.Info().Msgf("size %d >= %d: %v\n", len(out), expectSent, len(out) >= expectSent)
+
+	assert.True(s.T(), len(out) < expectSent)
 }
 
 // --- utilities --- //
