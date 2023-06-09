@@ -36,6 +36,8 @@ type ClientNetworkSuite struct {
 }
 
 func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
+	shared.ResetScaleTimeout()
+
 	api.Statistics.Reset()
 	proxyListener = nil
 
@@ -105,6 +107,17 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirec
 	s.T().Skipf("Proxy set on linux not implemented yet")
 	return
 
+	var calledInit = false
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+		calledInit = true
+		return windivert.DIVERT_OK
+	})
+	var calledStop = false
+	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
+		calledStop = true
+		return windivert.DIVERT_OK
+	})
+
 	shared.QPepConfig.PreferProxy = false
 	validateConfiguration()
 	keepRedirectionRetries = 15
@@ -112,11 +125,29 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirec
 	assert.False(s.T(), failedCheckConnection())
 
 	assert.Equal(s.T(), 14, keepRedirectionRetries)
+	assert.True(s.T(), calledInit)
+	assert.True(s.T(), calledStop)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterSwitchToProxy() {
 	s.T().Skipf("Proxy set on linux not implemented yet")
 	return
+
+	var calledInit = false
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+		calledInit = true
+		return windivert.DIVERT_OK
+	})
+	var calledStop = false
+	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
+		calledStop = true
+		return windivert.DIVERT_OK
+	})
+	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+		assert.True(s.T(), active)
+		shared.UsingProxy = true
+		shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+	})
 
 	shared.QPepConfig.PreferProxy = false
 	validateConfiguration()
@@ -124,6 +155,10 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterSwitchToPro
 
 	assert.False(s.T(), shared.UsingProxy)
 	assert.False(s.T(), failedCheckConnection())
+
+	assert.Equal(s.T(), 1, keepRedirectionRetries)
+	assert.False(s.T(), calledInit)
+	assert.True(s.T(), calledStop)
 
 	assert.True(s.T(), shared.UsingProxy)
 	assert.NotNil(s.T(), shared.ProxyAddress)
@@ -174,7 +209,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyKeepRedirect()
 	})
 
 	assert.False(s.T(), failedCheckConnection())
-	assert.Equal(s.T(), 2, callCounter)
+	assert.Equal(s.T(), 1, callCounter)
 	assert.Equal(s.T(), 9, keepRedirectionRetries)
 
 	assert.True(s.T(), shared.UsingProxy)
@@ -298,13 +333,12 @@ func (s *ClientNetworkSuite) TestOpenQuicSession() {
 		s.T().Fatalf("Quic read error not nil or EOF")
 	}
 
-	assert.Equal(s.T(),
-		"{\"SourceAddr\":{\"IP\":\"127.0.0.1\",\"Port\":0,\"Zone\":\"\"},\"DestAddr\":{\"IP\":\"172.50.20.100\",\"Port\":9999,\"Zone\":\"\"}}",
-		string(buff[:n]))
-
 	cancel()
-
 	wg.Wait()
+
+	assert.Equal(s.T(),
+		"{\"SourceAddr\":{\"IP\":\"127.0.0.1\",\"Port\":0,\"Zone\":\"\"},\"DestAddr\":{\"IP\":\"172.50.20.100\",\"Port\":9999,\"Zone\":\"\"},\"Flags\":0}",
+		string(buff[:n]))
 }
 
 func (s *ClientNetworkSuite) TestOpenQuicSession_Fail() {
@@ -379,7 +413,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
@@ -417,7 +451,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_Multistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		quicSession = &fakeQuicConnection{}
 		return &fakeStream{}, nil
@@ -462,7 +496,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_FailGetStream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		return nil, shared.ErrFailed
 	})
@@ -488,7 +522,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistreamProxy() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
@@ -536,7 +570,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream() {
 		return &fakeQuicConnection{}, nil
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), stream)
 
@@ -551,7 +585,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream_FailOpenSession() {
 		return nil, shared.ErrFailedGatewayConnect
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Equal(s.T(), shared.ErrFailedGatewayConnect, err)
 	assert.Nil(s.T(), stream)
 
@@ -566,14 +600,14 @@ func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
 		return &fakeQuicConnection{}, nil
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), stream)
 
 	assert.NotNil(s.T(), quicSession)
 
 	// second stream
-	stream2, err2 := getQuicStream()
+	stream2, err2 := getQuicStream(context.Background())
 	assert.Nil(s.T(), err2)
 	assert.NotNil(s.T(), stream2)
 
@@ -584,6 +618,10 @@ func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
 
 func (s *ClientNetworkSuite) TestHandleTcpToQuic() {
 	ctx, _ := context.WithCancel(context.Background())
+
+	var activity_rx = false
+	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activity_rx)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -610,6 +648,10 @@ User-Agent: windows
 
 func (s *ClientNetworkSuite) TestHandleQuicToTcp() {
 	ctx, _ := context.WithCancel(context.Background())
+
+	var activity_tx = false
+	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activity_tx)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 

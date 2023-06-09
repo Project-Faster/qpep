@@ -21,6 +21,9 @@ type GlobalFlags struct {
 	// Verbose (flag:verbose / v) if present indicates to output more log messages for debug purposes
 	Verbose bool `long:"verbose" short:"v" description:"Outputs more log messages"`
 
+	TraceCPU  bool `long:"cpu" description:"Trace cpu usage at 10 seconds intervals"`
+	TraceHeap bool `long:"heap" description:"Dumps heap usage at 10 seconds intervals"`
+
 	// ConfigOverrideCallback is the function callback called by the go-flags package to allow the parsing
 	// of multiple definitions of the same D flag
 	// the reason this is exported is to allow the go-flags package to discover it

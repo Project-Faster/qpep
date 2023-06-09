@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	MQTT_QUEUE_BUFFER_SIZE = 256
+	MQTT_QUEUE_BUFFER_SIZE = 256 * 256
 )
 
 type analyticsClient struct {

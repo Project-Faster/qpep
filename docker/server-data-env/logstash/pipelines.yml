@@ -1,0 +1,4 @@
+
+- pipeline.id: mqtt-receiver
+  path.config: "/usr/share/logstash/pipeline/mqtt.conf"
+  pipeline.workers: 4

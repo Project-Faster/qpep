@@ -48,6 +48,8 @@ func (s *StatisticsSuite) TestReset() {
 	assert.NotNil(t, st.hosts)
 	assert.NotNil(t, st.counters)
 	assert.NotNil(t, st.state)
+
+	assert.Equal(s.T(), 0.0, st.GetCounter(TOTAL_CONNECTIONS))
 }
 
 func (s *StatisticsSuite) TestStartStop() {

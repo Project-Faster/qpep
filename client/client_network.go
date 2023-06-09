@@ -3,15 +3,13 @@ package client
 import (
 	"bufio"
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"github.com/parvit/qpep/logger"
-	"io/ioutil"
-	"net/http"
-	"runtime/trace"
-
-	"crypto/tls"
 	"io"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -26,12 +24,19 @@ import (
 )
 
 const (
-	BUFFER_SIZE = 512 * 1024
+	BUFFER_SIZE = 1024 * 1024
+
+	ACTIVITY_RX_FLAG = "activity_rx"
+	ACTIVITY_TX_FLAG = "activity_tx"
+
+	LOCAL_RECONNECTION_RETRIES = 10
 )
 
 var (
 	// proxyListener listener for the local http connections that get diverted or proxied to the quic server
 	proxyListener net.Listener
+
+	newSessionLock sync.RWMutex
 	// quicSession listening quic connection to the server
 	quicSession quic.Connection
 )
@@ -68,6 +73,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	defer tcpConn.Close()
 
 	tcpSourceAddr := tcpConn.RemoteAddr().(*net.TCPAddr)
+	tcpLocalAddr := tcpConn.LocalAddr().(*net.TCPAddr)
 	diverted, srcPort, dstPort, srcAddress, dstAddress := windivert.GetConnectionStateData(tcpSourceAddr.Port)
 
 	var proxyRequest *http.Request
@@ -82,7 +88,9 @@ func handleTCPConn(tcpConn net.Conn) {
 		logger.OnError(errProxy, "opening proxy connection")
 	}
 
-	var quicStream, err = getQuicStream()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var quicStream, err = getQuicStream(ctx)
 	if err != nil {
 		tcpConn.Close()
 		return
@@ -96,7 +104,8 @@ func handleTCPConn(tcpConn net.Conn) {
 	//Set our custom header to the QUIC session so the server can generate the correct TCP handshake on the other side
 	sessionHeader := shared.QPepHeader{
 		SourceAddr: tcpSourceAddr,
-		DestAddr:   tcpConn.LocalAddr().(*net.TCPAddr),
+		DestAddr:   tcpLocalAddr,
+		Flags:      0,
 	}
 
 	// divert check
@@ -112,6 +121,11 @@ func handleTCPConn(tcpConn net.Conn) {
 			Port: dstPort,
 		}
 
+		if sessionHeader.DestAddr.IP.String() == ClientConfiguration.GatewayHost {
+			sessionHeader.Flags |= shared.QPEP_LOCALSERVER_DESTINATION
+		}
+		logger.Info("Connection flags : %d %d", sessionHeader.Flags, sessionHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
+
 		logger.Info("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
 		_, err := quicStream.Write(sessionHeader.ToBytes())
 		logger.OnError(err, "writing to quic stream")
@@ -122,19 +136,25 @@ func handleTCPConn(tcpConn net.Conn) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	//Proxy all stream content from quic to TCP and from TCP to quic
 	logger.Info("== Stream %d Start ==", quicStream.StreamID())
-	go handleTcpToQuic(ctx, &streamWait, quicStream, tcpConn)
-	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream)
-	go func() {
-		<-time.After(shared.GetScaledTimeout(10, time.Second))
-		cancel()
+	var activityRX, activityTX = true, true
+	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activityRX)
+	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activityTX)
+	defer func() {
+		// terminate activity timer
+		activityTX = false
+		activityRX = false
 	}()
 
+	go handleTcpToQuic(ctx, &streamWait, quicStream, tcpConn)
+	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream)
+	go connectionActivityTimer(&activityRX, &activityTX, cancel)
+
 	//we exit (and close the TCP connection) once both streams are done copying
+	logger.Info("== Stream %d Wait ==", quicStream.StreamID())
 	streamWait.Wait()
+	logger.Info("== Stream %d WaitEnd ==", quicStream.StreamID())
 
 	quicStream.CancelWrite(0)
 	quicStream.CancelRead(0)
@@ -150,34 +170,66 @@ func handleTCPConn(tcpConn net.Conn) {
 	}
 }
 
+func connectionActivityTimer(flag_rx, flag_tx *bool, cancelFunc context.CancelFunc) {
+	if flag_tx == nil || flag_rx == nil {
+		return
+	}
+	<-time.After(ClientConfiguration.IdleTimeout)
+	logger.Debug("activity state: %v / %v", *flag_rx, *flag_tx)
+	if !*flag_rx && !*flag_tx {
+		cancelFunc()
+		return
+	}
+	go connectionActivityTimer(flag_rx, flag_tx, cancelFunc)
+}
+
 // getQuicStream method handles the opening or reutilization of the quic session, and launches a new
 // quic stream for communication
-func getQuicStream() (quic.Stream, error) {
+func getQuicStream(ctx context.Context) (quic.Stream, error) {
 	var err error
 	var quicStream quic.Stream = nil
+	var localSession quic.Connection = nil
+
+	newSessionLock.RLock()
+	localSession = quicSession
+	newSessionLock.RUnlock()
+
+	if localSession == nil {
+		newSessionLock.Lock()
+		defer newSessionLock.Unlock()
+
+		// open a new quicSession (with all the TLS jazz)
+		localSession, err = openQuicSession()
+		// if we were unable to open a quic session, drop the TCP connection with RST
+		if err != nil {
+			return nil, err
+		}
+
+		quicSession = localSession
+	}
 
 	// if we allow for multiple streams in a session, try and open on the existing session
-	if ClientConfiguration.MultiStream && quicSession != nil {
+	if ClientConfiguration.MultiStream && localSession != nil {
 		logger.Info("Trying to open on existing session")
-		quicStream, err = quicSession.OpenStream()
+		quicStream, err = localSession.OpenStream()
 		if err == nil {
 			logger.Info("Opened a new stream: %d", quicStream.StreamID())
 			return quicStream, nil
 		}
 		// if we weren't able to open a quicStream on that session (usually inactivity timeout), we can try to open a new session
-		logger.OnError(err, "Unable to open new stream on existing QUIC session")
+		logger.OnError(err, "Unable to open new stream on existing QUIC session, closing session")
 		quicStream = nil
-	}
 
-	// open a new quicSession (with all the TLS jazz)
-	quicSession, err = openQuicSession()
-	// if we were unable to open a quic session, drop the TCP connection with RST
-	if err != nil {
-		return nil, err
+		newSessionLock.Lock()
+		quicSession.CloseWithError(quic.ApplicationErrorCode(0), "Stream could not be opened")
+		quicSession = nil
+		newSessionLock.Unlock()
+
+		return nil, quic.ErrServerClosed
 	}
 
 	//Open a stream to send writtenData on this new session
-	quicStream, err = quicSession.OpenStreamSync(context.Background())
+	quicStream, err = quicSession.OpenStreamSync(ctx)
 	// if we cannot open a stream on this session, send a TCP RST and let the client decide to try again
 	logger.OnError(err, "Unable to open QUIC stream")
 	if err != nil {
@@ -313,7 +365,11 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 			Port: port,
 		}
 
-		logger.Info("Proxied connection")
+		if header.DestAddr.IP.String() == ClientConfiguration.GatewayHost {
+			header.Flags |= shared.QPEP_LOCALSERVER_DESTINATION
+		}
+
+		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
 		logger.Info("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", header.SourceAddr, header.DestAddr)
 		_, err := stream.Write(header.ToBytes())
 		if err != nil {
@@ -341,6 +397,11 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 			IP:   address,
 			Port: port,
 		}
+
+		if header.DestAddr.IP.String() == ClientConfiguration.GatewayHost {
+			header.Flags |= shared.QPEP_LOCALSERVER_DESTINATION
+		}
+		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
 
 		t := http.Response{
 			Status:        http.StatusText(http.StatusOK),
@@ -373,14 +434,17 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst quic.Stream, src net.Conn) {
-	tskKey := fmt.Sprintf("Tcp->Quic:%v", dst.StreamID())
-	_, tsk := trace.NewTask(context.Background(), tskKey)
 	defer func() {
 		_ = recover()
 
-		tsk.End()
 		streamWait.Done()
+		logger.Info("== Stream %v TCP->Quic done ==", dst.StreamID())
 	}()
+
+	var activityFlag, ok = ctx.Value(ACTIVITY_RX_FLAG).(*bool)
+	if !ok {
+		panic("No activity flag set")
+	}
 
 	setLinger(src)
 
@@ -393,36 +457,60 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst quic.S
 		default:
 		}
 
+		var written int = 0
+		var err error
+
 		tm := time.Now().Add(loopTimeout)
 		_ = src.SetReadDeadline(tm)
 		_ = src.SetWriteDeadline(tm)
-		_ = dst.SetReadDeadline(tm)
-		_ = dst.SetWriteDeadline(tm)
 
-		_, tsk := trace.NewTask(context.Background(), "copybuffer."+tskKey)
-		written, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
-		tsk.End()
+		read, err_t := src.Read(tempBuffer)
 
-		if err != nil || written == 0 {
-			if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+		if err_t != nil {
+			*activityFlag = false
+			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
+				<-time.After(1 * time.Millisecond)
 				continue
 			}
+			_ = dst.Close()
 			return
 		}
+		if read > 0 {
+			*activityFlag = true
+			_ = dst.SetReadDeadline(tm)
+			_ = dst.SetWriteDeadline(tm)
+
+			written, err = dst.Write(tempBuffer[:read])
+		}
+
+		if written > 0 {
+			*activityFlag = true
+			continue
+		}
+
+		*activityFlag = false
+		if err == nil {
+			<-time.After(1 * time.Millisecond)
+			continue
+		}
+		return
 	}
 	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.StreamID())
 }
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src quic.Stream) {
-	tskKey := fmt.Sprintf("Quic->Tcp:%v", src.StreamID())
-	_, tsk := trace.NewTask(context.Background(), tskKey)
 	defer func() {
 		_ = recover()
 
-		tsk.End()
 		streamWait.Done()
+		logger.Info("== Stream %v Quic->TCP done ==", src.StreamID())
 	}()
+
+	var activityFlag, ok = ctx.Value(ACTIVITY_TX_FLAG).(*bool)
+	if !ok {
+		panic("No activity flag set")
+	}
 
 	setLinger(dst)
 
@@ -436,25 +524,44 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		default:
 		}
 
+		var written int = 0
+		var err error
+
 		tm := time.Now().Add(loopTimeout)
 		_ = src.SetReadDeadline(tm)
 		_ = src.SetWriteDeadline(tm)
-		_ = dst.SetReadDeadline(tm)
-		_ = dst.SetWriteDeadline(tm)
 
-		_, tsk := trace.NewTask(context.Background(), "copybuffer."+tskKey)
-		written, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
-		logger.Debug("q -> t: %d", written)
-		tsk.End()
+		read, err_t := src.Read(tempBuffer)
 
-		if err != nil || written == 0 {
-			if nErr, ok := err.(net.Error); ok && (nErr.Timeout() || nErr.Temporary()) {
+		if err_t != nil {
+			*activityFlag = false
+			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
+				<-time.After(1 * time.Millisecond)
 				continue
 			}
+			_ = dst.Close()
 			return
 		}
+		if read > 0 {
+			*activityFlag = true
+			_ = dst.SetReadDeadline(tm)
+			_ = dst.SetWriteDeadline(tm)
+
+			written, err = dst.Write(tempBuffer[:read])
+		}
+
+		if written > 0 {
+			*activityFlag = true
+			continue
+		}
+
+		*activityFlag = false
+		if err == nil {
+			<-time.After(1 * time.Millisecond)
+			continue
+		}
+		return
 	}
-	//logger.Info("Finished Copying Stream ID %d, TCP Conn %s->%s\n", srcConn.StreamID(), dst.LocalAddr().String(), dst.RemoteAddr().String())
 }
 
 func setLinger(c net.Conn) {
@@ -513,18 +620,13 @@ func openQuicSession() (quic.Connection, error) {
 	quicClientConfig := shared.GetQuicConfiguration()
 
 	logger.Info("Dialing QUIC Session: %s\n", gatewayPath)
-	for i := 0; i < ClientConfiguration.MaxConnectionRetries; i++ {
-		_, tsk := trace.NewTask(context.Background(), fmt.Sprintf("DialQuic-"+gatewayPath+"-%d", i))
-		session, err = quic.DialAddr(gatewayPath, tlsConf, quicClientConfig)
-		tsk.End()
+	session, err = quic.DialAddr(gatewayPath, tlsConf, quicClientConfig)
 
-		if err == nil {
-			logger.Info("QUIC Session Open\n")
-			return session, nil
-		}
-		logger.Info("Failed to Open QUIC Session: %s\n    Retrying...\n", err)
+	if err == nil {
+		logger.Info("QUIC Session Open\n")
+		return session, nil
 	}
 
-	logger.Error("Max Retries Exceeded. Unable to Open QUIC Session: %s\n", err)
+	logger.Error("Unable to Open QUIC Session: %v\n", err)
 	return nil, shared.ErrFailedGatewayConnect
 }

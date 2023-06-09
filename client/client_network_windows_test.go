@@ -36,6 +36,8 @@ type ClientNetworkSuite struct {
 }
 
 func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
+	shared.ResetScaleTimeout()
+
 	api.Statistics.Reset()
 	proxyListener = nil
 
@@ -307,13 +309,12 @@ func (s *ClientNetworkSuite) TestOpenQuicSession() {
 		s.T().Fatalf("Quic read error not nil or EOF")
 	}
 
-	assert.Equal(s.T(),
-		"{\"SourceAddr\":{\"IP\":\"127.0.0.1\",\"Port\":0,\"Zone\":\"\"},\"DestAddr\":{\"IP\":\"172.50.20.100\",\"Port\":9999,\"Zone\":\"\"}}",
-		string(buff[:n]))
-
 	cancel()
-
 	wg.Wait()
+
+	assert.Equal(s.T(),
+		"{\"SourceAddr\":{\"IP\":\"127.0.0.1\",\"Port\":0,\"Zone\":\"\"},\"DestAddr\":{\"IP\":\"172.50.20.100\",\"Port\":9999,\"Zone\":\"\"},\"Flags\":0}",
+		string(buff[:n]))
 }
 
 func (s *ClientNetworkSuite) TestOpenQuicSession_Fail() {
@@ -388,7 +389,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
@@ -426,7 +427,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_Multistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		quicSession = &fakeQuicConnection{}
 		return &fakeStream{}, nil
@@ -471,7 +472,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_FailGetStream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		return nil, shared.ErrFailed
 	})
@@ -497,7 +498,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistreamProxy() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func() (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
@@ -545,7 +546,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream() {
 		return &fakeQuicConnection{}, nil
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), stream)
 
@@ -560,7 +561,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream_FailOpenSession() {
 		return nil, shared.ErrFailedGatewayConnect
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Equal(s.T(), shared.ErrFailedGatewayConnect, err)
 	assert.Nil(s.T(), stream)
 
@@ -575,14 +576,14 @@ func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
 		return &fakeQuicConnection{}, nil
 	})
 
-	stream, err := getQuicStream()
+	stream, err := getQuicStream(context.Background())
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), stream)
 
 	assert.NotNil(s.T(), quicSession)
 
 	// second stream
-	stream2, err2 := getQuicStream()
+	stream2, err2 := getQuicStream(context.Background())
 	assert.Nil(s.T(), err2)
 	assert.NotNil(s.T(), stream2)
 
@@ -593,6 +594,10 @@ func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
 
 func (s *ClientNetworkSuite) TestHandleTcpToQuic() {
 	ctx, _ := context.WithCancel(context.Background())
+
+	var activity_rx = false
+	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activity_rx)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -619,6 +624,10 @@ User-Agent: windows
 
 func (s *ClientNetworkSuite) TestHandleQuicToTcp() {
 	ctx, _ := context.WithCancel(context.Background())
+
+	var activity_tx = false
+	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activity_tx)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 

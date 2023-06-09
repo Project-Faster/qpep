@@ -241,6 +241,13 @@ func (p *QPepService) Main() {
 		panic(err)
 	}
 
+	if flags.Globals.TraceCPU {
+		shared.WatcherCPU()
+	}
+	if flags.Globals.TraceHeap {
+		shared.WatcherHeap()
+	}
+
 	go api.RunServer(p.context, p.cancelFunc, true) // api server for local webgui
 
 	if flags.Globals.Client {

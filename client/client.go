@@ -31,7 +31,7 @@ var (
 		RedirectedInterfaces: []int64{},
 		QuicStreamTimeout:    2, MultiStream: shared.QPepConfig.MultiStream,
 		MaxConnectionRetries: shared.DEFAULT_REDIRECT_RETRIES,
-		IdleTimeout:          time.Duration(300) * time.Second,
+		IdleTimeout:          30 * time.Second,
 		WinDivertThreads:     1,
 		Verbose:              false,
 	}

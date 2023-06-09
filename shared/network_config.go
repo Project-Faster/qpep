@@ -126,11 +126,7 @@ func ScaleUpTimeout() {
 	logger.Info("Timeout multiplier set to %d", timeoutLatencyMultiplier)
 }
 
-func ScaleDownTimeout() {
-	timeoutLatencyMultiplier /= 2
-	if timeoutLatencyMultiplier < 1 {
-		timeoutLatencyMultiplier = 1
-	}
-
+func ResetScaleTimeout() {
+	timeoutLatencyMultiplier = 1
 	logger.Info("Timeout multiplier set to %d", timeoutLatencyMultiplier)
 }

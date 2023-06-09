@@ -21,6 +21,8 @@ type EchoResponse struct {
 	Port int64 `json:"port"`
 	// ServerVersion Version string of the connected server
 	ServerVersion string `json:"serverversion"`
+	// TotalConnections Counter for the number of connections on the server
+	TotalConnctions int `json:"total_connections"`
 }
 
 // VersionsResponse models the response to "/versions" api

@@ -1,0 +1,269 @@
+name: PerformanceTests
+
+on:
+  schedule:
+    - cron: '1 1 * * *'
+
+  workflow_dispatch:
+    inputs:
+      server_public_address:
+        description: 'public address for the server'
+        type: string
+        default: 35.163.142.7
+        required: true
+      server_private_address:
+        description: 'private address for the server'
+        type: string
+        default: 172.31.38.198
+        required: true
+      client_listen_address:
+        description: 'address for the client to listen on'
+        type: string
+        default: 192.168.1.21
+        required: true
+      server_wait_timeout:
+        description: 'Server global timeout for tests'
+        type: integer
+        default: 45
+        required: false
+      connection_delay_ms:
+        description: 'connection delay in milliseconds set on the server'
+        type: integer
+        default: 0
+        required: true
+      connection_delay_device:
+        description: 'serverside network device to set delay on'
+        type: string
+        default: eth0
+        required: true
+      remove_qpep_image:
+        description: 'remove qpep image at end of run'
+        type: boolean
+        default: false
+        required: true
+
+run-name: Performance Testing [${{ github.event_name }}] - ${{ inputs.server_public_address }}/${{ inputs.connection_delay_ms }}ms delay
+
+jobs:
+  run-client:
+    runs-on: vm-client
+    env:
+      REMOTE_GATEWAY: ${{ inputs.server_public_address }}
+      LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
+    strategy:
+      matrix:
+        download_size: [ 10, 100 ]
+        connections_number: [ 1, 4 ]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          clean: true
+
+#      - name: Set up Go
+#        uses: actions/setup-go@v3
+#        with:
+#          go-version: 1.18.10
+#
+      - name: Prepare
+        shell: powershell
+        run: |
+          New-Item -Path . -Name "build" -ItemType "directory" -Force
+          New-Item -Path . -Name "build/config" -ItemType "directory" -Force
+          $config = Get-Content -Path ./docker/client-env/qpep.yml.tpl
+          $config = $config.replace('<QPEP_GATEWAY>',$env:REMOTE_GATEWAY)
+          $config = $config.replace('<QPEP_ADDRESS>',$env:LISTEN_ADDRESS)
+          $config > ./build/config/qpep.yml
+          Copy-Item "./windivert/x64/*" -Destination "./build"
+
+      - name: Prepare tests reporting
+        run: |
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+
+      - name: Build Client
+        shell: cmd
+        run: |
+          set CGO_ENABLED=1
+          set GOOS=windows
+          set GOHOSTARCH=amd64
+          set GOHOSTOS=windows
+          go build -v -o build/qpep.exe
+
+      - name: Run Client
+        shell: cmd
+        run: |
+          cd build/
+          cmd /c "START /b qpep.exe -c"
+
+      - name: Wait Server
+        shell: powershell
+        run: |
+          $Stoploop = $false
+          [ int ]$Retrycount = "20"
+
+           do {
+            try {
+              Write-Host "Echoing server..."
+              Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 1
+              Write-Host "Job completed"
+              $Stoploop = $true
+            }
+            catch {
+              $Retrycount = $Retrycount - 1
+              if ($Retrycount -gt 0){
+                Start-Sleep -Seconds 2
+              }
+              else {
+                Write-Error "Could not get server after 20 retries." -ErrorAction Stop
+              }
+            }
+          }
+          While ($Stoploop -eq $false)
+
+      - name: Run Tests
+        shell: cmd
+        run: |
+          cd docker/speedtests/
+          go test speed_test.go -v -c -o speedtests.test
+
+          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
+             -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
+             -test.v -test.timeout 5m > speedtests.out
+
+          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms][TargetSize:${{ matrix.download_size }}M][Connections:${{ matrix.connections_number }}]"
+
+      - name: Stop Client
+        if: always()
+        shell: powershell
+        run: |
+          Get-Process qpep | Stop-Process
+
+      - name: Reset Proxy
+        if: always()
+        run: |
+          go run docker/speedtests/utils/reset_proxy_util.go
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: client_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
+          path: |
+            ${{ github.workspace }}/docker/speedtests/output.csv
+            ${{ github.workspace }}/docker/speedtests/speedtests.out
+            ${{ github.workspace }}/docker/speedtests/speedtests.log
+            ${{ github.workspace }}/docker/speedtests/data.png
+            ${{ github.workspace }}/build/*.log
+
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.3
+
+  run-server:
+    runs-on: vm-server
+    env:
+      SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      LISTEN_ADDRESS: 127.0.0.1
+    steps:
+      - name: Pre-Cleanup
+        run: |
+          sudo rm -rf docker/server-data-env/output/* || true
+
+      - uses: actions/checkout@v3
+        with:
+          clean: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18.10
+
+      - name: Build Server
+        run: |
+          docker version
+          cd docker/
+          pushd build-linux/
+          docker build -t project-faster/qpep_server .
+
+      - name: Run data server
+        run: |
+          cd docker/server-data-env/
+          pushd http-data/
+          bash gen-local-data.sh
+          popd
+          docker compose up -d
+
+      - name: Run Server
+        run: |
+          cd docker/server-env/
+          docker compose up -d
+
+      - name: Reset connection delay
+        run: |
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d
+
+      - name: Set connection delay
+        if: inputs.connection_delay_device > 0
+        run: |
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
+
+      - name: Wait Tests
+        timeout-minutes: 60 # max allowed timeouts
+        run: |
+          # initial wait for server setup
+          sleep 60
+          
+          echo [Starting wait for tests execution...]
+          CONN_NUM=1
+          RETRIES=${{ inputs.server_wait_timeout }}
+          while ! (( RETRIES <= 0 ));
+          do
+            CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
+            echo "Connections alive: $CONN_NUM"
+            if (( CONN_NUM <= 0 )); then
+              (( RETRIES -= 1 )) || true
+              echo "Remaining $RETRIES retries"
+            else
+              (( RETRIES=${{ inputs.server_wait_timeout }} )) || true
+              echo "Remaining $RETRIES retries"
+            fi
+            sleep 1
+          done
+          echo [Wait done]
+
+      - name: Stop Server Container
+        if: always()
+        run: |
+          cd docker/server-env/
+          docker compose down -v
+
+      - name: Stop Data Server Container
+        if: always()
+        run: |
+          cd docker/server-data-env/
+          docker compose down -v
+
+      - name: Generate results
+        run: |
+          cd docker/speedtests/
+          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms]" "perf-dw-speed"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: server_${{ inputs.connection_delay_ms }}ms
+          path: |
+            ${{ github.workspace }}/docker/server-data-env/output/data.csv
+            ${{ github.workspace }}/docker/speedtests/data.png
+            ${{ github.workspace }}/build/*.log
+
+      - name: Cleanup
+        if: always()
+        run: |
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
+          sudo rm -rf docker/server-data-env/output/* || true
+
+      - name: Remove server image
+        if: ${{ inputs.remove_qpep_image }}
+        run: |
+          docker image rm project-faster/qpep_server || true
+
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.3

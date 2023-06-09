@@ -48,6 +48,9 @@ func (s *ParamsValidationSuite) TestParamsValidation_IP() {
 	assert.NotPanics(t, func() {
 		AssertParamIP("test", "127.0.0.1")
 	})
+	assert.NotPanics(t, func() {
+		AssertParamIP("test", "localhost")
+	})
 	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
 		AssertParamIP("test", "")
 	})
