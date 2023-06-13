@@ -12,11 +12,11 @@ require (
 	github.com/kardianos/service v1.2.1 // indirect
 	github.com/parvit/kardianos-service v0.0.0-20220822101756-89fc969969b8
 	github.com/rs/cors v1.8.2
-	github.com/rs/zerolog v1.28.0
+	github.com/rs/zerolog v1.29.1
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/sqweek/dialog v0.0.0-20220504154117-be45b268883a
-	golang.org/x/net v0.6.0
-	golang.org/x/sys v0.6.0
+	golang.org/x/net v0.10.0
+	golang.org/x/sys v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -34,6 +34,7 @@ require (
 require (
 	gioui.org v0.0.0-20210308172011-57750fc8a0a6 // indirect
 	git.sr.ht/~sbinet/gg v0.3.1 // indirect
+	github.com/Project-Faster/quicly-go v0.0.0-20230524055125-ed9594361792 // indirect
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
@@ -65,10 +66,10 @@ require (
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect
 	golang.org/x/exp/shiny v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
-	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
-	golang.org/x/tools v0.5.0 // indirect
+	golang.org/x/mod v0.10.0 // indirect
+	golang.org/x/sync v0.2.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/tools v0.9.1 // indirect
 	gonum.org/v1/plot v0.12.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	rsc.io/pdf v0.1.1 // indirect
