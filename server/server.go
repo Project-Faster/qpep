@@ -27,7 +27,7 @@ var (
 		ListenHost:  "0.0.0.0",
 		ListenPort:  443,
 		APIPort:     444,
-		IdleTimeout: 3 * time.Second,
+		IdleTimeout: 30 * time.Second,
 	}
 	// quicListener instance of the quic server that receives the connections from clients
 	quicListener quic.Listener

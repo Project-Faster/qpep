@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	BUFFER_SIZE = 1024 * 1024
+	BUFFER_SIZE = 512 * 1024
 
 	ACTIVITY_RX_FLAG = "activity_rx"
 	ACTIVITY_TX_FLAG = "activity_tx"
@@ -88,7 +88,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		logger.OnError(errProxy, "opening proxy connection")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ := context.WithCancel(context.Background())
 
 	var quicStream, err = getQuicStream(ctx)
 	if err != nil {
@@ -138,18 +138,8 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
 	logger.Info("== Stream %d Start ==", quicStream.StreamID())
-	var activityRX, activityTX = true, true
-	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activityRX)
-	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activityTX)
-	defer func() {
-		// terminate activity timer
-		activityTX = false
-		activityRX = false
-	}()
-
 	go handleTcpToQuic(ctx, &streamWait, quicStream, tcpConn)
 	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream)
-	go connectionActivityTimer(&activityRX, &activityTX, cancel)
 
 	//we exit (and close the TCP connection) once both streams are done copying
 	logger.Info("== Stream %d Wait ==", quicStream.StreamID())
@@ -168,19 +158,6 @@ func handleTCPConn(tcpConn net.Conn) {
 		// destroy the session so a new one is created next time
 		quicSession = nil
 	}
-}
-
-func connectionActivityTimer(flag_rx, flag_tx *bool, cancelFunc context.CancelFunc) {
-	if flag_tx == nil || flag_rx == nil {
-		return
-	}
-	<-time.After(ClientConfiguration.IdleTimeout)
-	logger.Debug("activity state: %v / %v", *flag_rx, *flag_tx)
-	if !*flag_rx && !*flag_tx {
-		cancelFunc()
-		return
-	}
-	go connectionActivityTimer(flag_rx, flag_tx, cancelFunc)
 }
 
 // getQuicStream method handles the opening or reutilization of the quic session, and launches a new
@@ -441,15 +418,8 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst quic.S
 		logger.Info("== Stream %v TCP->Quic done ==", dst.StreamID())
 	}()
 
-	var activityFlag, ok = ctx.Value(ACTIVITY_RX_FLAG).(*bool)
-	if !ok {
-		panic("No activity flag set")
-	}
-
 	setLinger(src)
 
-	var loopTimeout = shared.GetScaledTimeout(1, time.Second)
-	var tempBuffer = make([]byte, BUFFER_SIZE)
 	for {
 		select {
 		case <-ctx.Done():
@@ -457,43 +427,13 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst quic.S
 		default:
 		}
 
-		var written int = 0
-		var err error
+		//logger.Info("[%d] T->Q: %v: %v", dst.StreamID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(loopTimeout)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
+		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
-		read, err_t := src.Read(tempBuffer)
-
-		if err_t != nil {
-			*activityFlag = false
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			_ = dst.Close()
+		if written == 0 && err != nil {
 			return
 		}
-		if read > 0 {
-			*activityFlag = true
-			_ = dst.SetReadDeadline(tm)
-			_ = dst.SetWriteDeadline(tm)
-
-			written, err = dst.Write(tempBuffer[:read])
-		}
-
-		if written > 0 {
-			*activityFlag = true
-			continue
-		}
-
-		*activityFlag = false
-		if err == nil {
-			<-time.After(1 * time.Millisecond)
-			continue
-		}
-		return
 	}
 	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.StreamID())
 }
@@ -507,15 +447,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		logger.Info("== Stream %v Quic->TCP done ==", src.StreamID())
 	}()
 
-	var activityFlag, ok = ctx.Value(ACTIVITY_TX_FLAG).(*bool)
-	if !ok {
-		panic("No activity flag set")
-	}
-
 	setLinger(dst)
-
-	var loopTimeout = shared.GetScaledTimeout(1, time.Second)
-	var tempBuffer = make([]byte, BUFFER_SIZE)
 
 	for {
 		select {
@@ -524,43 +456,13 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		default:
 		}
 
-		var written int = 0
-		var err error
+		//logger.Info("[%d] Q->T: %v: %v", src.StreamID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(loopTimeout)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
+		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
-		read, err_t := src.Read(tempBuffer)
-
-		if err_t != nil {
-			*activityFlag = false
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			_ = dst.Close()
+		if written == 0 && err != nil {
 			return
 		}
-		if read > 0 {
-			*activityFlag = true
-			_ = dst.SetReadDeadline(tm)
-			_ = dst.SetWriteDeadline(tm)
-
-			written, err = dst.Write(tempBuffer[:read])
-		}
-
-		if written > 0 {
-			*activityFlag = true
-			continue
-		}
-
-		*activityFlag = false
-		if err == nil {
-			<-time.After(1 * time.Millisecond)
-			continue
-		}
-		return
 	}
 }
 

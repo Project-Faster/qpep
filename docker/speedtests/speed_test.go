@@ -124,7 +124,7 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 			resp, err := client.Get(*targetURL)
 			assert.Nil(s.T(), err)
 			if err != nil {
-				testlog.Info().Msgf("GET request failed #%d", id)
+				testlog.Info().Msgf("GET request failed #%d: %v", id, err)
 				return
 			}
 			defer resp.Body.Close()
