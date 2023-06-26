@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrFailed                        = errors.New("failed")
 	ErrInvalidBackendOperation       = errors.New("operation not supported by the backend selected")
+	ErrInvalidBackendSelected        = errors.New("backend selected is not supported")
 	ErrFailedGatewayDetect           = errors.New("failed to detect the gateway")
 	ErrFailedGatewayConnect          = errors.New("failed to connect to the gateway")
 	ErrNoCommand                     = errors.New("could not create command")

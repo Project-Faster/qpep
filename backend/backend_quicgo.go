@@ -115,7 +115,10 @@ func (c *connectionAdapter) RemoteAddr() net.Addr {
 
 func (c *connectionAdapter) AcceptStream(ctx context.Context) (QpepStream, error) {
 	if c.connection != nil {
-		return c.connection.AcceptStream(ctx)
+		stream, err := c.connection.AcceptStream(ctx)
+		return &streamAdapter{
+			Stream: stream,
+		}, err
 	}
 	panic(shared.ErrInvalidBackendOperation)
 }
@@ -147,3 +150,21 @@ func (c *connectionAdapter) Close(code int, message string) error {
 }
 
 var _ QpepConnection = &connectionAdapter{}
+
+type streamAdapter struct {
+	quic.Stream
+}
+
+func (stream *streamAdapter) ID() int64 {
+	var sendStream quic.SendStream = stream
+	if sendStream != nil {
+		return int64(sendStream.StreamID())
+	}
+	var recvStream quic.ReceiveStream = stream
+	if recvStream != nil {
+		return int64(recvStream.StreamID())
+	}
+	return 0
+}
+
+var _ QpepStream = &streamAdapter{}

@@ -3,9 +3,7 @@ package client
 import (
 	"bufio"
 	"bytes"
-	"crypto/tls"
 	"fmt"
-	"github.com/parvit/qpep/logger"
 	"io"
 	"io/ioutil"
 	"net"
@@ -16,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Project-Faster/quic-go"
-
+	"github.com/parvit/qpep/backend"
+	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
 	"golang.org/x/net/context"
@@ -38,7 +36,7 @@ var (
 
 	newSessionLock sync.RWMutex
 	// quicSession listening quic connection to the server
-	quicSession quic.Connection
+	quicSession backend.QpepConnection
 )
 
 // listenTCPConn method implements the routine that listens to incoming diverted/proxied connections
@@ -137,7 +135,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	}
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
-	logger.Info("== Stream %d Start ==", quicStream.StreamID())
+	logger.Info("== Stream %d Start ==", quicStream.ID())
 	var activityRX, activityTX = true, true
 	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activityRX)
 	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activityTX)
@@ -152,17 +150,14 @@ func handleTCPConn(tcpConn net.Conn) {
 	go connectionActivityTimer(&activityRX, &activityTX, cancel)
 
 	//we exit (and close the TCP connection) once both streams are done copying
-	logger.Info("== Stream %d Wait ==", quicStream.StreamID())
+	logger.Info("== Stream %d Wait ==", quicStream.ID())
 	streamWait.Wait()
-	logger.Info("== Stream %d WaitEnd ==", quicStream.StreamID())
+	logger.Info("== Stream %d WaitEnd ==", quicStream.ID())
 
-	quicStream.CancelWrite(0)
-	quicStream.CancelRead(0)
 	quicStream.Close()
-
 	tcpConn.Close()
 
-	logger.Info("== Stream %d End ==", quicStream.StreamID())
+	logger.Info("== Stream %d End ==", quicStream.ID())
 
 	if !ClientConfiguration.MultiStream {
 		// destroy the session so a new one is created next time
@@ -185,10 +180,10 @@ func connectionActivityTimer(flag_rx, flag_tx *bool, cancelFunc context.CancelFu
 
 // getQuicStream method handles the opening or reutilization of the quic session, and launches a new
 // quic stream for communication
-func getQuicStream(ctx context.Context) (quic.Stream, error) {
+func getQuicStream(ctx context.Context) (backend.QpepStream, error) {
 	var err error
-	var quicStream quic.Stream = nil
-	var localSession quic.Connection = nil
+	var quicStream backend.QpepStream = nil
+	var localSession backend.QpepConnection = nil
 
 	newSessionLock.RLock()
 	localSession = quicSession
@@ -211,9 +206,9 @@ func getQuicStream(ctx context.Context) (quic.Stream, error) {
 	// if we allow for multiple streams in a session, try and open on the existing session
 	if ClientConfiguration.MultiStream && localSession != nil {
 		logger.Info("Trying to open on existing session")
-		quicStream, err = localSession.OpenStream()
+		quicStream, err = localSession.AcceptStream(context.Background())
 		if err == nil {
-			logger.Info("Opened a new stream: %d", quicStream.StreamID())
+			logger.Info("Opened a new stream: %d", quicStream.ID())
 			return quicStream, nil
 		}
 		// if we weren't able to open a quicStream on that session (usually inactivity timeout), we can try to open a new session
@@ -221,15 +216,15 @@ func getQuicStream(ctx context.Context) (quic.Stream, error) {
 		quicStream = nil
 
 		newSessionLock.Lock()
-		quicSession.CloseWithError(quic.ApplicationErrorCode(0), "Stream could not be opened")
+		quicSession.Close(0, "Stream could not be opened")
 		quicSession = nil
 		newSessionLock.Unlock()
 
-		return nil, quic.ErrServerClosed
+		return nil, shared.ErrFailedGatewayConnect
 	}
 
 	//Open a stream to send writtenData on this new session
-	quicStream, err = quicSession.OpenStreamSync(ctx)
+	quicStream, err = quicSession.AcceptStream(ctx)
 	// if we cannot open a stream on this session, send a TCP RST and let the client decide to try again
 	logger.OnError(err, "Unable to open QUIC stream")
 	if err != nil {
@@ -338,7 +333,7 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 	return req, nil
 }
 
-func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn net.Conn, stream quic.Stream) error {
+func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn net.Conn, stream backend.QpepStream) error {
 	switch req.Method {
 	case http.MethodDelete:
 		fallthrough
@@ -433,12 +428,12 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 }
 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
-func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst quic.Stream, src net.Conn) {
+func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QpepStream, src net.Conn) {
 	defer func() {
 		_ = recover()
 
 		streamWait.Done()
-		logger.Info("== Stream %v TCP->Quic done ==", dst.StreamID())
+		logger.Info("== Stream %v TCP->Quic done ==", dst.ID())
 	}()
 
 	var activityFlag, ok = ctx.Value(ACTIVITY_RX_FLAG).(*bool)
@@ -495,16 +490,16 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst quic.S
 		}
 		return
 	}
-	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.StreamID())
+	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.ID())
 }
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
-func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src quic.Stream) {
+func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QpepStream) {
 	defer func() {
 		_ = recover()
 
 		streamWait.Done()
-		logger.Info("== Stream %v Quic->TCP done ==", src.StreamID())
+		logger.Info("== Stream %v Quic->TCP done ==", src.ID())
 	}()
 
 	var activityFlag, ok = ctx.Value(ACTIVITY_TX_FLAG).(*bool)
@@ -611,22 +606,28 @@ func getAddressPortFromHost(host string) (net.IP, int, bool) {
 	return address, int(port), proxyable
 }
 
+var quicProvider backend.QpepBackend
+
 // openQuicSession implements the quic connection request to the qpep server
-func openQuicSession() (quic.Connection, error) {
-	var err error
-	var session quic.Connection
-	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"qpep"}}
-	gatewayPath := ClientConfiguration.GatewayHost + ":" + strconv.Itoa(ClientConfiguration.GatewayPort)
-	quicClientConfig := shared.GetQuicConfiguration()
-
-	logger.Info("Dialing QUIC Session: %s\n", gatewayPath)
-	session, err = quic.DialAddr(gatewayPath, tlsConf, quicClientConfig)
-
-	if err == nil {
-		logger.Info("QUIC Session Open\n")
-		return session, nil
+func openQuicSession() (backend.QpepConnection, error) {
+	if quicProvider == nil {
+		var ok bool
+		quicProvider, ok = backend.Get(backend.QUICGO_BACKEND)
+		if !ok {
+			panic(shared.ErrInvalidBackendSelected)
+		}
 	}
 
-	logger.Error("Unable to Open QUIC Session: %v\n", err)
-	return nil, shared.ErrFailedGatewayConnect
+	var session backend.QpepConnection
+	gatewayPath := ClientConfiguration.GatewayHost + ":" + strconv.Itoa(ClientConfiguration.GatewayPort)
+	conn, err := quicProvider.Open(context.Background(), gatewayPath)
+
+	logger.Info("Dialing QUIC Session: %s\n", gatewayPath)
+	session, err = conn.AcceptConnection(context.Background())
+	if err != nil {
+		logger.Error("Unable to Open QUIC Session: %v\n", err)
+		return nil, shared.ErrFailedGatewayConnect
+	}
+
+	return session, nil
 }

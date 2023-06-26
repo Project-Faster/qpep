@@ -29,7 +29,7 @@ type QpepStream interface {
 	io.Writer
 	io.Closer
 
-	StreamID()
+	ID() int64
 
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
