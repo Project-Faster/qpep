@@ -19,6 +19,7 @@ type QpepConnection interface {
 	LocalAddr() net.Addr
 	// RemoteAddr returns the address of the peer.
 	RemoteAddr() net.Addr
+	OpenStream(context.Context) (QpepStream, error)
 	AcceptStream(context.Context) (QpepStream, error)
 	AcceptConnection(context.Context) (QpepConnection, error)
 	Close(code int, message string) error

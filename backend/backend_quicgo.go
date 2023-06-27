@@ -123,6 +123,16 @@ func (c *connectionAdapter) AcceptStream(ctx context.Context) (QpepStream, error
 	panic(shared.ErrInvalidBackendOperation)
 }
 
+func (c *connectionAdapter) OpenStream(ctx context.Context) (QpepStream, error) {
+	if c.connection != nil {
+		stream, err := c.connection.OpenStreamSync(ctx)
+		return &streamAdapter{
+			Stream: stream,
+		}, err
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
 func (c *connectionAdapter) AcceptConnection(ctx context.Context) (QpepConnection, error) {
 	if c.listener != nil {
 		conn, err := c.listener.Accept(ctx)

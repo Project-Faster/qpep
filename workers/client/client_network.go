@@ -206,7 +206,7 @@ func getQuicStream(ctx context.Context) (backend.QpepStream, error) {
 	// if we allow for multiple streams in a session, try and open on the existing session
 	if ClientConfiguration.MultiStream && localSession != nil {
 		logger.Info("Trying to open on existing session")
-		quicStream, err = localSession.AcceptStream(context.Background())
+		quicStream, err = localSession.OpenStream(context.Background())
 		if err == nil {
 			logger.Info("Opened a new stream: %d", quicStream.ID())
 			return quicStream, nil
@@ -224,7 +224,7 @@ func getQuicStream(ctx context.Context) (backend.QpepStream, error) {
 	}
 
 	//Open a stream to send writtenData on this new session
-	quicStream, err = quicSession.AcceptStream(ctx)
+	quicStream, err = quicSession.OpenStream(ctx)
 	// if we cannot open a stream on this session, send a TCP RST and let the client decide to try again
 	logger.OnError(err, "Unable to open QUIC stream")
 	if err != nil {
@@ -618,16 +618,15 @@ func openQuicSession() (backend.QpepConnection, error) {
 		}
 	}
 
-	var session backend.QpepConnection
 	gatewayPath := ClientConfiguration.GatewayHost + ":" + strconv.Itoa(ClientConfiguration.GatewayPort)
-	conn, err := quicProvider.Open(context.Background(), gatewayPath)
+	session, err := quicProvider.Open(context.Background(), gatewayPath)
 
-	logger.Info("Dialing QUIC Session: %s\n", gatewayPath)
-	session, err = conn.AcceptConnection(context.Background())
+	logger.Info("== Dialing QUIC Session: %s ==\n", gatewayPath)
 	if err != nil {
 		logger.Error("Unable to Open QUIC Session: %v\n", err)
 		return nil, shared.ErrFailedGatewayConnect
 	}
+	logger.Info("== QUIC Session Open: %s ==\n", gatewayPath)
 
 	return session, nil
 }

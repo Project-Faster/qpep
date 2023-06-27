@@ -120,6 +120,15 @@ func Panic(format string, values ...interface{}) {
 	panic(fmt.Sprintf(format, values...))
 }
 
+func Trace() {
+	_, file, line, ok := runtime.Caller(1)
+	if !ok {
+		Info("[trace][%s:%d]", "<missing>", 0)
+		return
+	}
+	Info("[trace][%s:%d]", file, line)
+}
+
 // OnError method sends an error log only if the err value in input is not nil
 func OnError(err error, msg string) {
 	if err == nil {
