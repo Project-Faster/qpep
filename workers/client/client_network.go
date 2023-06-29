@@ -366,7 +366,10 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 
 		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
 		logger.Info("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", header.SourceAddr, header.DestAddr)
-		_, err := stream.Write(header.ToBytes())
+
+		headerData := header.ToBytes()
+		logger.Info("QUIC header: %v", headerData)
+		_, err := stream.Write(headerData)
 		if err != nil {
 			_ = tcpConn.Close()
 			logger.Error("Error writing to quic stream: %s", err.Error())
