@@ -612,7 +612,7 @@ var quicProvider backend.QuicBackend
 func openQuicSession() (backend.QuicBackendConnection, error) {
 	if quicProvider == nil {
 		var ok bool
-		quicProvider, ok = backend.Get(backend.QUICLYGO_BACKEND)
+		quicProvider, ok = backend.Get(shared.QPepConfig.Backend)
 		if !ok {
 			panic(shared.ErrInvalidBackendSelected)
 		}

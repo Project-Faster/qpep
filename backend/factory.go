@@ -7,6 +7,7 @@ import (
 
 var bcRegister map[string]QuicBackend
 var bcList []string
+var bcDefaultBackend = QUICGO_BACKEND
 
 func Register(key string, backend QuicBackend) {
 	if bcRegister == nil {
@@ -23,6 +24,9 @@ func Register(key string, backend QuicBackend) {
 
 func Get(key string) (QuicBackend, bool) {
 	val, ok := bcRegister[key]
+	if !ok {
+		return bcRegister[bcDefaultBackend], true
+	}
 	return val, ok
 }
 

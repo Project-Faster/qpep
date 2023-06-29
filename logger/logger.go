@@ -57,8 +57,9 @@ func SetupLogger(logName string) {
 	log.SetGlobalLevel(log.InfoLevel)
 	log.TimeFieldFormat = time.StampMilli
 
-	_log = log.New(_logFile).Level(log.DebugLevel).
-		With().Timestamp().Logger()
+	_log = log.New(_logFile).
+		Level(log.DebugLevel).
+		With().Logger()
 }
 
 // CloseLogger Terminates the current log and resets it to stdout output
@@ -81,7 +82,7 @@ func GetLogger() *log.Logger {
 // Info Outputs a new formatted string with the provided parameters to the logger instance with Info level
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Info(format string, values ...interface{}) {
-	_log.Info().Msgf(format, values...)
+	_log.Info().Time("time", time.Now()).Msgf(format, values...)
 	stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
@@ -95,7 +96,7 @@ func Debug(format string, values ...interface{}) {
 	if log.GlobalLevel() != log.DebugLevel {
 		return
 	}
-	_log.Debug().Msgf(format, values...)
+	_log.Debug().Time("time", time.Now()).Msgf(format, values...)
 	stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
@@ -106,7 +107,7 @@ func Debug(format string, values ...interface{}) {
 // Error Outputs a new formatted string with the provided parameters to the logger instance with Error level
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Error(format string, values ...interface{}) {
-	_log.Error().Msgf(format, values...)
+	_log.Error().Time("time", time.Now()).Msgf(format, values...)
 	stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
@@ -118,7 +119,7 @@ func Error(format string, values ...interface{}) {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 // and then panics with the same formatted string
 func Panic(format string, values ...interface{}) {
-	_log.Error().Msgf(format, values...)
+	_log.Error().Time("time", time.Now()).Msgf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 	}
