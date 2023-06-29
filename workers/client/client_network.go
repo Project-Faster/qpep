@@ -36,7 +36,7 @@ var (
 
 	newSessionLock sync.RWMutex
 	// quicSession listening quic connection to the server
-	quicSession backend.QpepConnection
+	quicSession backend.QuicBackendConnection
 )
 
 // listenTCPConn method implements the routine that listens to incoming diverted/proxied connections
@@ -180,10 +180,10 @@ func connectionActivityTimer(flag_rx, flag_tx *bool, cancelFunc context.CancelFu
 
 // getQuicStream method handles the opening or reutilization of the quic session, and launches a new
 // quic stream for communication
-func getQuicStream(ctx context.Context) (backend.QpepStream, error) {
+func getQuicStream(ctx context.Context) (backend.QuicBackendStream, error) {
 	var err error
-	var quicStream backend.QpepStream = nil
-	var localSession backend.QpepConnection = nil
+	var quicStream backend.QuicBackendStream = nil
+	var localSession backend.QuicBackendConnection = nil
 
 	newSessionLock.RLock()
 	localSession = quicSession
@@ -223,7 +223,7 @@ func getQuicStream(ctx context.Context) (backend.QpepStream, error) {
 		return nil, shared.ErrFailedGatewayConnect
 	}
 
-	//Open a stream to send writtenData on this new session
+	//Dial a stream to send writtenData on this new session
 	quicStream, err = quicSession.OpenStream(ctx)
 	// if we cannot open a stream on this session, send a TCP RST and let the client decide to try again
 	logger.OnError(err, "Unable to open QUIC stream")
@@ -333,7 +333,7 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 	return req, nil
 }
 
-func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn net.Conn, stream backend.QpepStream) error {
+func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn net.Conn, stream backend.QuicBackendStream) error {
 	switch req.Method {
 	case http.MethodDelete:
 		fallthrough
@@ -428,7 +428,7 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 }
 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
-func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QpepStream, src net.Conn) {
+func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn) {
 	defer func() {
 		_ = recover()
 
@@ -494,7 +494,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 }
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
-func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QpepStream) {
+func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QuicBackendStream) {
 	defer func() {
 		_ = recover()
 
@@ -606,27 +606,26 @@ func getAddressPortFromHost(host string) (net.IP, int, bool) {
 	return address, int(port), proxyable
 }
 
-var quicProvider backend.QpepBackend
+var quicProvider backend.QuicBackend
 
 // openQuicSession implements the quic connection request to the qpep server
-func openQuicSession() (backend.QpepConnection, error) {
+func openQuicSession() (backend.QuicBackendConnection, error) {
 	if quicProvider == nil {
 		var ok bool
-		quicProvider, ok = backend.Get(backend.QUICGO_BACKEND)
+		quicProvider, ok = backend.Get(backend.QUICLYGO_BACKEND)
 		if !ok {
 			panic(shared.ErrInvalidBackendSelected)
 		}
 	}
 
-	gatewayPath := ClientConfiguration.GatewayHost + ":" + strconv.Itoa(ClientConfiguration.GatewayPort)
-	session, err := quicProvider.Open(context.Background(), gatewayPath)
+	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 
-	logger.Info("== Dialing QUIC Session: %s ==\n", gatewayPath)
+	logger.Info("== Dialing QUIC Session: %s:d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 	if err != nil {
-		logger.Error("Unable to Open QUIC Session: %v\n", err)
+		logger.Error("Unable to Dial QUIC Session: %v\n", err)
 		return nil, shared.ErrFailedGatewayConnect
 	}
-	logger.Info("== QUIC Session Open: %s ==\n", gatewayPath)
+	logger.Info("== QUIC Session Dial: %s:d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 
 	return session, nil
 }

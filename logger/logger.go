@@ -73,6 +73,11 @@ func CloseLogger() {
 	_log = log.New(os.Stdout)
 }
 
+// GetLogger allows external libraries to integrate with the qpep logger
+func GetLogger() *log.Logger {
+	return &_log
+}
+
 // Info Outputs a new formatted string with the provided parameters to the logger instance with Info level
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Info(format string, values ...interface{}) {

@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-var bcRegister map[string]QpepBackend
+var bcRegister map[string]QuicBackend
 var bcList []string
 
-func Register(key string, backend QpepBackend) {
+func Register(key string, backend QuicBackend) {
 	if bcRegister == nil {
-		bcRegister = make(map[string]QpepBackend)
+		bcRegister = make(map[string]QuicBackend)
 		bcList = make([]string, 0, 8)
 	}
 	key = strings.ToLower(key)
@@ -21,7 +21,7 @@ func Register(key string, backend QpepBackend) {
 	}
 }
 
-func Get(key string) (QpepBackend, bool) {
+func Get(key string) (QuicBackend, bool) {
 	val, ok := bcRegister[key]
 	return val, ok
 }
