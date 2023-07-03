@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/Project-Faster/quic-go"
 	"github.com/parvit/qpep/api"
+	"github.com/parvit/qpep/backend"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"io"
@@ -18,16 +18,30 @@ const (
 	BUFFER_SIZE = 512 * 1024
 )
 
+var (
+	// quicSession listening quic connection to the server
+	quicProvider backend.QuicBackend
+	quicListener backend.QuicBackendConnection
+)
+
 // listenQuicSession handles accepting the sessions and the launches goroutines to actually serve them
-func listenQuicSession() {
+func listenQuicSession(address string, port int) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Info("PANIC: %v\n", err)
 			debug.PrintStack()
 		}
 	}()
+	if quicProvider == nil {
+		var ok bool
+		quicProvider, ok = backend.Get(shared.QPepConfig.Backend)
+		if !ok {
+			panic(shared.ErrInvalidBackendSelected)
+		}
+	}
+
 	for {
-		quicSession, err := quicListener.Accept(context.Background())
+		quicSession, err := quicListener.AcceptConnection(context.Background())
 		if err != nil {
 			logger.Error("Unrecoverable error while accepting QUIC session: %s\n", err)
 			return
@@ -39,7 +53,7 @@ func listenQuicSession() {
 }
 
 // listenQuicConn handles opened quic sessions and accepts connections in goroutines to actually serve them
-func listenQuicConn(quicSession quic.Connection) {
+func listenQuicConn(quicSession backend.QuicBackendConnection) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Info("PANIC: %v\n", err)
@@ -55,30 +69,15 @@ func listenQuicConn(quicSession quic.Connection) {
 			return
 		}
 		go func() {
-			logger.Info("== [%d] Stream Start ==", stream.StreamID())
+			logger.Info("== [%d] Stream Start ==", stream.ID())
 			handleQuicStream(stream)
-			logger.Info("== [%d] Stream End ==", stream.StreamID())
+			logger.Info("== [%d] Stream End ==", stream.ID())
 		}()
 	}
 }
 
-func connectionActivityTimer(dst quic.Stream, src net.Conn, flag_rx, flag_tx *bool, cancelFunc context.CancelFunc) {
-	if flag_tx == nil || flag_rx == nil {
-		return
-	}
-	<-time.After(ServerConfiguration.IdleTimeout)
-	if !*flag_rx && !*flag_tx {
-		logger.Info("[%v] connection canceled for inactivity", dst.StreamID())
-		cancelFunc()
-		dst.Close()
-		src.Close()
-		return
-	}
-	go connectionActivityTimer(dst, src, flag_rx, flag_tx, cancelFunc)
-}
-
 // handleQuicStream handles a quic stream connection and bridges to the standard tcp for the common internet
-func handleQuicStream(quicStream quic.Stream) {
+func handleQuicStream(quicStream backend.QuicBackendStream) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Info("PANIC: %v\n", err)
@@ -101,17 +100,17 @@ func handleQuicStream(quicStream quic.Stream) {
 		return
 	}
 
-	logger.Info("[%d] Connection flags : %d %v", quicStream.StreamID(), qpepHeader.Flags, qpepHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION != 0)
+	logger.Info("[%d] Connection flags : %d %v", quicStream.ID(), qpepHeader.Flags, qpepHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION != 0)
 
 	// To support the server being behind a private NAT (external gateway address != local listening address)
 	// we dial the listening address when the connection is directed at the non-local API server
 	destAddress := qpepHeader.DestAddr.String()
 	if qpepHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION != 0 {
-		logger.Info("[%d] Local connection to server", quicStream.StreamID())
+		logger.Info("[%d] Local connection to server", quicStream.ID())
 		destAddress = fmt.Sprintf("127.0.0.1:%d", qpepHeader.DestAddr.Port)
 	}
 
-	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.StreamID(), destAddress, qpepHeader.SourceAddr)
+	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
 		LocalAddr:     &net.TCPAddr{IP: net.ParseIP(ServerConfiguration.ListenHost)},
 		Timeout:       shared.GetScaledTimeout(10, time.Second),
@@ -121,13 +120,13 @@ func handleQuicStream(quicStream quic.Stream) {
 	}
 	tcpConn, err := dial.Dial("tcp", destAddress)
 	if err != nil {
-		logger.Error("[%d] Unable to open TCP connection from QPEP quicStream: %s\n", quicStream.StreamID(), err)
+		logger.Error("[%d] Unable to open TCP connection from QPEP quicStream: %s\n", quicStream.ID(), err)
 		quicStream.Close()
 
 		shared.ScaleUpTimeout()
 		return
 	}
-	logger.Info(">> [%d] Opened TCP Conn %s -> %s\n", quicStream.StreamID(), qpepHeader.SourceAddr, destAddress)
+	logger.Info(">> [%d] Opened TCP Conn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
 
 	trackedAddress := qpepHeader.SourceAddr.IP.String()
 	proxyAddress := tcpConn.LocalAddr().String()
@@ -149,16 +148,16 @@ func handleQuicStream(quicStream quic.Stream) {
 	//go connectionActivityTimer(quicStream, tcpConn, &activityRX, &activityTX, cancel)
 
 	//we exit (and close the TCP connection) once both streams are done copying or timeout
-	logger.Info("== Stream %d Wait ==", quicStream.StreamID())
+	logger.Info("== Stream %d Wait ==", quicStream.ID())
 	streamWait.Wait()
-	logger.Info("== Stream %d WaitEnd ==", quicStream.StreamID())
+	logger.Info("== Stream %d WaitEnd ==", quicStream.ID())
 
 	quicStream.Close()
 	tcpConn.Close()
 }
 
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64,
-	dst net.Conn, src quic.Stream, proxyAddress, trackedAddress string) {
+	dst net.Conn, src backend.QuicBackendStream, proxyAddress, trackedAddress string) {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -168,7 +167,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		api.Statistics.DeleteMappedAddress(proxyAddress)
 		streamWait.Done()
-		logger.Info("== [%d] Stream Quic->TCP done ==", src.StreamID())
+		logger.Info("== [%d] Stream Quic->TCP done ==", src.ID())
 	}()
 
 	api.Statistics.SetMappedAddress(proxyAddress, trackedAddress)
@@ -183,7 +182,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		default:
 		}
 
-		//logger.Info("[%d] Q->T: %v: %v", src.StreamID(), activityFlag, *activityFlag)
+		//logger.Info("[%d] Q->T: %v: %v", src.ID(), activityFlag, *activityFlag)
 
 		if speedLimit == 0 {
 			written, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
@@ -202,7 +201,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 }
 
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64,
-	dst quic.Stream, src net.Conn, trackedAddress string) {
+	dst backend.QuicBackendStream, src net.Conn, trackedAddress string) {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -211,7 +210,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		}
 
 		streamWait.Done()
-		logger.Info("== [%d] Stream TCP->Quic done ==", dst.StreamID())
+		logger.Info("== [%d] Stream TCP->Quic done ==", dst.ID())
 	}()
 
 	setLinger(src)
@@ -224,7 +223,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		default:
 		}
 
-		//logger.Info("[%d] T->Q: %v: %v", dst.StreamID(), activityFlag, *activityFlag)
+		//logger.Info("[%d] T->Q: %v: %v", dst.ID(), activityFlag, *activityFlag)
 
 		if speedLimit == 0 {
 			written, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))

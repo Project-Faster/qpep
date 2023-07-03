@@ -4,18 +4,11 @@ package backend
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"github.com/Project-Faster/quicly-go"
 	"github.com/Project-Faster/quicly-go/quiclylib/errors"
 	"github.com/Project-Faster/quicly-go/quiclylib/types"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-	"io/ioutil"
-	"math/big"
 	"net"
 )
 
@@ -128,7 +121,7 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 	}, ctx)
 
 	return &connectionAdapter{
-		context:    context.Background(),
+		context:    ctx,
 		connection: conn,
 	}, nil
 }
@@ -145,33 +138,6 @@ func (q *quiclyGoBackend) Close() error {
 	q.initialized = false
 	logger.Info("== QUIC Session Closed ==")
 	return nil
-}
-
-// generateTLSConfig creates a new x509 key/certificate pair and dumps it to the disk
-func generateTLSConfig(fileprefix string) *tls.Config {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(err)
-	}
-	template := x509.Certificate{SerialNumber: big.NewInt(1)}
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		panic(err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-
-	ioutil.WriteFile(fileprefix+"_key.pem", keyPEM, 0777)
-	ioutil.WriteFile(fileprefix+"_cert.pem", certPEM, 0777)
-
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		panic(err)
-	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
-		NextProtos:   []string{"qpep"},
-	}
 }
 
 type connectionAdapter struct {

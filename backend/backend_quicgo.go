@@ -52,17 +52,19 @@ func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int) 
 	return sessionAdapter, nil
 }
 
-func (q *quicGoBackend) Listen(addr string, tlsConf *tls.Config) (QuicBackendConnection, error) {
+func (q *quicGoBackend) Listen(ctx context.Context, address string, port int) (QuicBackendConnection, error) {
 	quicConfig := qgoGetConfiguration()
 
-	conn, err := quic.ListenAddr(addr, tlsConf, quicConfig)
+	tlsConf := generateTLSConfig("server")
+
+	conn, err := quic.ListenAddr(address, tlsConf, quicConfig)
 	if err != nil {
 		logger.Error("Failed to listen on QUIC session: %v\n", err)
 		return nil, shared.ErrFailedGatewayConnect
 	}
 
 	return &qgoConnectionAdapter{
-		context:  context.Background(),
+		context:  ctx,
 		listener: conn,
 	}, err
 }
