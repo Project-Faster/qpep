@@ -7,6 +7,7 @@ import (
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"io"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -15,9 +16,6 @@ import (
 
 const (
 	BUFFER_SIZE = 512 * 1024
-
-	ACTIVITY_RX_FLAG = "activity_rx"
-	ACTIVITY_TX_FLAG = "activity_tx"
 )
 
 // listenQuicSession handles accepting the sessions and the launches goroutines to actually serve them
@@ -57,9 +55,9 @@ func listenQuicConn(quicSession quic.Connection) {
 			return
 		}
 		go func() {
-			logger.Info("== Stream %d Start ==", stream.StreamID())
+			logger.Info("== [%d] Stream Start ==", stream.StreamID())
 			handleQuicStream(stream)
-			logger.Info("== Stream %d End ==", stream.StreamID())
+			logger.Info("== [%d] Stream End ==", stream.StreamID())
 		}()
 	}
 }
@@ -141,23 +139,14 @@ func handleQuicStream(quicStream quic.Stream) {
 		api.Statistics.DecrementCounter(1.0, api.TOTAL_CONNECTIONS)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ := context.WithCancel(context.Background())
 
 	var streamWait sync.WaitGroup
 	streamWait.Add(2)
 
-	var activityRX, activityTX = true, true
-	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activityRX)
-	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activityTX)
-	defer func() {
-		// terminate activity timer
-		activityTX = false
-		activityRX = false
-	}()
-
 	go handleQuicToTcp(ctx, &streamWait, srcLimit, tcpConn, quicStream, proxyAddress, trackedAddress)
 	go handleTcpToQuic(ctx, &streamWait, dstLimit, quicStream, tcpConn, trackedAddress)
-	go connectionActivityTimer(quicStream, tcpConn, &activityRX, &activityTX, cancel)
+	//go connectionActivityTimer(quicStream, tcpConn, &activityRX, &activityTX, cancel)
 
 	//we exit (and close the TCP connection) once both streams are done copying or timeout
 	logger.Info("== Stream %d Wait ==", quicStream.StreamID())
@@ -172,31 +161,21 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	dst net.Conn, src quic.Stream, proxyAddress, trackedAddress string) {
 
 	defer func() {
-		_ = recover()
+		if err := recover(); err != nil {
+			logger.Error("ERR: %v", err)
+			debug.PrintStack()
+		}
 
-		dst.Close()
 		api.Statistics.DeleteMappedAddress(proxyAddress)
 		streamWait.Done()
-		logger.Info("== Stream %v Quic->TCP done ==", src.StreamID())
+		logger.Info("== [%d] Stream Quic->TCP done ==", src.StreamID())
 	}()
 
 	api.Statistics.SetMappedAddress(proxyAddress, trackedAddress)
 
-	var activityFlag, ok = ctx.Value(ACTIVITY_RX_FLAG).(*bool)
-	if !ok {
-		panic("No activity flag set")
-	}
-
 	setLinger(dst)
 
-	var loopTimeout = 1 * time.Second
-	var tempBuffer []byte
-	if speedLimit > 0 {
-		tempBuffer = make([]byte, speedLimit)
-	} else {
-		tempBuffer = make([]byte, BUFFER_SIZE)
-	}
-
+	written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
 		select {
 		case <-ctx.Done():
@@ -204,57 +183,21 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		default:
 		}
 
-		var written int = 0
-		var err error
+		//logger.Info("[%d] Q->T: %v: %v", src.StreamID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(loopTimeout)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
+		if speedLimit == 0 {
+			written, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+		} else {
+			var now = time.Now()
+			written, err = io.Copy(dst, io.LimitReader(src, speedLimit))
 
-		var start = time.Now()
-		var limit = start.Add(loopTimeout)
-		read, err_t := src.Read(tempBuffer)
+			var wait = time.Until(now.Add(1 * time.Second))
+			time.Sleep(wait)
+		}
 
-		if err_t != nil {
-			*activityFlag = false
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			_ = dst.Close()
+		if written == 0 && err != nil {
 			return
 		}
-		for read > 0 {
-			*activityFlag = true
-			tm = time.Now().Add(loopTimeout)
-			_ = dst.SetReadDeadline(tm)
-			_ = dst.SetWriteDeadline(tm)
-
-			written, err = dst.Write(tempBuffer[:read])
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				*activityFlag = false
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			read = 0
-		}
-		var end = limit.Sub(time.Now())
-		if speedLimit != 0 {
-			time.Sleep(end)
-		}
-
-		if written > 0 {
-			*activityFlag = true
-			api.Statistics.IncrementCounter(float64(written), api.PERF_UP_COUNT, trackedAddress)
-			continue
-		}
-
-		*activityFlag = false
-		if err == nil {
-			<-time.After(1 * time.Millisecond)
-			continue
-		}
-		return
 	}
 }
 
@@ -262,28 +205,18 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	dst quic.Stream, src net.Conn, trackedAddress string) {
 
 	defer func() {
-		_ = recover()
+		if err := recover(); err != nil {
+			logger.Error("ERR: %v", err)
+			debug.PrintStack()
+		}
 
-		dst.Close()
 		streamWait.Done()
-		logger.Info("== Stream %v TCP->Quic done ==", dst.StreamID())
+		logger.Info("== [%d] Stream TCP->Quic done ==", dst.StreamID())
 	}()
-
-	var activityFlag, ok = ctx.Value(ACTIVITY_TX_FLAG).(*bool)
-	if !ok {
-		panic("No activity flag set")
-	}
 
 	setLinger(src)
 
-	var loopTimeout = 1 * time.Second
-	var tempBuffer []byte
-	if speedLimit > 0 {
-		tempBuffer = make([]byte, speedLimit)
-	} else {
-		tempBuffer = make([]byte, BUFFER_SIZE)
-	}
-
+	written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
 		select {
 		case <-ctx.Done():
@@ -291,57 +224,21 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		default:
 		}
 
-		var written int = 0
-		var err error
+		//logger.Info("[%d] T->Q: %v: %v", dst.StreamID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(loopTimeout)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
+		if speedLimit == 0 {
+			written, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+		} else {
+			var now = time.Now()
+			written, err = io.Copy(dst, io.LimitReader(src, speedLimit))
 
-		var start = time.Now()
-		var limit = start.Add(loopTimeout)
-		read, err_t := src.Read(tempBuffer)
+			var wait = time.Until(now.Add(1 * time.Second))
+			time.Sleep(wait)
+		}
 
-		if err_t != nil {
-			*activityFlag = false
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			_ = dst.Close()
+		if written == 0 && err != nil {
 			return
 		}
-		for read > 0 {
-			*activityFlag = true
-			tm = time.Now().Add(loopTimeout)
-			_ = dst.SetReadDeadline(tm)
-			_ = dst.SetWriteDeadline(tm)
-
-			written, err = dst.Write(tempBuffer[:read])
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				*activityFlag = false
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			read = 0
-		}
-		var end = limit.Sub(time.Now())
-		if speedLimit != 0 {
-			time.Sleep(end)
-		}
-
-		if written > 0 {
-			*activityFlag = true
-			api.Statistics.IncrementCounter(float64(written), api.PERF_DW_COUNT, trackedAddress)
-			continue
-		}
-
-		*activityFlag = false
-		if err == nil {
-			<-time.After(1 * time.Millisecond)
-			continue
-		}
-		return
 	}
 }
 

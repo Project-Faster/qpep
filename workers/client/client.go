@@ -116,9 +116,9 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 		cancel()
 	}()
 
-	var connected = false
+	//var connected = false
 	var checkIsRunning = false
-	var publicAddress = ""
+	//var publicAddress = ""
 
 	// start redirection right away because we normally expect the
 	// connection with the server to be on already up
@@ -138,41 +138,41 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 				continue
 			}
 			checkIsRunning = true
-			localAddr := ClientConfiguration.ListenHost
-			apiAddr := ClientConfiguration.GatewayHost
-			apiPort := ClientConfiguration.APIPort
-			if !connected {
-				ok, response := gatewayStatusCheck(localAddr, apiAddr, apiPort)
-				checkIsRunning = false
-				if ok {
-					publicAddress = response.Address
-					connected = true
-					logger.Info("Server returned public address %s\n", publicAddress)
-
-				} else {
-					// if connection is lost then keep the redirection active
-					// for a certain number of retries then terminate to not keep
-					// all the network blocked
-					if failedCheckConnection() {
-						return
-					}
-				}
-				continue
-			}
-
-			connected = clientStatisticsUpdate(localAddr, apiAddr, apiPort, publicAddress)
-			checkIsRunning = false
-			if !connected {
-				logger.Info("Error during statistics update from server\n")
-
-				// if connection is lost then keep the redirection active
-				// for a certain number of retries then terminate to not keep
-				// all the network blocked
-				if failedCheckConnection() {
-					return
-				}
-				connected = false
-			}
+			//localAddr := ClientConfiguration.ListenHost
+			//apiAddr := ClientConfiguration.GatewayHost
+			//apiPort := ClientConfiguration.APIPort
+			//if !connected {
+			//	ok, response := gatewayStatusCheck(localAddr, apiAddr, apiPort)
+			//	checkIsRunning = false
+			//	if ok {
+			//		publicAddress = response.Address
+			//		connected = true
+			//		logger.Info("Server returned public address %s\n", publicAddress)
+			//
+			//	} else {
+			//		// if connection is lost then keep the redirection active
+			//		// for a certain number of retries then terminate to not keep
+			//		// all the network blocked
+			//		if failedCheckConnection() {
+			//			return
+			//		}
+			//	}
+			//	continue
+			//}
+			//
+			//connected = clientStatisticsUpdate(localAddr, apiAddr, apiPort, publicAddress)
+			//checkIsRunning = false
+			//if !connected {
+			//	logger.Info("Error during statistics update from server\n")
+			//
+			//	// if connection is lost then keep the redirection active
+			//	// for a certain number of retries then terminate to not keep
+			//	// all the network blocked
+			//	if failedCheckConnection() {
+			//		return
+			//	}
+			//	connected = false
+			//}
 			continue
 		}
 	}

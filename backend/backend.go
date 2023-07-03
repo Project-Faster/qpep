@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"net"
 	"time"
@@ -10,7 +9,7 @@ import (
 
 type QuicBackend interface {
 	Dial(ctx context.Context, remoteAddress string, port int) (QuicBackendConnection, error)
-	Listen(addr string, tlsConf *tls.Config) (QuicBackendConnection, error)
+	Listen(ctx context.Context, address string, port int) (QuicBackendConnection, error)
 	Close() error
 }
 

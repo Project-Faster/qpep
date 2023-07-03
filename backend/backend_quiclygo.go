@@ -66,8 +66,12 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 		OnConnectionClose: func(connection types.Session) {
 			logger.Info("CLOSE: %v", connection)
 		},
-		OnStreamOpenCallback:  nil,
-		OnStreamCloseCallback: nil,
+		OnStreamOpenCallback: func(stream types.Stream) {
+			logger.Info(">> Callback open %d", stream.ID())
+		},
+		OnStreamCloseCallback: func(stream types.Stream, error int) {
+			logger.Info(">> Callback close %d, error %d", stream.ID(), error)
+		},
 	}, ctx)
 
 	if session == nil {
@@ -85,21 +89,48 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 	return sessionAdapter, nil
 }
 
-func (q *quiclyGoBackend) Listen(addr string, tlsConf *tls.Config) (QuicBackendConnection, error) {
-	//quicConfig := quiclygoGetConfiguration()
-	//
-	//conn, err := quic.ListenAddr(addr, tlsConf, quicConfig)
-	//if err != nil {
-	//	logger.Error("Failed to listen on QUIC session: %v\n", err)
-	//	return nil, shared.ErrFailedGatewayConnect
-	//}
-	//
-	//return &connectionAdapter{
-	//	context:    context.Background(),
-	//	connection: conn,
-	//}, err
+func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) (QuicBackendConnection, error) {
+	if !q.initialized {
+		_ = generateTLSConfig("server")
 
-	panic(shared.ErrInvalidBackendOperation)
+		quicConfig := quicly.Options{
+			Logger:          logger.GetLogger(),
+			CertificateFile: "server_cert.pem",
+			CertificateKey:  "server_key.pem",
+		}
+
+		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
+			return nil, shared.ErrFailed
+		}
+		q.initialized = true
+	}
+
+	ipAddr := net.ParseIP(address)
+
+	localAddr := net.UDPAddr{
+		IP:   ipAddr,
+		Port: port,
+	}
+
+	conn := quicly.Listen(&localAddr, types.Callbacks{
+		OnConnectionOpen: func(conn types.Session) {
+			logger.Info("OnStart")
+		},
+		OnConnectionClose: func(conn types.Session) {
+			logger.Info("OnClose")
+		},
+		OnStreamOpenCallback: func(stream types.Stream) {
+			logger.Info(">> Callback open %d", stream.ID())
+		},
+		OnStreamCloseCallback: func(stream types.Stream, error int) {
+			logger.Info(">> Callback close %d, error %d", stream.ID(), error)
+		},
+	}, ctx)
+
+	return &connectionAdapter{
+		context:    context.Background(),
+		connection: conn,
+	}, nil
 }
 
 func (q *quiclyGoBackend) Close() error {

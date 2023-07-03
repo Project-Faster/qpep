@@ -124,7 +124,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		}
 		logger.Info("Connection flags : %d %d", sessionHeader.Flags, sessionHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
 
-		logger.Info("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
+		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
 		_, err := quicStream.Write(sessionHeader.ToBytes())
 		logger.OnError(err, "writing to quic stream")
 	} else {
@@ -355,6 +355,8 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 			panic("Should not happen as the handleProxyOpenConnection method checks the http request")
 		}
 
+		logger.Info("HOST: %s", req.Host)
+
 		header.DestAddr = &net.TCPAddr{
 			IP:   address,
 			Port: port,
@@ -365,10 +367,10 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 		}
 
 		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
-		logger.Info("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", header.SourceAddr, header.DestAddr)
+		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v", header.SourceAddr, header.DestAddr)
 
 		headerData := header.ToBytes()
-		logger.Info("QUIC header: %v", headerData)
+		logger.Info("QPEP header: %v", headerData)
 		_, err := stream.Write(headerData)
 		if err != nil {
 			_ = tcpConn.Close()
@@ -390,6 +392,8 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 		if !proxyable {
 			panic("Should not happen as the handleProxyOpenConnection method checks the http request")
 		}
+
+		logger.Info("HOST: %s", req.Host)
 
 		header.DestAddr = &net.TCPAddr{
 			IP:   address,
@@ -416,7 +420,7 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 		t.Write(tcpConn)
 
 		logger.Info("Proxied connection")
-		logger.Info("Sending QUIC header to server, SourceAddr: %v / DestAddr: %v", header.SourceAddr, header.DestAddr)
+		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v", header.SourceAddr, header.DestAddr)
 		_, err := stream.Write(header.ToBytes())
 		if err != nil {
 			_ = tcpConn.Close()
@@ -433,21 +437,17 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn) {
 	defer func() {
-		_ = recover()
+		if err := recover(); err != nil {
+			logger.Error("ERR: %v", err)
+			debug.PrintStack()
+		}
 
 		streamWait.Done()
 		logger.Info("== Stream %v TCP->Quic done ==", dst.ID())
 	}()
 
-	var activityFlag, ok = ctx.Value(ACTIVITY_RX_FLAG).(*bool)
-	if !ok {
-		panic("No activity flag set")
-	}
-
 	setLinger(src)
 
-	var loopTimeout = shared.GetScaledTimeout(1, time.Second)
-	var tempBuffer = make([]byte, BUFFER_SIZE)
 	for {
 		select {
 		case <-ctx.Done():
@@ -455,65 +455,30 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		default:
 		}
 
-		var written int = 0
-		var err error
+		//logger.Info("[%d] T->Q: %v: %v", dst.StreamID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(loopTimeout)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
+		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
-		read, err_t := src.Read(tempBuffer)
-
-		if err_t != nil {
-			*activityFlag = false
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			_ = dst.Close()
+		if written == 0 && err != nil {
 			return
 		}
-		if read > 0 {
-			*activityFlag = true
-			_ = dst.SetReadDeadline(tm)
-			_ = dst.SetWriteDeadline(tm)
-
-			written, err = dst.Write(tempBuffer[:read])
-		}
-
-		if written > 0 {
-			*activityFlag = true
-			continue
-		}
-
-		*activityFlag = false
-		if err == nil {
-			<-time.After(1 * time.Millisecond)
-			continue
-		}
-		return
 	}
-	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.ID())
+	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.StreamID())
 }
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QuicBackendStream) {
 	defer func() {
-		_ = recover()
+		if err := recover(); err != nil {
+			logger.Error("ERR: %v", err)
+			debug.PrintStack()
+		}
 
 		streamWait.Done()
 		logger.Info("== Stream %v Quic->TCP done ==", src.ID())
 	}()
 
-	var activityFlag, ok = ctx.Value(ACTIVITY_TX_FLAG).(*bool)
-	if !ok {
-		panic("No activity flag set")
-	}
-
 	setLinger(dst)
-
-	var loopTimeout = shared.GetScaledTimeout(1, time.Second)
-	var tempBuffer = make([]byte, BUFFER_SIZE)
 
 	for {
 		select {
@@ -522,43 +487,13 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		default:
 		}
 
-		var written int = 0
-		var err error
+		//logger.Info("[%d] Q->T: %v: %v", src.StreamID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(loopTimeout)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
+		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
-		read, err_t := src.Read(tempBuffer)
-
-		if err_t != nil {
-			*activityFlag = false
-			if nErr, ok := err_t.(net.Error); ok && nErr.Timeout() {
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			_ = dst.Close()
+		if written == 0 && err != nil {
 			return
 		}
-		if read > 0 {
-			*activityFlag = true
-			_ = dst.SetReadDeadline(tm)
-			_ = dst.SetWriteDeadline(tm)
-
-			written, err = dst.Write(tempBuffer[:read])
-		}
-
-		if written > 0 {
-			*activityFlag = true
-			continue
-		}
-
-		*activityFlag = false
-		if err == nil {
-			<-time.After(1 * time.Millisecond)
-			continue
-		}
-		return
 	}
 }
 

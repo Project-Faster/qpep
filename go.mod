@@ -3,6 +3,7 @@ module github.com/parvit/qpep
 go 1.18
 
 // replace github.com/Project-Faster/quic-go => C:\\home\\dev\\src\\github.com\\parvit\\faster-quic-go
+replace github.com/Project-Faster/quicly-go => ./backend\\quicly-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -23,18 +24,18 @@ require (
 require (
 	bou.ke/monkey v1.0.2
 	github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d
+	github.com/Project-Faster/quicly-go v0.0.0-00010101000000-000000000000
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 	github.com/nyaosorg/go-windows-dbg v0.0.0-20210914123807-2acba179a4e5
 	github.com/segmentio/fasthash v1.0.3
 	github.com/stretchr/testify v1.8.2
+	gonum.org/v1/plot v0.12.0
 )
 
 require (
-	gioui.org v0.0.0-20210308172011-57750fc8a0a6 // indirect
 	git.sr.ht/~sbinet/gg v0.3.1 // indirect
-	github.com/Project-Faster/quicly-go v0.0.0-20230524055125-ed9594361792 // indirect
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
@@ -61,16 +62,11 @@ require (
 	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect
-	golang.org/x/exp/shiny v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
-	gonum.org/v1/plot v0.12.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
-	rsc.io/pdf v0.1.1 // indirect
 )
