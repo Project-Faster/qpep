@@ -40,6 +40,13 @@ func listenQuicSession(address string, port int) {
 		}
 	}
 
+	var err error
+	quicListener, err = quicProvider.Listen(context.Background(), address, port)
+	if err != nil {
+		logger.Error("Unrecoverable error while listening for QUIC connections: %s\n", err)
+		return
+	}
+
 	for {
 		quicSession, err := quicListener.AcceptConnection(context.Background())
 		if err != nil {
