@@ -57,7 +57,7 @@ func (q *quicGoBackend) Listen(ctx context.Context, address string, port int) (Q
 
 	tlsConf := generateTLSConfig("server")
 
-	conn, err := quic.ListenAddr(address, tlsConf, quicConfig)
+	conn, err := quic.ListenAddr(fmt.Sprintf("%s:%d", address, port), tlsConf, quicConfig)
 	if err != nil {
 		logger.Error("Failed to listen on QUIC session: %v\n", err)
 		return nil, shared.ErrFailedGatewayConnect
