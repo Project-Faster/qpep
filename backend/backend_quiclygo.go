@@ -182,7 +182,7 @@ func (c *connectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, 
 }
 
 func (c *connectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
-	panic(shared.ErrInvalidBackendOperation)
+	return c, nil
 }
 
 func (c *connectionAdapter) Close(code int, message string) error {
