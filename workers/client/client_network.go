@@ -457,6 +457,8 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 
 		//logger.Info("[%d] T->Q: %v: %v", dst.StreamID(), activityFlag, *activityFlag)
 
+		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
+		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
 		if written == 0 && err != nil {
@@ -489,6 +491,8 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 
 		//logger.Info("[%d] Q->T: %v: %v", src.StreamID(), activityFlag, *activityFlag)
 
+		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
+		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
 		if written == 0 && err != nil {
