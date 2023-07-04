@@ -2,18 +2,7 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
-	"github.com/Project-Faster/quic-go"
-	//"github.com/Project-Faster/quic-go/logging"
-	//"github.com/Project-Faster/quic-go/qlog"
-	"io/ioutil"
-	"math/big"
 	"runtime/debug"
-	"strconv"
 	"time"
 
 	"github.com/parvit/qpep/api"
@@ -29,8 +18,6 @@ var (
 		APIPort:     444,
 		IdleTimeout: 3 * time.Second,
 	}
-	// quicListener instance of the quic server that receives the connections from clients
-	quicListener quic.Listener
 )
 
 // ServerConfiguration struct models the parameters necessary for running the quic server
@@ -56,7 +43,7 @@ func RunServer(ctx context.Context, cancel context.CancelFunc) {
 			debug.PrintStack()
 		}
 		if quicListener != nil {
-			quicListener.Close()
+			quicListener.Close(0, "")
 		}
 		cancel()
 	}()
@@ -69,17 +56,10 @@ func RunServer(ctx context.Context, cancel context.CancelFunc) {
 	}
 	defer api.Statistics.Stop()
 
-	listenAddr := ServerConfiguration.ListenHost + ":" + strconv.Itoa(ServerConfiguration.ListenPort)
-	logger.Info("Opening QPEP Server on: %s\n", listenAddr)
-	var err error
-	quicListener, err = quic.ListenAddr(listenAddr, generateTLSConfig(), shared.GetQuicConfiguration())
-	if err != nil {
-		logger.Info("Encountered error while binding QUIC listener: %s\n", err)
-		return
-	}
+	logger.Info("Opening QPEP Server on: %s:%d\n", ServerConfiguration.ListenHost, ServerConfiguration.ListenPort)
 
 	// launches listener
-	go listenQuicSession()
+	go listenQuicSession(ServerConfiguration.ListenHost, ServerConfiguration.ListenPort)
 
 	ctxPerfWatcher, perfWatcherCancel := context.WithCancel(context.Background())
 	go performanceWatcher(ctxPerfWatcher)
@@ -93,33 +73,6 @@ func RunServer(ctx context.Context, cancel context.CancelFunc) {
 		case <-time.After(10 * time.Millisecond):
 			continue
 		}
-	}
-}
-
-// generateTLSConfig creates a new x509 key/certificate pair and dumps it to the disk
-func generateTLSConfig() *tls.Config {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(err)
-	}
-	template := x509.Certificate{SerialNumber: big.NewInt(1)}
-	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		panic(err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
-
-	ioutil.WriteFile("server_key.pem", keyPEM, 0777)
-	ioutil.WriteFile("server_cert.pem", certPEM, 0777)
-
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		panic(err)
-	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
-		NextProtos:   []string{"qpep"},
 	}
 }
 
