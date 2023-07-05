@@ -336,10 +336,10 @@ jobs:
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
           sudo rm -rf docker/server-data-env/output/* || true
 
-      - name: Remove server image
+      - name: Clean Docker data
         if: failure()
         run: |
-          docker image rm project-faster/qpep_server || true
+            docker system prune -af || true
 
       - name: Auto-cancel workflow on error
         if: failure()
