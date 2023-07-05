@@ -22,10 +22,7 @@ import (
 )
 
 const (
-	BUFFER_SIZE = 1024 * 1024
-
-	ACTIVITY_RX_FLAG = "activity_rx"
-	ACTIVITY_TX_FLAG = "activity_tx"
+	BUFFER_SIZE = 512 * 1024
 
 	LOCAL_RECONNECTION_RETRIES = 10
 )
@@ -86,7 +83,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		logger.OnError(errProxy, "opening proxy connection")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ := context.WithCancel(context.Background())
 
 	var quicStream, err = getQuicStream(ctx)
 	if err != nil {
@@ -136,18 +133,9 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
 	logger.Info("== Stream %d Start ==", quicStream.ID())
-	var activityRX, activityTX = true, true
-	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activityRX)
-	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activityTX)
-	defer func() {
-		// terminate activity timer
-		activityTX = false
-		activityRX = false
-	}()
 
 	go handleTcpToQuic(ctx, &streamWait, quicStream, tcpConn)
 	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream)
-	go connectionActivityTimer(&activityRX, &activityTX, cancel)
 
 	//we exit (and close the TCP connection) once both streams are done copying
 	logger.Info("== Stream %d Wait ==", quicStream.ID())
@@ -163,19 +151,6 @@ func handleTCPConn(tcpConn net.Conn) {
 		// destroy the session so a new one is created next time
 		quicSession = nil
 	}
-}
-
-func connectionActivityTimer(flag_rx, flag_tx *bool, cancelFunc context.CancelFunc) {
-	if flag_tx == nil || flag_rx == nil {
-		return
-	}
-	<-time.After(ClientConfiguration.IdleTimeout)
-	logger.Debug("activity state: %v / %v", *flag_rx, *flag_tx)
-	if !*flag_rx && !*flag_tx {
-		cancelFunc()
-		return
-	}
-	go connectionActivityTimer(flag_rx, flag_tx, cancelFunc)
 }
 
 // getQuicStream method handles the opening or reutilization of the quic session, and launches a new
@@ -461,7 +436,12 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
+		//logger.Info("[%d] Q->T: %v: %v", dst.ID(), written, err)
+
 		if written == 0 && err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
 			return
 		}
 	}
@@ -489,13 +469,16 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		default:
 		}
 
-		//logger.Info("[%d] Q->T: %v: %v", src.StreamID(), activityFlag, *activityFlag)
-
 		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
+		//logger.Info("[%d] Q->T: %v: %v", src.ID(), written, err)
+
 		if written == 0 && err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
 			return
 		}
 	}
