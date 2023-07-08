@@ -426,21 +426,21 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 	buf := make([]byte, BUFFER_SIZE)
 
 	for {
+		<-time.After(1 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(1 * time.Millisecond):
 		default:
 		}
 
 		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 
-		wr, err := io.CopyBuffer(dst, src, buf)
+		_, err := io.CopyBuffer(dst, src, buf)
 
 		//logger.Info("[%d] T->Q: %v, %v", dst.ID(), wr, err)
 
-		if wr == 0 && err != nil {
+		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
 			}
@@ -467,21 +467,21 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 	buf := make([]byte, BUFFER_SIZE)
 
 	for {
+		<-time.After(1 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(1 * time.Millisecond):
 		default:
 		}
 
 		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 
-		wr, err := io.CopyBuffer(dst, src, buf)
+		_, err := io.CopyBuffer(dst, src, buf)
 
 		//logger.Info("[%d] Q->T: %v, %v", src.ID(), wr, err)
 
-		if wr == 0 && err != nil {
+		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
 			}

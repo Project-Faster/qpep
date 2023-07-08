@@ -181,7 +181,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	setLinger(dst)
 
-	written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
+	_, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
 		select {
 		case <-ctx.Done():
@@ -194,16 +194,19 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 		if speedLimit == 0 {
-			written, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+			_, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 		} else {
 			var now = time.Now()
-			written, err = io.Copy(dst, io.LimitReader(src, speedLimit))
+			_, err = io.Copy(dst, io.LimitReader(src, speedLimit))
 
 			var wait = time.Until(now.Add(1 * time.Second))
 			time.Sleep(wait)
 		}
 
-		if written == 0 && err != nil {
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
 			return
 		}
 	}
@@ -224,7 +227,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	setLinger(src)
 
-	written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
+	_, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
 		select {
 		case <-ctx.Done():
@@ -237,16 +240,19 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		if speedLimit == 0 {
-			written, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+			_, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 		} else {
 			var now = time.Now()
-			written, err = io.Copy(dst, io.LimitReader(src, speedLimit))
+			_, err = io.Copy(dst, io.LimitReader(src, speedLimit))
 
 			var wait = time.Until(now.Add(1 * time.Second))
 			time.Sleep(wait)
 		}
 
-		if written == 0 && err != nil {
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
 			return
 		}
 	}
