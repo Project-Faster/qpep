@@ -11,15 +11,14 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 
-	log "github.com/rs/zerolog"
-	stdlog "log"
-
 	"github.com/nyaosorg/go-windows-dbg"
+	log "github.com/rs/zerolog"
 )
 
 // _log customized logger instance
@@ -57,8 +56,8 @@ func SetupLogger(logName string) {
 	log.SetGlobalLevel(log.InfoLevel)
 	log.TimeFieldFormat = time.StampMilli
 
-	_log = log.New(_logFile).
-		Level(log.DebugLevel).
+	_log = log.New(io.MultiWriter(_logFile, os.Stdout)).
+		Level(log.InfoLevel).
 		With().Logger()
 }
 
@@ -83,7 +82,7 @@ func GetLogger() *log.Logger {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Info(format string, values ...interface{}) {
 	_log.Info().Time("time", time.Now()).Msgf(format, values...)
-	stdlog.Printf(format, values...)
+	//stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 		return
@@ -97,7 +96,7 @@ func Debug(format string, values ...interface{}) {
 		return
 	}
 	_log.Debug().Time("time", time.Now()).Msgf(format, values...)
-	stdlog.Printf(format, values...)
+	//stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 		return
@@ -108,7 +107,7 @@ func Debug(format string, values ...interface{}) {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Error(format string, values ...interface{}) {
 	_log.Error().Time("time", time.Now()).Msgf(format, values...)
-	stdlog.Printf(format, values...)
+	//stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 		return

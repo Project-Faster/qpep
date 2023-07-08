@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	BUFFER_SIZE = 512 * 1024
+	BUFFER_SIZE = 32 * 1024
 
 	LOCAL_RECONNECTION_RETRIES = 10
 )
@@ -423,22 +423,24 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 
 	setLinger(src)
 
+	buf := make([]byte, BUFFER_SIZE)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-time.After(1 * time.Millisecond):
 		default:
 		}
 
-		//logger.Info("[%d] T->Q: %v: %v", dst.StreamID(), activityFlag, *activityFlag)
-
 		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
-		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
-		//logger.Info("[%d] Q->T: %v: %v", dst.ID(), written, err)
+		wr, err := io.CopyBuffer(dst, src, buf)
 
-		if written == 0 && err != nil {
+		//logger.Info("[%d] T->Q: %v, %v", dst.ID(), wr, err)
+
+		if wr == 0 && err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
 			}
@@ -462,20 +464,24 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 
 	setLinger(dst)
 
+	buf := make([]byte, BUFFER_SIZE)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-time.After(1 * time.Millisecond):
 		default:
 		}
 
 		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
-		written, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 
-		//logger.Info("[%d] Q->T: %v: %v", src.ID(), written, err)
+		wr, err := io.CopyBuffer(dst, src, buf)
 
-		if written == 0 && err != nil {
+		//logger.Info("[%d] Q->T: %v, %v", src.ID(), wr, err)
+
+		if wr == 0 && err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
 			}
@@ -527,6 +533,9 @@ func getAddressPortFromHost(host string) (net.IP, int, bool) {
 			proxyable = true
 			break
 		}
+		if proxyable && port == 0 {
+			port = 80
+		}
 	}
 	return address, int(port), proxyable
 }
@@ -545,12 +554,12 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 
 	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 
-	logger.Info("== Dialing QUIC Session: %s:d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
+	logger.Info("== Dialing QUIC Session: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 	if err != nil {
 		logger.Error("Unable to Dial QUIC Session: %v\n", err)
 		return nil, shared.ErrFailedGatewayConnect
 	}
-	logger.Info("== QUIC Session Dial: %s:d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
+	logger.Info("== QUIC Session Dial: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 
 	return session, nil
 }

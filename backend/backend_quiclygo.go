@@ -173,6 +173,10 @@ func (c *connectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream
 func (c *connectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream := c.connection.OpenStream()
+		if stream == nil {
+			return nil, shared.ErrFailed
+		}
+
 		return &streamAdapter{
 			Conn: stream,
 			id:   stream.ID(),
