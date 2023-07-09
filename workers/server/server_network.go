@@ -75,11 +75,17 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 			}
 			return
 		}
-		go func() {
-			logger.Info("== [%d] Stream Start ==", stream.ID())
-			handleQuicStream(stream)
-			logger.Info("== [%d] Stream End ==", stream.ID())
-		}()
+		for {
+			if api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS) < 256 {
+				go func() {
+					logger.Info("== [%d] Stream Start ==", stream.ID())
+					handleQuicStream(stream)
+					logger.Info("== [%d] Stream End ==", stream.ID())
+				}()
+				break
+			}
+			<-time.After(1 * time.Millisecond)
+		}
 	}
 }
 
@@ -161,7 +167,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	tcpConn.Close()
 
-	<-time.After(5 * time.Second) // linger for a certain amount of time before definetely closing
+	<-time.After(2 * time.Second) // linger for a certain amount of time before definitely closing
 
 	quicStream.Close()
 }
