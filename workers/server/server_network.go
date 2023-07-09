@@ -206,7 +206,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		if wr == 0 {
 			timeoutCounter++
-			if timeoutCounter > 3 {
+			if timeoutCounter > 5 {
 				return
 			}
 		} else {
@@ -262,7 +262,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		if wr == 0 {
 			timeoutCounter++
-			if timeoutCounter > 3 {
+			if timeoutCounter > 5 {
 				return
 			}
 		} else {

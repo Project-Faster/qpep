@@ -440,7 +440,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		wr, err := io.CopyBuffer(dst, src, buf)
 		if wr == 0 {
 			timeoutCounter++
-			if timeoutCounter > 3 {
+			if timeoutCounter > 5 {
 				return
 			}
 		} else {
@@ -490,7 +490,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		wr, err := io.CopyBuffer(dst, src, buf)
 		if wr == 0 {
 			timeoutCounter++
-			if timeoutCounter > 3 {
+			if timeoutCounter > 5 {
 				return
 			}
 		} else {
