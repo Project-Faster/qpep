@@ -169,9 +169,9 @@ type qgoStreamAdapter struct {
 }
 
 func (stream *qgoStreamAdapter) Close() error {
-	stream.CancelRead(0)
-	stream.CancelWrite(0)
 	var qStream quic.Stream = stream
+	qStream.CancelRead(0)
+	qStream.CancelWrite(0)
 	return qStream.Close()
 }
 
