@@ -80,8 +80,8 @@ func (q *quicGoBackend) Close() error {
 
 func qgoGetConfiguration() *quic.Config {
 	return &quic.Config{
-		MaxIncomingStreams:      16,
-		DisablePathMTUDiscovery: false,
+		MaxIncomingStreams:      1024,
+		DisablePathMTUDiscovery: true,
 
 		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
 		//KeepAlivePeriod:      1 * time.Second,
