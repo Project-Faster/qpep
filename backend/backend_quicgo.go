@@ -168,11 +168,12 @@ type qgoStreamAdapter struct {
 	quic.Stream
 }
 
-func (stream *qgoStreamAdapter) Close() error {
-	var qStream quic.Stream = stream
-	qStream.CancelRead(0)
-	qStream.CancelWrite(0)
-	return qStream.Close()
+func (stream *qgoStreamAdapter) AbortRead(code uint64) {
+	stream.CancelRead(quic.StreamErrorCode(code))
+}
+
+func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
+	stream.CancelWrite(quic.StreamErrorCode(code))
 }
 
 func (stream *qgoStreamAdapter) ID() uint64 {

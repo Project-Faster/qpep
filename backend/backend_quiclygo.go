@@ -208,4 +208,12 @@ func (s *streamAdapter) ID() uint64 {
 	return s.id
 }
 
+func (s *streamAdapter) AbortRead(code uint64) {
+	// no-op
+}
+
+func (s *streamAdapter) AbortWrite(code uint64) {
+	// no-op
+}
+
 var _ QuicBackendStream = &streamAdapter{}

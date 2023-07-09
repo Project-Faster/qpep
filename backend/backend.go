@@ -38,6 +38,9 @@ type QuicBackendStream interface {
 
 	ID() uint64
 
+	AbortRead(code uint64)
+	AbortWrite(code uint64)
+
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
 }
