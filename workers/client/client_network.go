@@ -427,7 +427,6 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 	timeoutCounter := 0
 
 	for {
-		<-time.After(1 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			return
@@ -477,7 +476,6 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 	timeoutCounter := 0
 
 	for {
-		<-time.After(1 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			return

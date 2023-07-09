@@ -77,8 +77,9 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 		}
 		go func() {
 			for i := 0; i < 10; i++ {
-				if api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS) >= 512 {
-					logger.Info("== [%d] Stream Queued ==", stream.ID())
+				connCounter := api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS)
+				if connCounter >= 16 {
+					logger.Info("== [%d] Stream Queued (current: %d / max: %d) ==", stream.ID(), connCounter, 16)
 					<-time.After(100 * time.Millisecond)
 					continue
 				}
@@ -87,7 +88,9 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 				logger.Info("== [%d] Stream End ==", stream.ID())
 				return
 			}
+			logger.Info("== [%d] Session Rejected for too many connections ==", stream.ID())
 			_ = stream.Close()
+			_ = quicSession.Close(1, "Session Rejected for too many connections")
 		}()
 	}
 }
@@ -159,7 +162,6 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	go handleQuicToTcp(ctx, &streamWait, srcLimit, tcpConn, quicStream, proxyAddress, trackedAddress)
 	go handleTcpToQuic(ctx, &streamWait, dstLimit, quicStream, tcpConn, trackedAddress)
-	//go connectionActivityTimer(quicStream, tcpConn, &activityRX, &activityTX, cancel)
 
 	//we exit (and close the TCP connection) once both streams are done copying or timeout
 	logger.Info("== Stream %d Wait ==", quicStream.ID())
