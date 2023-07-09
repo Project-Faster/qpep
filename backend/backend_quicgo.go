@@ -80,7 +80,7 @@ func (q *quicGoBackend) Close() error {
 
 func qgoGetConfiguration() *quic.Config {
 	return &quic.Config{
-		MaxIncomingStreams:      10240,
+		MaxIncomingStreams:      16,
 		DisablePathMTUDiscovery: false,
 
 		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
@@ -166,6 +166,13 @@ var _ QuicBackendConnection = &qgoConnectionAdapter{}
 
 type qgoStreamAdapter struct {
 	quic.Stream
+}
+
+func (stream *qgoStreamAdapter) Close() error {
+	stream.CancelRead(0)
+	stream.CancelWrite(0)
+	var qStream quic.Stream = stream
+	return qStream.Close()
 }
 
 func (stream *qgoStreamAdapter) ID() uint64 {
