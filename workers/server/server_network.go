@@ -76,15 +76,17 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 			return
 		}
 		for {
-			if api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS) < 256 {
-				go func() {
-					logger.Info("== [%d] Stream Start ==", stream.ID())
-					handleQuicStream(stream)
-					logger.Info("== [%d] Stream End ==", stream.ID())
-				}()
-				break
+			if api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS) >= 128 {
+				logger.Info("== [%d] Stream Queued ==", stream.ID())
+				<-time.After(1 * time.Millisecond)
+				continue
 			}
-			<-time.After(1 * time.Millisecond)
+			go func() {
+				logger.Info("== [%d] Stream Start ==", stream.ID())
+				handleQuicStream(stream)
+				logger.Info("== [%d] Stream End ==", stream.ID())
+			}()
+			break
 		}
 	}
 }
@@ -126,8 +128,8 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
 		LocalAddr:     &net.TCPAddr{IP: net.ParseIP(ServerConfiguration.ListenHost)},
-		Timeout:       shared.GetScaledTimeout(10, time.Second),
-		KeepAlive:     shared.GetScaledTimeout(15, time.Second),
+		Timeout:       10 * time.Second,
+		KeepAlive:     5 * time.Second,
 		DualStack:     true,
 		FallbackDelay: 10 * time.Millisecond,
 	}
@@ -135,8 +137,6 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	if err != nil {
 		logger.Error("[%d] Unable to open TCP connection from QPEP quicStream: %s\n", quicStream.ID(), err)
 		quicStream.Close()
-
-		shared.ScaleUpTimeout()
 		return
 	}
 	logger.Info(">> [%d] Opened TCP Conn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
@@ -166,9 +166,6 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	logger.Info("== Stream %d WaitEnd ==", quicStream.ID())
 
 	tcpConn.Close()
-
-	<-time.After(2 * time.Second) // linger for a certain amount of time before definitely closing
-
 	quicStream.Close()
 }
 
@@ -189,10 +186,19 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	api.Statistics.SetMappedAddress(proxyAddress, trackedAddress)
 
 	setLinger(dst)
+	_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
+	_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 
 	timeoutCounter := 0
 	wr, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
+			return
+		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -221,13 +227,6 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		} else {
 			timeoutCounter = 0
 		}
-
-		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Timeout() {
-				continue
-			}
-			return
-		}
 	}
 }
 
@@ -245,10 +244,21 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	}()
 
 	setLinger(src)
+	_ = src.SetDeadline(time.Now().Add(1 * time.Second))
+	_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
+
+	var tempBuffer = make([]byte, BUFFER_SIZE)
 
 	timeoutCounter := 0
-	wr, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
+	wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE*2), tempBuffer)
 	for {
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
+			return
+		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -260,10 +270,10 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		if speedLimit == 0 {
-			wr, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
 			var now = time.Now()
-			wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
+			wr, err = io.CopyBuffer(dst, io.LimitReader(src, speedLimit), tempBuffer)
 
 			var wait = time.Until(now.Add(1 * time.Second))
 			time.Sleep(wait)
@@ -276,13 +286,6 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			}
 		} else {
 			timeoutCounter = 0
-		}
-
-		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Timeout() {
-				continue
-			}
-			return
 		}
 	}
 }
