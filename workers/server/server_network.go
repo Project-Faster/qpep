@@ -75,19 +75,20 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 			}
 			return
 		}
-		for {
-			if api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS) >= 128 {
-				logger.Info("== [%d] Stream Queued ==", stream.ID())
-				<-time.After(1 * time.Millisecond)
-				continue
-			}
-			go func() {
+		go func() {
+			for i := 0; i < 10; i++ {
+				if api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS) >= 256 {
+					logger.Info("== [%d] Stream Queued ==", stream.ID())
+					<-time.After(1 * time.Second)
+					continue
+				}
 				logger.Info("== [%d] Stream Start ==", stream.ID())
 				handleQuicStream(stream)
 				logger.Info("== [%d] Stream End ==", stream.ID())
-			}()
-			break
-		}
+				return
+			}
+			_ = stream.Close()
+		}()
 	}
 }
 
