@@ -192,13 +192,6 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	timeoutCounter := 0
 	wr, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
-		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Timeout() {
-				continue
-			}
-			return
-		}
-
 		select {
 		case <-ctx.Done():
 			return
@@ -227,6 +220,13 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		} else {
 			timeoutCounter = 0
 		}
+
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
+			return
+		}
 	}
 }
 
@@ -252,13 +252,6 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	timeoutCounter := 0
 	wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE*2), tempBuffer)
 	for {
-		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Timeout() {
-				continue
-			}
-			return
-		}
-
 		select {
 		case <-ctx.Done():
 			return
@@ -286,6 +279,13 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			}
 		} else {
 			timeoutCounter = 0
+		}
+
+		if err != nil {
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				continue
+			}
+			return
 		}
 	}
 }
