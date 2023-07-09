@@ -77,9 +77,9 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 		}
 		go func() {
 			for i := 0; i < 10; i++ {
-				if api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS) >= 256 {
+				if api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS) >= 512 {
 					logger.Info("== [%d] Stream Queued ==", stream.ID())
-					<-time.After(1 * time.Second)
+					<-time.After(100 * time.Millisecond)
 					continue
 				}
 				logger.Info("== [%d] Stream Start ==", stream.ID())
