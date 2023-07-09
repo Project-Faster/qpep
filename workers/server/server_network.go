@@ -159,8 +159,11 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	streamWait.Wait()
 	logger.Info("== Stream %d WaitEnd ==", quicStream.ID())
 
-	quicStream.Close()
 	tcpConn.Close()
+
+	<-time.After(5 * time.Second) // linger for a certain amount of time before definetely closing
+
+	quicStream.Close()
 }
 
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64,
