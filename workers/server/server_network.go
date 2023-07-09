@@ -181,7 +181,8 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	setLinger(dst)
 
-	_, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
+	timeoutCounter := 0
+	wr, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
 		select {
 		case <-ctx.Done():
@@ -194,13 +195,22 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 		if speedLimit == 0 {
-			_, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+			wr, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 		} else {
 			var now = time.Now()
-			_, err = io.Copy(dst, io.LimitReader(src, speedLimit))
+			wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
 
 			var wait = time.Until(now.Add(1 * time.Second))
 			time.Sleep(wait)
+		}
+
+		if wr == 0 {
+			timeoutCounter++
+			if timeoutCounter > 3 {
+				return
+			}
+		} else {
+			timeoutCounter = 0
 		}
 
 		if err != nil {
@@ -227,7 +237,8 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	setLinger(src)
 
-	_, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
+	timeoutCounter := 0
+	wr, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
 	for {
 		select {
 		case <-ctx.Done():
@@ -240,13 +251,22 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		if speedLimit == 0 {
-			_, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+			wr, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
 		} else {
 			var now = time.Now()
-			_, err = io.Copy(dst, io.LimitReader(src, speedLimit))
+			wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
 
 			var wait = time.Until(now.Add(1 * time.Second))
 			time.Sleep(wait)
+		}
+
+		if wr == 0 {
+			timeoutCounter++
+			if timeoutCounter > 3 {
+				return
+			}
+		} else {
+			timeoutCounter = 0
 		}
 
 		if err != nil {

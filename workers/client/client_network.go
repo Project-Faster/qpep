@@ -424,6 +424,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 	setLinger(src)
 
 	buf := make([]byte, BUFFER_SIZE)
+	timeoutCounter := 0
 
 	for {
 		<-time.After(1 * time.Millisecond)
@@ -436,7 +437,15 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 
-		_, err := io.CopyBuffer(dst, src, buf)
+		wr, err := io.CopyBuffer(dst, src, buf)
+		if wr == 0 {
+			timeoutCounter++
+			if timeoutCounter > 3 {
+				return
+			}
+		} else {
+			timeoutCounter = 0
+		}
 
 		//logger.Info("[%d] T->Q: %v, %v", dst.ID(), wr, err)
 
@@ -465,6 +474,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 	setLinger(dst)
 
 	buf := make([]byte, BUFFER_SIZE)
+	timeoutCounter := 0
 
 	for {
 		<-time.After(1 * time.Millisecond)
@@ -477,7 +487,15 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
 		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 
-		_, err := io.CopyBuffer(dst, src, buf)
+		wr, err := io.CopyBuffer(dst, src, buf)
+		if wr == 0 {
+			timeoutCounter++
+			if timeoutCounter > 3 {
+				return
+			}
+		} else {
+			timeoutCounter = 0
+		}
 
 		//logger.Info("[%d] Q->T: %v, %v", src.ID(), wr, err)
 
