@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"runtime/debug"
+	"runtime/trace"
 	"strconv"
 	"strings"
 	"sync"
@@ -411,12 +412,14 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn) {
+	tskKey := fmt.Sprintf("Tcp->Quic:%v", dst.ID())
+	_, tsk := trace.NewTask(context.Background(), tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
 			debug.PrintStack()
 		}
-
+		tsk.End()
 		streamWait.Done()
 		logger.Info("== Stream %v TCP->Quic done ==", dst.ID())
 	}()
@@ -455,17 +458,19 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 			return
 		}
 	}
-	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.StreamID())
+	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.ID())
 }
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QuicBackendStream) {
+	tskKey := fmt.Sprintf("Quic->Tcp:%v", src.ID())
+	_, tsk := trace.NewTask(context.Background(), tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
 			debug.PrintStack()
 		}
-
+		tsk.End()
 		streamWait.Done()
 		logger.Info("== Stream %v Quic->TCP done ==", src.ID())
 	}()

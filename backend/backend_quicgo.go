@@ -166,6 +166,8 @@ var _ QuicBackendConnection = &qgoConnectionAdapter{}
 
 type qgoStreamAdapter struct {
 	quic.Stream
+
+	id *uint64
 }
 
 func (stream *qgoStreamAdapter) AbortRead(code uint64) {
@@ -177,13 +179,20 @@ func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
 }
 
 func (stream *qgoStreamAdapter) ID() uint64 {
+	if stream.id != nil {
+		return *stream.id
+	}
 	var sendStream quic.SendStream = stream
 	if sendStream != nil {
-		return uint64(sendStream.StreamID())
+		stream.id = new(uint64)
+		*stream.id = uint64(sendStream.StreamID())
+		return *stream.id
 	}
 	var recvStream quic.ReceiveStream = stream
 	if recvStream != nil {
-		return uint64(recvStream.StreamID())
+		stream.id = new(uint64)
+		*stream.id = uint64(recvStream.StreamID())
+		return *stream.id
 	}
 	return 0
 }

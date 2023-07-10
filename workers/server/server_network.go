@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"runtime/debug"
+	"runtime/trace"
 	"sync"
 	"time"
 )
@@ -76,6 +77,9 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 			return
 		}
 		go func() {
+			tskKey := fmt.Sprintf("QuicStream:%v", stream.ID())
+			_, tskStream := trace.NewTask(context.Background(), tskKey)
+			defer tskStream.End()
 			for i := 0; i < 10; i++ {
 				connCounter := api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS)
 				if connCounter >= 16 {
@@ -129,6 +133,8 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 		destAddress = fmt.Sprintf("127.0.0.1:%d", qpepHeader.DestAddr.Port)
 	}
 
+	tskKey := fmt.Sprintf("TCP-Dial:%v", destAddress)
+	_, tsk := trace.NewTask(context.Background(), tskKey)
 	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
 		LocalAddr:     &net.TCPAddr{IP: net.ParseIP(ServerConfiguration.ListenHost)},
@@ -138,6 +144,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 		FallbackDelay: 10 * time.Millisecond,
 	}
 	tcpConn, err := dial.Dial("tcp", destAddress)
+	tsk.End()
 	if err != nil {
 		logger.Error("[%d] Unable to open TCP connection from QPEP quicStream: %s\n", quicStream.ID(), err)
 		quicStream.Close()
@@ -175,6 +182,8 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64,
 	dst net.Conn, src backend.QuicBackendStream, proxyAddress, trackedAddress string) {
 
+	tskKey := fmt.Sprintf("Tcp->Quic:%v", src.ID())
+	_, tsk := trace.NewTask(context.Background(), tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
@@ -182,6 +191,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		}
 
 		api.Statistics.DeleteMappedAddress(proxyAddress)
+		tsk.End()
 		streamWait.Done()
 		logger.Info("== [%d] Stream Quic->TCP done ==", src.ID())
 	}()
@@ -189,11 +199,12 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	api.Statistics.SetMappedAddress(proxyAddress, trackedAddress)
 
 	setLinger(dst)
-	_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
-	_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
 
 	timeoutCounter := 0
-	wr, err := io.Copy(dst, io.LimitReader(src, BUFFER_SIZE*2))
+	var tempBuffer = make([]byte, BUFFER_SIZE)
+
+	var wr int64 = 0
+	var err error = nil
 	for {
 		select {
 		case <-ctx.Done():
@@ -203,10 +214,15 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		//logger.Info("[%d] Q->T: %v: %v", src.ID(), activityFlag, *activityFlag)
 
-		_ = src.SetReadDeadline(time.Now().Add(1 * time.Second))
-		_ = dst.SetDeadline(time.Now().Add(1 * time.Second))
+		tm := time.Now().Add(1 * time.Second)
+		_ = src.SetReadDeadline(tm)
+		_ = src.SetWriteDeadline(tm)
+		_ = dst.SetReadDeadline(tm)
+		_ = dst.SetWriteDeadline(tm)
+
+		_, tsk := trace.NewTask(context.Background(), "copybuffer."+tskKey)
 		if speedLimit == 0 {
-			wr, err = io.Copy(dst, io.LimitReader(src, BUFFER_SIZE))
+			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
 			var now = time.Now()
 			wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
@@ -223,6 +239,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		} else {
 			timeoutCounter = 0
 		}
+		tsk.End()
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -236,24 +253,25 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64,
 	dst backend.QuicBackendStream, src net.Conn, trackedAddress string) {
 
+	tskKey := fmt.Sprintf("Tcp->Quic:%v", dst.ID())
+	_, tsk := trace.NewTask(context.Background(), tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
 			debug.PrintStack()
 		}
-
+		tsk.End()
 		streamWait.Done()
 		logger.Info("== [%d] Stream TCP->Quic done ==", dst.ID())
 	}()
 
 	setLinger(src)
-	_ = src.SetDeadline(time.Now().Add(1 * time.Second))
-	_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 
 	var tempBuffer = make([]byte, BUFFER_SIZE)
 
 	timeoutCounter := 0
-	wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE*2), tempBuffer)
+	var wr int64 = 0
+	var err error = nil
 	for {
 		select {
 		case <-ctx.Done():
@@ -263,8 +281,13 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		//logger.Info("[%d] T->Q: %v: %v", dst.ID(), activityFlag, *activityFlag)
 
-		_ = src.SetDeadline(time.Now().Add(1 * time.Second))
-		_ = dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
+		tm := time.Now().Add(1 * time.Second)
+		_ = src.SetReadDeadline(tm)
+		_ = src.SetWriteDeadline(tm)
+		_ = dst.SetReadDeadline(tm)
+		_ = dst.SetWriteDeadline(tm)
+
+		_, tsk := trace.NewTask(context.Background(), "copybuffer."+tskKey)
 		if speedLimit == 0 {
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
@@ -283,6 +306,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		} else {
 			timeoutCounter = 0
 		}
+		tsk.End()
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
