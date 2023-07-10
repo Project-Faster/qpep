@@ -22,9 +22,6 @@ func main() {
 			logger.Error("PANIC: %v", err)
 			debug.PrintStack()
 		}
-		trace.Stop()
-		f.Sync()
-		f.Close()
 	}()
 
 	_, tsk := trace.NewTask(context.Background(), "ServiceMain")
@@ -33,6 +30,10 @@ func main() {
 
 	logger.Info("=== EXIT - code(%d) ===", retcode)
 	logger.CloseLogger()
+
+	trace.Stop()
+	f.Sync()
+	f.Close()
 
 	os.Exit(retcode)
 }
