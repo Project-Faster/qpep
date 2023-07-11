@@ -68,8 +68,6 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 		}
 	}()
 	for {
-		<-time.After(100 * time.Millisecond) // pace the streams
-
 		stream, err := quicSession.AcceptStream(context.Background())
 		if err != nil {
 			if err.Error() != "NO_ERROR: No recent network activity" {
