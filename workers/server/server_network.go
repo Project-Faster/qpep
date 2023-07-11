@@ -133,7 +133,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 		destAddress = fmt.Sprintf("127.0.0.1:%d", qpepHeader.DestAddr.Port)
 	}
 
-	tskKey := fmt.Sprintf("TCP-Dial:%v", destAddress)
+	tskKey := fmt.Sprintf("TCP-Dial:%v:%v", quicStream.ID(), destAddress)
 	tsk := trace.StartRegion(context.Background(), tskKey)
 	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
