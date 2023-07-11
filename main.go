@@ -24,7 +24,7 @@ func main() {
 		}
 	}()
 
-	_, tsk := trace.NewTask(context.Background(), "ServiceMain")
+	tsk := trace.StartRegion(context.Background(), "ServiceMain")
 	retcode := service.ServiceMain()
 	tsk.End()
 

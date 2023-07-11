@@ -78,8 +78,8 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 		}
 		go func() {
 			tskKey := fmt.Sprintf("QuicStream:%v", stream.ID())
-			_, tskStream := trace.NewTask(context.Background(), tskKey)
-			defer tskStream.End()
+			tsk := trace.StartRegion(context.Background(), tskKey)
+			defer tsk.End()
 			for i := 0; i < 10; i++ {
 				connCounter := api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS)
 				if connCounter >= 16 {
@@ -134,7 +134,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	}
 
 	tskKey := fmt.Sprintf("TCP-Dial:%v", destAddress)
-	_, tsk := trace.NewTask(context.Background(), tskKey)
+	tsk := trace.StartRegion(context.Background(), tskKey)
 	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
 		LocalAddr:     &net.TCPAddr{IP: net.ParseIP(ServerConfiguration.ListenHost)},
@@ -183,7 +183,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	dst net.Conn, src backend.QuicBackendStream, proxyAddress, trackedAddress string) {
 
 	tskKey := fmt.Sprintf("Tcp->Quic:%v", src.ID())
-	_, tsk := trace.NewTask(context.Background(), tskKey)
+	tsk := trace.StartRegion(context.Background(), tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
@@ -220,7 +220,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = dst.SetReadDeadline(tm)
 		_ = dst.SetWriteDeadline(tm)
 
-		_, tsk := trace.NewTask(context.Background(), "copybuffer."+tskKey)
+		tsk := trace.StartRegion(context.Background(), "copybuffer."+tskKey)
 		if speedLimit == 0 {
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
@@ -254,7 +254,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	dst backend.QuicBackendStream, src net.Conn, trackedAddress string) {
 
 	tskKey := fmt.Sprintf("Tcp->Quic:%v", dst.ID())
-	_, tsk := trace.NewTask(context.Background(), tskKey)
+	tsk := trace.StartRegion(context.Background(), tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
@@ -287,7 +287,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = dst.SetReadDeadline(tm)
 		_ = dst.SetWriteDeadline(tm)
 
-		_, tsk := trace.NewTask(context.Background(), "copybuffer."+tskKey)
+		tsk := trace.StartRegion(context.Background(), "copybuffer."+tskKey)
 		if speedLimit == 0 {
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
