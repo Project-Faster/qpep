@@ -1,16 +1,22 @@
 package shared
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"runtime/trace"
 	"time"
 )
 
 const (
 	DEBUG_FILE_FMT = "%s_%v_%s.prof"
+)
+
+var (
+	traceContext = context.Background()
 )
 
 func WatcherCPU() {
@@ -47,4 +53,8 @@ func heapWatcher(idx int) {
 		<-time.After(10 * time.Second)
 		heapWatcher(idx + 1)
 	}()
+}
+
+func StartRegion(key string) *trace.Region {
+	return trace.StartRegion(traceContext, key)
 }
