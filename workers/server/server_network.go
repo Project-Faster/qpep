@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"runtime/debug"
-	"runtime/trace"
 	"sync"
 	"time"
 )
@@ -78,7 +77,7 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 		}
 		go func() {
 			tskKey := fmt.Sprintf("QuicStream:%v", stream.ID())
-			tsk := trace.StartRegion(context.Background(), tskKey)
+			tsk := shared.StartRegion(tskKey)
 			defer tsk.End()
 			for i := 0; i < 10; i++ {
 				connCounter := api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS)
@@ -134,7 +133,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	}
 
 	tskKey := fmt.Sprintf("TCP-Dial:%v:%v", quicStream.ID(), destAddress)
-	tsk := trace.StartRegion(context.Background(), tskKey)
+	tsk := shared.StartRegion(tskKey)
 	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
 		LocalAddr:     &net.TCPAddr{IP: net.ParseIP(ServerConfiguration.ListenHost)},
@@ -183,7 +182,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	dst net.Conn, src backend.QuicBackendStream, proxyAddress, trackedAddress string) {
 
 	tskKey := fmt.Sprintf("Tcp->Quic:%v", src.ID())
-	tsk := trace.StartRegion(context.Background(), tskKey)
+	tsk := shared.StartRegion(tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
@@ -220,7 +219,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = dst.SetReadDeadline(tm)
 		_ = dst.SetWriteDeadline(tm)
 
-		tsk := trace.StartRegion(context.Background(), "copybuffer."+tskKey)
+		tsk := shared.StartRegion("copybuffer." + tskKey)
 		if speedLimit == 0 {
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
@@ -230,6 +229,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			var wait = time.Until(now.Add(1 * time.Second))
 			time.Sleep(wait)
 		}
+		tsk.End()
 
 		if wr == 0 {
 			timeoutCounter++
@@ -239,7 +239,6 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		} else {
 			timeoutCounter = 0
 		}
-		tsk.End()
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -254,7 +253,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	dst backend.QuicBackendStream, src net.Conn, trackedAddress string) {
 
 	tskKey := fmt.Sprintf("Tcp->Quic:%v", dst.ID())
-	tsk := trace.StartRegion(context.Background(), tskKey)
+	tsk := shared.StartRegion(tskKey)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("ERR: %v", err)
@@ -287,7 +286,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = dst.SetReadDeadline(tm)
 		_ = dst.SetWriteDeadline(tm)
 
-		tsk := trace.StartRegion(context.Background(), "copybuffer."+tskKey)
+		tsk := shared.StartRegion("copybuffer." + tskKey)
 		if speedLimit == 0 {
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
@@ -297,6 +296,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			var wait = time.Until(now.Add(1 * time.Second))
 			time.Sleep(wait)
 		}
+		tsk.End()
 
 		if wr == 0 {
 			timeoutCounter++
@@ -306,7 +306,6 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		} else {
 			timeoutCounter = 0
 		}
-		tsk.End()
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {

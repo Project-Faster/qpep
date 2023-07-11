@@ -1,9 +1,9 @@
 package main
 
 import (
-	"context"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/service"
+	"github.com/parvit/qpep/shared"
 	"os"
 	"runtime/debug"
 	"runtime/trace"
@@ -24,7 +24,7 @@ func main() {
 		}
 	}()
 
-	tsk := trace.StartRegion(context.Background(), "ServiceMain")
+	tsk := shared.StartRegion("ServiceMain")
 	retcode := service.ServiceMain()
 	tsk.End()
 
