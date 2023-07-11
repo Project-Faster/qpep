@@ -204,6 +204,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	var wr int64 = 0
 	var err error = nil
+	i := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -216,10 +217,13 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tm := time.Now().Add(1 * time.Second)
 		_ = src.SetReadDeadline(tm)
 		_ = src.SetWriteDeadline(tm)
-		_ = dst.SetReadDeadline(tm)
-		_ = dst.SetWriteDeadline(tm)
 
-		tsk := shared.StartRegion("copybuffer." + tskKey)
+		tm2 := time.Now().Add(1 * time.Second)
+		_ = dst.SetReadDeadline(tm2)
+		_ = dst.SetWriteDeadline(tm2)
+
+		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
+		i++
 		if speedLimit == 0 {
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
@@ -271,6 +275,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	timeoutCounter := 0
 	var wr int64 = 0
 	var err error = nil
+	i := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -283,10 +288,13 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tm := time.Now().Add(1 * time.Second)
 		_ = src.SetReadDeadline(tm)
 		_ = src.SetWriteDeadline(tm)
-		_ = dst.SetReadDeadline(tm)
-		_ = dst.SetWriteDeadline(tm)
 
-		tsk := shared.StartRegion("copybuffer." + tskKey)
+		tm2 := time.Now().Add(10 * time.Second)
+		_ = dst.SetReadDeadline(tm2)
+		_ = dst.SetWriteDeadline(tm2)
+
+		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
+		i++
 		if speedLimit == 0 {
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
 		} else {
