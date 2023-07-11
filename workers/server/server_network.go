@@ -68,6 +68,8 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 		}
 	}()
 	for {
+		<-time.After(100 * time.Millisecond) // pace the streams
+
 		stream, err := quicSession.AcceptStream(context.Background())
 		if err != nil {
 			if err.Error() != "NO_ERROR: No recent network activity" {
@@ -181,7 +183,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64,
 	dst net.Conn, src backend.QuicBackendStream, proxyAddress, trackedAddress string) {
 
-	tskKey := fmt.Sprintf("Tcp->Quic:%v", src.ID())
+	tskKey := fmt.Sprintf("Quic->Tcp:%v", src.ID())
 	tsk := shared.StartRegion(tskKey)
 	defer func() {
 		if err := recover(); err != nil {
