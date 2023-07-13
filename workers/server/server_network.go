@@ -9,6 +9,7 @@ import (
 	"github.com/parvit/qpep/shared"
 	"io"
 	"net"
+	"os"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -272,6 +273,12 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	var tempBuffer = make([]byte, BUFFER_SIZE)
 
+	transferDump, _ := os.Create(fmt.Sprintf("tcp-quic.%s.bin", shared.QPepConfig.Backend))
+	defer func() {
+		transferDump.Sync()
+		transferDump.Close()
+	}()
+
 	timeoutCounter := 0
 	var wr int64 = 0
 	var err error = nil
@@ -296,7 +303,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
 		if speedLimit == 0 {
-			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
+			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, transferDump)
 		} else {
 			var now = time.Now()
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, speedLimit), tempBuffer)
@@ -329,4 +336,48 @@ func setLinger(c net.Conn) {
 		err1 := conn.SetLinger(1)
 		logger.OnError(err1, "error on setLinger")
 	}
+}
+
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte, dump *os.File) (written int64, err error) {
+	if buf == nil {
+		size := 32 * 1024
+		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
+			if l.N < 1 {
+				size = 1
+			} else {
+				size = int(l.N)
+			}
+		}
+		buf = make([]byte, size)
+	}
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw < 0 || nr < nw {
+				nw = 0
+				if ew == nil {
+					ew = io.ErrUnexpectedEOF
+				}
+			}
+			w, r := dump.Write(buf[0:nw])
+			logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
+			written += int64(nw)
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+	}
+	return written, err
 }

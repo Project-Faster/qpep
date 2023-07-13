@@ -6,7 +6,6 @@ import (
 	"github.com/parvit/qpep/shared"
 	"os"
 	"runtime/debug"
-	"runtime/trace"
 )
 
 func init() {
@@ -14,8 +13,8 @@ func init() {
 }
 
 func main() {
-	f, _ := os.Create("trace.out")
-	trace.Start(f)
+	//f, _ := os.Create("trace.out")
+	//trace.Start(f)
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -31,9 +30,9 @@ func main() {
 	logger.Info("=== EXIT - code(%d) ===", retcode)
 	logger.CloseLogger()
 
-	trace.Stop()
-	f.Sync()
-	f.Close()
+	//trace.Stop()
+	//f.Sync()
+	//f.Close()
 
 	os.Exit(retcode)
 }
