@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -423,11 +424,16 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		logger.Info("== Stream %v TCP->Quic done ==", dst.ID())
 	}()
 
-	setLinger(src)
+	//setLinger(src)
 
 	buf := make([]byte, BUFFER_SIZE)
 	timeoutCounter := 0
-	i := 0
+
+	transferDump, _ := os.Create(fmt.Sprintf("tcp-quic.%s.bin", shared.QPepConfig.Backend))
+	defer func() {
+		transferDump.Sync()
+		transferDump.Close()
+	}()
 
 	for {
 		select {
@@ -443,9 +449,9 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		tm2 := time.Now().Add(10 * time.Second)
 		_ = dst.SetWriteDeadline(tm2)
 
-		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
-		wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
-		tsk.End()
+		//wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
+		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.tq", dst.ID()))
+
 		if wr == 0 {
 			timeoutCounter++
 			if timeoutCounter > 5 {
@@ -455,7 +461,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 			timeoutCounter = 0
 		}
 
-		//logger.Info("[%d] T->Q: %v, %v", dst.ID(), wr, err)
+		logger.Info("[%d] T->Q: %v, %v", dst.ID(), wr, err)
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -481,7 +487,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		logger.Info("== Stream %v Quic->TCP done ==", src.ID())
 	}()
 
-	setLinger(dst)
+	//setLinger(dst)
 
 	buf := make([]byte, BUFFER_SIZE)
 	timeoutCounter := 0
@@ -500,7 +506,8 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		tm2 := time.Now().Add(10 * time.Second)
 		_ = dst.SetDeadline(tm2)
 
-		wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
+		//wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
+		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.qt", src.ID()))
 		if wr == 0 {
 			timeoutCounter++
 			if timeoutCounter > 5 {
@@ -510,7 +517,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 			timeoutCounter = 0
 		}
 
-		//logger.Info("[%d] Q->T: %v, %v", src.ID(), wr, err)
+		logger.Info("[%d] Q->T: %v, %v", src.ID(), wr, err)
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -593,4 +600,59 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 	logger.Info("== QUIC Session Dial: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 
 	return session, nil
+}
+
+var dumpBuffer = 0
+
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string) (written int64, err error) {
+	if buf == nil {
+		size := 32 * 1024
+		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
+			if l.N < 1 {
+				size = 1
+			} else {
+				size = int(l.N)
+			}
+		}
+		buf = make([]byte, size)
+	}
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			go func(buf2 []byte) {
+				dump, _ := os.Create(fmt.Sprintf("%s.%s.bin", prefix, shared.QPepConfig.Backend))
+				defer func() {
+					dump.Sync()
+					dump.Close()
+				}()
+
+				w, r := dump.Write(buf2)
+				logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
+			}(buf[0:nr])
+
+			nw, ew := dst.Write(buf[0:nr])
+			if nw < 0 || nr < nw {
+				nw = 0
+				if ew == nil {
+					ew = io.ErrUnexpectedEOF
+				}
+			}
+			written += int64(nw)
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+	}
+	return written, err
 }
