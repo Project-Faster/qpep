@@ -198,7 +198,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	api.Statistics.SetMappedAddress(proxyAddress, trackedAddress)
 
-	setLinger(dst)
+	//setLinger(dst)
 
 	timeoutCounter := 0
 	var tempBuffer = make([]byte, BUFFER_SIZE)
@@ -226,7 +226,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
 		if speedLimit == 0 {
-			wr, err = io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer)
+			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, "server.tq")
 		} else {
 			var now = time.Now()
 			wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
@@ -269,15 +269,9 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		logger.Info("== [%d] Stream TCP->Quic done ==", dst.ID())
 	}()
 
-	setLinger(src)
+	//setLinger(src)
 
 	var tempBuffer = make([]byte, BUFFER_SIZE)
-
-	transferDump, _ := os.Create(fmt.Sprintf("tcp-quic.%s.bin", shared.QPepConfig.Backend))
-	defer func() {
-		transferDump.Sync()
-		transferDump.Close()
-	}()
 
 	timeoutCounter := 0
 	var wr int64 = 0
@@ -303,7 +297,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
 		if speedLimit == 0 {
-			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, transferDump)
+			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, "server.tq")
 		} else {
 			var now = time.Now()
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, speedLimit), tempBuffer)
@@ -338,7 +332,7 @@ func setLinger(c net.Conn) {
 	}
 }
 
-func copyBuffer(dst io.Writer, src io.Reader, buf []byte, dump *os.File) (written int64, err error) {
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string) (written int64, err error) {
 	if buf == nil {
 		size := 32 * 1024
 		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
@@ -360,8 +354,18 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, dump *os.File) (writte
 					ew = io.ErrUnexpectedEOF
 				}
 			}
-			w, r := dump.Write(buf[0:nw])
-			logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
+
+			go func(buf2 []byte) {
+				dump, _ := os.Create(fmt.Sprintf("%s.%s.bin", prefix, shared.QPepConfig.Backend))
+				defer func() {
+					dump.Sync()
+					dump.Close()
+				}()
+
+				w, r := dump.Write(buf2)
+				logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
+			}(buf[0:nw])
+
 			written += int64(nw)
 			if ew != nil {
 				err = ew

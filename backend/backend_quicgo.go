@@ -86,7 +86,7 @@ func qgoGetConfiguration() *quic.Config {
 		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
 		//KeepAlivePeriod:      1 * time.Second,
 
-		EnableDatagrams: true,
+		EnableDatagrams: false,
 	}
 }
 
