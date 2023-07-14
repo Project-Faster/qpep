@@ -452,7 +452,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		_ = dst.SetWriteDeadline(tm2)
 
 		//wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
-		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.%d.tq", pktcounter, dst.ID()))
+		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.tq", dst.ID()), &pktcounter)
 		pktcounter++
 
 		if wr == 0 {
@@ -512,7 +512,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		_ = dst.SetDeadline(tm2)
 
 		//wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
-		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.%d.qt", pktcounter, src.ID()))
+		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.qt", src.ID()), &pktcounter)
 		pktcounter++
 		if wr == 0 {
 			timeoutCounter++
@@ -608,7 +608,7 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 	return session, nil
 }
 
-func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string) (written int64, err error) {
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string, counter *int) (written int64, err error) {
 	if buf == nil {
 		size := 32 * 1024
 		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
@@ -623,16 +623,12 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string) (writte
 	for {
 		nr, er := src.Read(buf)
 		if nr > 0 {
-			go func(buf2 []byte) {
-				dump, _ := os.Create(fmt.Sprintf("%s.%s.bin", prefix, shared.QPepConfig.Backend))
-				defer func() {
-					dump.Sync()
-					dump.Close()
-				}()
-
-				w, r := dump.Write(buf2)
-				logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
-			}(buf[0:nr])
+			dump, _ := os.Create(fmt.Sprintf("%s.%s.%d.bin", prefix, shared.QPepConfig.Backend, *counter))
+			w, r := dump.Write(buf[0:nr])
+			logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
+			dump.Sync()
+			dump.Close()
+			*counter = *counter + 1
 
 			nw, ew := dst.Write(buf[0:nr])
 			if nw < 0 || nr < nw {

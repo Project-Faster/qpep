@@ -228,7 +228,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
 		if speedLimit == 0 {
-			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.qt.%d", pktcounter, src.ID()))
+			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.qt", src.ID()), &pktcounter)
 			pktcounter++
 		} else {
 			var now = time.Now()
@@ -302,7 +302,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
 		if speedLimit == 0 {
-			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.%d.tq", pktcounter, dst.ID()))
+			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.tq", dst.ID()), &pktcounter)
 			pktcounter++
 		} else {
 			var now = time.Now()
@@ -338,7 +338,7 @@ func setLinger(c net.Conn) {
 	}
 }
 
-func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string) (written int64, err error) {
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string, counter *int) (written int64, err error) {
 	if buf == nil {
 		size := 32 * 1024
 		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
@@ -361,16 +361,12 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string) (writte
 				}
 			}
 
-			go func(buf2 []byte) {
-				dump, _ := os.Create(fmt.Sprintf("%s.%s.bin", prefix, shared.QPepConfig.Backend))
-				defer func() {
-					dump.Sync()
-					dump.Close()
-				}()
-
-				w, r := dump.Write(buf2)
-				logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
-			}(buf[0:nw])
+			dump, _ := os.Create(fmt.Sprintf("%s.%s.%d.bin", prefix, shared.QPepConfig.Backend, *counter))
+			w, r := dump.Write(buf[0:nr])
+			logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
+			dump.Sync()
+			dump.Close()
+			*counter = *counter + 1
 
 			written += int64(nw)
 			if ew != nil {
