@@ -426,6 +426,8 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 
 	//setLinger(src)
 
+	pktcounter := 0
+
 	buf := make([]byte, BUFFER_SIZE)
 	timeoutCounter := 0
 
@@ -450,7 +452,8 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		_ = dst.SetWriteDeadline(tm2)
 
 		//wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
-		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.tq", dst.ID()))
+		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.%d.tq", pktcounter, dst.ID()))
+		pktcounter++
 
 		if wr == 0 {
 			timeoutCounter++
@@ -489,6 +492,8 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 
 	//setLinger(dst)
 
+	pktcounter := 0
+
 	buf := make([]byte, BUFFER_SIZE)
 	timeoutCounter := 0
 
@@ -507,7 +512,8 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		_ = dst.SetDeadline(tm2)
 
 		//wr, err := io.CopyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf)
-		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.qt", src.ID()))
+		wr, err := copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), buf, fmt.Sprintf("%v.client.%d.qt", pktcounter, src.ID()))
+		pktcounter++
 		if wr == 0 {
 			timeoutCounter++
 			if timeoutCounter > 5 {
@@ -601,8 +607,6 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 
 	return session, nil
 }
-
-var dumpBuffer = 0
 
 func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string) (written int64, err error) {
 	if buf == nil {

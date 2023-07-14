@@ -200,6 +200,8 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	//setLinger(dst)
 
+	pktcounter := 0
+
 	timeoutCounter := 0
 	var tempBuffer = make([]byte, BUFFER_SIZE)
 
@@ -226,7 +228,8 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
 		if speedLimit == 0 {
-			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.qt", src.ID()))
+			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.qt.%d", pktcounter, src.ID()))
+			pktcounter++
 		} else {
 			var now = time.Now()
 			wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
@@ -273,6 +276,8 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	var tempBuffer = make([]byte, BUFFER_SIZE)
 
+	pktcounter := 0
+
 	timeoutCounter := 0
 	var wr int64 = 0
 	var err error = nil
@@ -297,7 +302,8 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
 		if speedLimit == 0 {
-			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.tq", dst.ID()))
+			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.%d.tq", pktcounter, dst.ID()))
+			pktcounter++
 		} else {
 			var now = time.Now()
 			wr, err = io.CopyBuffer(dst, io.LimitReader(src, speedLimit), tempBuffer)
