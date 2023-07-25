@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/parvit/qpep/version"
+	"github.com/parvit/qpep/workers/client"
+	"github.com/parvit/qpep/workers/server"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,10 +17,8 @@ import (
 	service "github.com/parvit/kardianos-service"
 
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/client"
 	"github.com/parvit/qpep/flags"
 	. "github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/server"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
 )

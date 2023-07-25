@@ -11,15 +11,14 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 
-	log "github.com/rs/zerolog"
-	stdlog "log"
-
 	"github.com/nyaosorg/go-windows-dbg"
+	log "github.com/rs/zerolog"
 )
 
 // _log customized logger instance
@@ -57,8 +56,9 @@ func SetupLogger(logName string) {
 	log.SetGlobalLevel(log.InfoLevel)
 	log.TimeFieldFormat = time.StampMilli
 
-	_log = log.New(_logFile).Level(log.DebugLevel).
-		With().Timestamp().Logger()
+	_log = log.New(io.MultiWriter(_logFile, os.Stdout)).
+		Level(log.InfoLevel).
+		With().Logger()
 }
 
 // CloseLogger Terminates the current log and resets it to stdout output
@@ -73,11 +73,16 @@ func CloseLogger() {
 	_log = log.New(os.Stdout)
 }
 
+// GetLogger allows external libraries to integrate with the qpep logger
+func GetLogger() *log.Logger {
+	return &_log
+}
+
 // Info Outputs a new formatted string with the provided parameters to the logger instance with Info level
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Info(format string, values ...interface{}) {
-	_log.Info().Msgf(format, values...)
-	stdlog.Printf(format, values...)
+	_log.Info().Time("time", time.Now()).Msgf(format, values...)
+	//stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 		return
@@ -90,8 +95,8 @@ func Debug(format string, values ...interface{}) {
 	if log.GlobalLevel() != log.DebugLevel {
 		return
 	}
-	_log.Debug().Msgf(format, values...)
-	stdlog.Printf(format, values...)
+	_log.Debug().Time("time", time.Now()).Msgf(format, values...)
+	//stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 		return
@@ -101,8 +106,8 @@ func Debug(format string, values ...interface{}) {
 // Error Outputs a new formatted string with the provided parameters to the logger instance with Error level
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Error(format string, values ...interface{}) {
-	_log.Error().Msgf(format, values...)
-	stdlog.Printf(format, values...)
+	_log.Error().Time("time", time.Now()).Msgf(format, values...)
+	//stdlog.Printf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 		return
@@ -113,11 +118,20 @@ func Error(format string, values ...interface{}) {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 // and then panics with the same formatted string
 func Panic(format string, values ...interface{}) {
-	_log.Error().Msgf(format, values...)
+	_log.Error().Time("time", time.Now()).Msgf(format, values...)
 	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
 		_, _ = dbg.Printf(format, values...)
 	}
 	panic(fmt.Sprintf(format, values...))
+}
+
+func Trace() {
+	_, file, line, ok := runtime.Caller(1)
+	if !ok {
+		Info("[trace][%s:%d]", "<missing>", 0)
+		return
+	}
+	Info("[trace][%s:%d]", file, line)
 }
 
 // OnError method sends an error log only if the err value in input is not nil

@@ -7,6 +7,7 @@ package shared
 
 import (
 	"encoding/binary"
+	"github.com/parvit/qpep/logger"
 	"io"
 	"net"
 )
@@ -112,6 +113,7 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 	if ipBytesNum != 2 || err != nil {
 		return nil, ErrInvalidHeader
 	}
+	logger.Info("PREAMBLE: %v", preamble)
 
 	var sourceIpEnd int
 	if preamble[0] == IPV4 {
@@ -138,6 +140,9 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 
 	byteInput := make([]byte, flagsEnd)
 	readDataBytes, err := stream.Read(byteInput)
+	logger.Info("HEADER: %v - (%d/%d/%d/%d/%d/%d) - %v", err,
+		sourceIpEnd, sourcePortEnd, destIpEnd, destPortEnd, flagsEnd, readDataBytes,
+		byteInput)
 	if readDataBytes != flagsEnd || err != nil {
 		return nil, ErrInvalidHeaderDataLength
 	}

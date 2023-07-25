@@ -47,7 +47,7 @@ func (listener *ClientProxyListener) Close() error {
 
 // NewClientProxyListener method instantiates a new ClientProxyListener on a tcp address base listener
 func NewClientProxyListener(network string, laddr *net.TCPAddr) (net.Listener, error) {
-	//Open basic TCP listener
+	//Dial basic TCP listener
 	listener, err := net.ListenTCP(network, laddr)
 	if err != nil {
 		return nil, err
