@@ -35,7 +35,6 @@ func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int) 
 	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"qpep"}}
 	gatewayPath := fmt.Sprintf("%s:%d", destination, port)
 
-	logger.Info("== Dialing QUIC Session: %s ==\n", gatewayPath)
 	session, err = quic.DialAddr(gatewayPath, tlsConf, quicConfig)
 	if err != nil {
 		logger.Error("Unable to Dial QUIC Session: %v\n", err)
@@ -47,7 +46,6 @@ func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int) 
 		connection: session,
 	}
 
-	logger.Info("== QUIC Session Dial ==\n")
 	q.connections = append(q.connections, sessionAdapter)
 	return sessionAdapter, nil
 }

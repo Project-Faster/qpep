@@ -53,11 +53,10 @@ func SetupLogger(logName string) {
 
 	_logFile = getLoggerFile(logName)
 
-	log.SetGlobalLevel(log.InfoLevel)
+	log.SetGlobalLevel(log.DebugLevel)
 	log.TimeFieldFormat = time.StampMilli
 
 	_log = log.New(io.MultiWriter(_logFile, os.Stdout)).
-		Level(log.InfoLevel).
 		With().Logger()
 }
 

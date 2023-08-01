@@ -174,22 +174,21 @@ func getQuicStream(ctx context.Context) (backend.QuicBackendStream, error) {
 	var quicStream backend.QuicBackendStream = nil
 	var localSession backend.QuicBackendConnection = nil
 
-	newSessionLock.RLock()
+	newSessionLock.Lock()
 	localSession = quicSession
-	newSessionLock.RUnlock()
 
 	if localSession == nil {
 		// open a new quicSession (with all the TLS jazz)
 		localSession, err = openQuicSession()
 		// if we were unable to open a quic session, drop the TCP connection with RST
 		if err != nil {
+			newSessionLock.Unlock()
 			return nil, err
 		}
 
-		newSessionLock.Lock()
 		quicSession = localSession
-		newSessionLock.Unlock()
 	}
+	newSessionLock.Unlock()
 
 	// if we allow for multiple streams in a session, try and open on the existing session
 	if ClientConfiguration.MultiStream && localSession != nil {
@@ -441,7 +440,6 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 	pktcounter := 0
 
 	buf := make([]byte, BUFFER_SIZE)
-	timeoutCounter := 0
 
 	pktPrefix := fmt.Sprintf("%v.client.tq", dst.ID())
 
@@ -450,22 +448,11 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		case <-ctx.Done():
 			return
 		case <-time.After(1 * time.Millisecond):
-		default:
 		}
 
-		wr, err := copyBuffer(dst, src, buf, pktPrefix, &pktcounter)
+		_, err := copyBuffer(dst, src, buf, pktPrefix, &pktcounter)
 
-		if wr == 0 {
-			timeoutCounter++
-			if timeoutCounter > 5 {
-				logger.Error("[%d] END T->Q: %v", dst.ID(), err)
-				return
-			}
-		} else {
-			timeoutCounter = 0
-		}
-
-		logger.Debug("[%d] T->Q: %v, %v", dst.ID(), wr, err)
+		//logger.Info("[%d][%v] T->Q: %v, %v", dst.ID(), time.Now().Sub(lastActivity), wr, err)
 
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
@@ -496,29 +483,17 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 	pktCounter := 0
 
 	buf := make([]byte, BUFFER_SIZE)
-	timeoutCounter := 0
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(1 * time.Millisecond):
-		default:
 		}
 
-		wr, err := copyBuffer(dst, src, buf, pktPrefix, &pktCounter)
+		_, err := copyBuffer(dst, src, buf, pktPrefix, &pktCounter)
 
-		if wr == 0 {
-			timeoutCounter++
-			if timeoutCounter > 5 {
-				logger.Error("[%d] END Q->T: %v", src.ID(), err)
-				return
-			}
-		} else {
-			timeoutCounter = 0
-		}
-
-		logger.Debug("[%d] Q->T: %v, %v", src.ID(), wr, err)
+		//logger.Info("[%d][%v] Q->T: %v, %v", src.ID(), time.Now().Sub(lastActivity), wr, err)
 
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
@@ -588,26 +563,32 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 		}
 	}
 
+	logger.Info("== Dialing QUIC Session: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 
-	logger.Info("== Dialing QUIC Session: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 	if err != nil {
 		logger.Error("Unable to Dial QUIC Session: %v\n", err)
 		return nil, shared.ErrFailedGatewayConnect
 	}
-	logger.Info("== QUIC Session Dial: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
+
+	logger.Info("== Dialed QUIC Session: %s:%d (%v) ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort,
+		session)
 
 	return session, nil
 }
 
 func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string, counter *int) (written int64, err error) {
 	limitSrc := io.LimitReader(src, BUFFER_SIZE)
+	lastActivity := time.Now()
 
 	for {
-		src.SetReadDeadline(time.Now().Add(1 * time.Second))
+		src.SetReadDeadline(time.Now().Add(250 * time.Millisecond))
 
 		nr, er := limitSrc.Read(buf)
+
 		if nr > 0 {
+			lastActivity = time.Now()
+
 			if DEBUG_DUMP_PACKETS {
 				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
 				if derr != nil {
@@ -619,12 +600,13 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 					dump.Close()
 				}()
 				logger.Info("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
+			} else {
+				logger.Debug("[%d] rd: %d", *counter, nr)
 			}
 
-			dst.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
 
 			nw, ew := dst.Write(buf[0:nr])
-			logger.Debug("[%d][%s] w,r: %d,%v", *counter, prefix, nw, ew)
 			if nw < 0 || nr < nw {
 				nw = 0
 				if ew == nil {
@@ -643,6 +625,8 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 					dump.Close()
 				}()
 				logger.Info("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
+			} else {
+				logger.Debug("[%d] wr: %d", *counter, nw)
 			}
 			*counter = *counter + 1
 
@@ -658,6 +642,12 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 		} else {
 			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
 		}
+
+		if nr == 0 && time.Now().Sub(lastActivity) > 1*time.Second {
+			logger.Error("[%s] ACTIVITY TIMEOUT", prefix)
+			return written, io.ErrNoProgress
+		}
+
 		if er != nil {
 			if er != io.EOF {
 				err = er

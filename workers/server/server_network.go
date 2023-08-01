@@ -221,7 +221,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		_ = src.SetReadDeadline(tm)
 		_ = src.SetWriteDeadline(tm)
 
-		tm2 := time.Now().Add(1 * time.Second)
+		tm2 := time.Now().Add(10 * time.Second)
 		_ = dst.SetReadDeadline(tm2)
 		_ = dst.SetWriteDeadline(tm2)
 

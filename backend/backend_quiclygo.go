@@ -4,12 +4,14 @@ package backend
 
 import (
 	"context"
+	"fmt"
 	"github.com/Project-Faster/quicly-go"
 	"github.com/Project-Faster/quicly-go/quiclylib/errors"
 	"github.com/Project-Faster/quicly-go/quiclylib/types"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"net"
+	"sync"
 )
 
 func init() {
@@ -20,11 +22,32 @@ const (
 	QUICLYGO_BACKEND = "quicly-go"
 )
 
-var quiclyBackend QuicBackend = &quiclyGoBackend{}
+var (
+	quiclyBackend QuicBackend = &quiclyGoBackend{
+		connections: make(map[string]QuicBackendConnection),
+		initialized: false,
+	}
+)
 
 type quiclyGoBackend struct {
-	connections []QuicBackendConnection
 	initialized bool
+
+	opLock      sync.RWMutex
+	connections map[string]QuicBackendConnection
+}
+
+func (q *quiclyGoBackend) getConnection(destination string) QuicBackendConnection {
+	q.opLock.Lock()
+	defer q.opLock.Unlock()
+
+	return q.connections[destination]
+}
+
+func (q *quiclyGoBackend) setConnection(destination string, conn QuicBackendConnection) {
+	q.opLock.Lock()
+	defer q.opLock.Unlock()
+
+	q.connections[destination] = conn
 }
 
 func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int) (QuicBackendConnection, error) {
@@ -43,6 +66,13 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 		q.initialized = true
 	}
 
+	remoteAddress := fmt.Sprintf("%s:%d", destination, port)
+
+	conn := q.getConnection(remoteAddress)
+	if conn != nil {
+		return conn, nil
+	}
+
 	ipAddr := net.ParseIP(destination)
 
 	remoteAddr := net.UDPAddr{
@@ -50,14 +80,14 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 		Port: port,
 	}
 
-	logger.Info("== Dialing QUIC Session: %s ==\n", destination)
-
 	session := quicly.Dial(&remoteAddr, types.Callbacks{
 		OnConnectionOpen: func(connection types.Session) {
 			logger.Info("OPEN: %v", connection)
 		},
 		OnConnectionClose: func(connection types.Session) {
 			logger.Info("CLOSE: %v", connection)
+
+			q.setConnection(remoteAddress, nil)
 		},
 		OnStreamOpenCallback: func(stream types.Stream) {
 			logger.Info(">> Callback open %d", stream.ID())
@@ -78,7 +108,8 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 	}
 
 	logger.Info("== QUIC Session Dial ==\n")
-	q.connections = append(q.connections, sessionAdapter)
+	q.setConnection(destination, sessionAdapter)
+
 	return sessionAdapter, nil
 }
 
@@ -98,6 +129,13 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 		q.initialized = true
 	}
 
+	remoteAddress := fmt.Sprintf("%s:%d", address, port)
+
+	previousConn := q.getConnection(remoteAddress)
+	if previousConn != nil {
+		return previousConn, nil
+	}
+
 	ipAddr := net.ParseIP(address)
 
 	localAddr := net.UDPAddr{
@@ -111,6 +149,8 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 		},
 		OnConnectionClose: func(conn types.Session) {
 			logger.Info("OnClose")
+
+			q.setConnection(remoteAddress, nil)
 		},
 		OnStreamOpenCallback: func(stream types.Stream) {
 			logger.Info(">> Callback open %d", stream.ID())
@@ -120,10 +160,15 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 		},
 	}, ctx)
 
-	return &connectionAdapter{
+	newConn := &connectionAdapter{
 		context:    ctx,
 		connection: conn,
-	}, nil
+		backend:    q,
+	}
+
+	q.setConnection(remoteAddress, newConn)
+
+	return newConn, nil
 }
 
 func (q *quiclyGoBackend) Close() error {
@@ -143,6 +188,7 @@ func (q *quiclyGoBackend) Close() error {
 type connectionAdapter struct {
 	context    context.Context
 	connection types.Session
+	backend    *quiclyGoBackend
 }
 
 func (c *connectionAdapter) LocalAddr() net.Addr {

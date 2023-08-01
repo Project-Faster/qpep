@@ -2,7 +2,8 @@ module github.com/parvit/qpep
 
 go 1.18
 
-replace github.com/Project-Faster/quicly-go => ./backend/quicly-go
+// do not commit
+replace github.com/Project-Faster/quicly-go => C:\home\dev\src\github.com\parvit\quicly-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1
