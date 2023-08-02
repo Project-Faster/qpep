@@ -7,6 +7,7 @@ import (
 	"github.com/parvit/qpep/backend"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"hash/crc64"
 	"io"
 	"net"
 	"os"
@@ -17,6 +18,8 @@ import (
 
 const (
 	BUFFER_SIZE = 512 * 1024
+
+	DEBUG_DUMP_PACKETS = false
 )
 
 var (
@@ -24,6 +27,16 @@ var (
 	quicProvider backend.QuicBackend
 	quicListener backend.QuicBackendConnection
 )
+
+type ReaderTimeout interface {
+	io.Reader
+	SetReadDeadline(time.Time) error
+}
+
+type WriterTimeout interface {
+	io.Writer
+	SetWriteDeadline(time.Time) error
+}
 
 // listenQuicSession handles accepting the sessions and the launches goroutines to actually serve them
 func listenQuicSession(address string, port int) {
@@ -80,21 +93,21 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 			tskKey := fmt.Sprintf("QuicStream:%v", stream.ID())
 			tsk := shared.StartRegion(tskKey)
 			defer tsk.End()
-			for i := 0; i < 10; i++ {
-				connCounter := api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS)
-				if connCounter >= 16 {
-					logger.Info("== [%d] Stream Queued (current: %d / max: %d) ==", stream.ID(), connCounter, 16)
-					<-time.After(100 * time.Millisecond)
-					continue
-				}
-				logger.Info("== [%d] Stream Start ==", stream.ID())
-				handleQuicStream(stream)
-				logger.Info("== [%d] Stream End ==", stream.ID())
-				return
-			}
-			logger.Info("== [%d] Session Rejected for too many connections ==", stream.ID())
-			_ = stream.Close()
-			_ = quicSession.Close(1, "Session Rejected for too many connections")
+			//for i := 0; i < 10; i++ {
+			//	connCounter := api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS)
+			//	if connCounter >= 16 {
+			//		logger.Info("== [%d] Stream Queued (current: %d / max: %d) ==", stream.ID(), connCounter, 16)
+			//		<-time.After(100 * time.Millisecond)
+			//		continue
+			//	}
+			logger.Info("== [%d] Stream Start ==", stream.ID())
+			handleQuicStream(stream)
+			logger.Info("== [%d] Stream End ==", stream.ID())
+			//	return
+			//}
+			//logger.Info("== [%d] Session Rejected for too many connections ==", stream.ID())
+			//_ = stream.Close()
+			//_ = quicSession.Close(1, "Session Rejected for too many connections")
 		}()
 	}
 }
@@ -200,12 +213,11 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	//setLinger(dst)
 
+	pktPrefix := fmt.Sprintf("%v.server.qt", src.ID())
 	pktcounter := 0
 
-	timeoutCounter := 0
 	var tempBuffer = make([]byte, BUFFER_SIZE)
 
-	var wr int64 = 0
 	var err error = nil
 	i := 0
 	for {
@@ -217,36 +229,17 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		//logger.Info("[%d] Q->T: %v: %v", src.ID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(1 * time.Second)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
-
-		tm2 := time.Now().Add(10 * time.Second)
-		_ = dst.SetReadDeadline(tm2)
-		_ = dst.SetWriteDeadline(tm2)
-
-		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
-		if speedLimit == 0 {
-			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.qt", src.ID()), &pktcounter)
-			pktcounter++
-		} else {
-			var now = time.Now()
-			wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
-
-			var wait = time.Until(now.Add(1 * time.Second))
-			time.Sleep(wait)
-		}
-		tsk.End()
-
-		if wr == 0 {
-			timeoutCounter++
-			if timeoutCounter > 5 {
-				return
-			}
-		} else {
-			timeoutCounter = 0
-		}
+		//if speedLimit == 0 {
+		_, err = copyBuffer(dst, src, tempBuffer, pktPrefix, &pktcounter)
+		pktcounter++
+		//} else {
+		//	var now = time.Now()
+		//	wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
+		//
+		//	var wait = time.Until(now.Add(1 * time.Second))
+		//	time.Sleep(wait)
+		//}
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -276,83 +269,71 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 	var tempBuffer = make([]byte, BUFFER_SIZE)
 
+	pktPrefix := fmt.Sprintf("%v.server.tq", dst.ID())
 	pktcounter := 0
 
-	timeoutCounter := 0
-	var wr int64 = 0
 	var err error = nil
 	i := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case <-time.After(1 * time.Millisecond):
 		}
 
 		//logger.Info("[%d] T->Q: %v: %v", dst.ID(), activityFlag, *activityFlag)
 
-		tm := time.Now().Add(1 * time.Second)
-		_ = src.SetReadDeadline(tm)
-		_ = src.SetWriteDeadline(tm)
-
-		tm2 := time.Now().Add(10 * time.Second)
-		_ = dst.SetReadDeadline(tm2)
-		_ = dst.SetWriteDeadline(tm2)
-
-		tsk := shared.StartRegion(fmt.Sprintf("copybuffer.%d.%s", i, tskKey))
 		i++
-		if speedLimit == 0 {
-			wr, err = copyBuffer(dst, io.LimitReader(src, BUFFER_SIZE), tempBuffer, fmt.Sprintf("%v.server.tq", dst.ID()), &pktcounter)
-			pktcounter++
-		} else {
-			var now = time.Now()
-			wr, err = io.CopyBuffer(dst, io.LimitReader(src, speedLimit), tempBuffer)
-
-			var wait = time.Until(now.Add(1 * time.Second))
-			time.Sleep(wait)
-		}
-		tsk.End()
-
-		if wr == 0 {
-			timeoutCounter++
-			if timeoutCounter > 5 {
-				return
-			}
-		} else {
-			timeoutCounter = 0
-		}
+		//if speedLimit == 0 {
+		_, err = copyBuffer(dst, src, tempBuffer, pktPrefix, &pktcounter)
+		pktcounter++
+		//} else {
+		//	var now = time.Now()
+		//	wr, err = io.CopyBuffer(dst, io.LimitReader(src, speedLimit), tempBuffer)
+		//
+		//	var wait = time.Until(now.Add(1 * time.Second))
+		//	time.Sleep(wait)
+		//}
 
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
 			}
+			logger.Info("[%d] END T->Q: %v", dst.ID(), err)
 			return
 		}
 	}
 }
 
-func setLinger(c net.Conn) {
-	if conn, ok := c.(*net.TCPConn); ok {
-		err1 := conn.SetLinger(1)
-		logger.OnError(err1, "error on setLinger")
-	}
-}
+func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string, counter *int) (written int64, err error) {
+	limitSrc := io.LimitReader(src, BUFFER_SIZE)
+	lastActivity := time.Now()
 
-func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string, counter *int) (written int64, err error) {
-	if buf == nil {
-		size := 32 * 1024
-		if l, ok := src.(*io.LimitedReader); ok && int64(size) > l.N {
-			if l.N < 1 {
-				size = 1
-			} else {
-				size = int(l.N)
-			}
-		}
-		buf = make([]byte, size)
-	}
 	for {
-		nr, er := src.Read(buf)
+		src.SetReadDeadline(time.Now().Add(1 * time.Second))
+
+		nr, er := limitSrc.Read(buf)
+
 		if nr > 0 {
+			lastActivity = time.Now()
+
+			if DEBUG_DUMP_PACKETS {
+				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
+				if derr != nil {
+					panic(derr)
+				}
+				dump.Write(buf[0:nr])
+				go func() {
+					dump.Sync()
+					dump.Close()
+				}()
+				logger.Info("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
+			} else {
+				logger.Debug("[%d] rd: %d", *counter, nr)
+			}
+
+			dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
+
 			nw, ew := dst.Write(buf[0:nr])
 			if nw < 0 || nr < nw {
 				nw = 0
@@ -361,11 +342,20 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string, counter
 				}
 			}
 
-			dump, _ := os.Create(fmt.Sprintf("%s.%s.%d.bin", prefix, shared.QPepConfig.Backend, *counter))
-			w, r := dump.Write(buf[0:nr])
-			logger.Info("[%v] w,r: %d,%v", dump.Name(), w, r)
-			dump.Sync()
-			dump.Close()
+			if DEBUG_DUMP_PACKETS {
+				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
+				if derr != nil {
+					panic(derr)
+				}
+				dump.Write(buf[0:nw])
+				go func() {
+					dump.Sync()
+					dump.Close()
+				}()
+				logger.Info("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
+			} else {
+				logger.Debug("[%d] wr: %d", *counter, nw)
+			}
 			*counter = *counter + 1
 
 			written += int64(nw)
@@ -377,7 +367,15 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, prefix string, counter
 				err = io.ErrShortWrite
 				break
 			}
+		} else {
+			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
 		}
+
+		if time.Now().Sub(lastActivity) > 1*time.Second {
+			logger.Error("[%s] ACTIVITY TIMEOUT", prefix)
+			return written, io.ErrNoProgress
+		}
+
 		if er != nil {
 			if er != io.EOF {
 				err = er

@@ -582,7 +582,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 	lastActivity := time.Now()
 
 	for {
-		src.SetReadDeadline(time.Now().Add(250 * time.Millisecond))
+		src.SetReadDeadline(time.Now().Add(1 * time.Second))
 
 		nr, er := limitSrc.Read(buf)
 
@@ -643,7 +643,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
 		}
 
-		if nr == 0 && time.Now().Sub(lastActivity) > 1*time.Second {
+		if time.Now().Sub(lastActivity) > 1*time.Second {
 			logger.Error("[%s] ACTIVITY TIMEOUT", prefix)
 			return written, io.ErrNoProgress
 		}
