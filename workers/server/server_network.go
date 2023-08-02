@@ -371,7 +371,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
 		}
 
-		if time.Now().Sub(lastActivity) > 1*time.Second {
+		if time.Now().Sub(lastActivity) > 10*time.Second {
 			logger.Error("[%s] ACTIVITY TIMEOUT", prefix)
 			return written, io.ErrNoProgress
 		}
