@@ -310,7 +310,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 	lastActivity := time.Now()
 
 	for {
-		src.SetReadDeadline(time.Now().Add(1 * time.Second))
+		src.SetReadDeadline(time.Now().Add(10 * time.Second))
 
 		nr, er := limitSrc.Read(buf)
 
@@ -332,7 +332,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 				logger.Debug("[%d] rd: %d", *counter, nr)
 			}
 
-			dst.SetWriteDeadline(time.Now().Add(1 * time.Second))
+			dst.SetWriteDeadline(time.Now().Add(10 * time.Second))
 
 			nw, ew := dst.Write(buf[0:nr])
 			if nw < 0 || nr < nw {
