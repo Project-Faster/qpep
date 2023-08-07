@@ -2,6 +2,8 @@
 
 package windivert
 
+import "C"
+
 // InitializeWinDivertEngine method invokes the initialization of the WinDivert library, specifying that:
 // * _gatewayAddr_ Packets must be redirected to this address
 // * _listenAddr_ Packets must have source on this address
