@@ -3,7 +3,7 @@ package shared
 import (
 	"bufio"
 	"fmt"
-	"github.com/parvit/qpep/logger"
+	"github.com/Project-Faster/qpep/logger"
 	"net/url"
 	"os/exec"
 	"regexp"

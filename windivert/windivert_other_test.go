@@ -3,7 +3,7 @@
 package windivert
 
 import (
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"testing"

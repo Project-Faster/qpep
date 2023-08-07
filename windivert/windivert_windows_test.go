@@ -6,9 +6,9 @@ package windivert
 
 import (
 	"context"
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/flags"
+	"github.com/Project-Faster/qpep/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"

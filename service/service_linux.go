@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/parvit/qpep/logger"
+	"github.com/Project-Faster/qpep/logger"
 	"os"
 )
 

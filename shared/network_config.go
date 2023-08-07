@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/parvit/qpep/logger"
+	"github.com/Project-Faster/qpep/logger"
 )
 
 var (

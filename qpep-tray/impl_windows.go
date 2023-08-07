@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 )
 
 const (

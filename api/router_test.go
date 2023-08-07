@@ -3,9 +3,9 @@ package api
 import (
 	"bou.ke/monkey"
 	"context"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/webgui"
+	"github.com/Project-Faster/qpep/flags"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/webgui"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"

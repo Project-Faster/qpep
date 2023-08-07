@@ -13,8 +13,8 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/version"
 )
 
 // formatRequest method formats to a string the request in input, if verbose configuration

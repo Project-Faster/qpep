@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"github.com/Project-Faster/qpep/version"
+	"github.com/Project-Faster/qpep/workers/client"
+	"github.com/Project-Faster/qpep/workers/server"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/parvit/qpep/version"
-	"github.com/parvit/qpep/workers/client"
-	"github.com/parvit/qpep/workers/server"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -16,11 +16,11 @@ import (
 
 	service "github.com/parvit/kardianos-service"
 
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/flags"
-	. "github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/windivert"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/flags"
+	. "github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/windivert"
 )
 
 const (

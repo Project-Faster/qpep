@@ -7,11 +7,12 @@ import (
 // initDiverter method wraps the logic for initializing the windiverter engine, returns true if the diverter
 // succeeded initialization and false otherwise
 func initDiverter() bool {
-	return false
+	return true
 }
 
 // stopDiverter method wraps the calls for stopping the diverter
-func stopDiverter() {}
+func stopDiverter() {
+}
 
 // initProxy method wraps the calls for initializing the proxy
 func initProxy() {

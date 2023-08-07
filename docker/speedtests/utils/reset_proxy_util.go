@@ -1,6 +1,6 @@
 package main
 
-import "github.com/parvit/qpep/shared"
+import "github.com/Project-Faster/qpep/shared"
 
 func main() {
 	shared.SetSystemProxy(false)

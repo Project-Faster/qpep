@@ -11,11 +11,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Project-Faster/qpep/flags"
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/webgui"
 	"github.com/julienschmidt/httprouter"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/webgui"
 	"github.com/rs/cors"
 )
 

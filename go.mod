@@ -1,8 +1,8 @@
-module github.com/parvit/qpep
+module github.com/Project-Faster/qpep
 
 go 1.18
 
-replace github.com/Project-Faster/quicly-go => ./backend/quicly-go
+replace github.com/Project-Faster/quicly-go => C:\home\dev\src\github.com\Project-Faster\quicly-go
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -14,7 +14,6 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/zerolog v1.29.1
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/sqweek/dialog v0.0.0-20220504154117-be45b268883a
 	golang.org/x/net v0.10.0
 	golang.org/x/sys v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -23,7 +22,6 @@ require (
 require (
 	bou.ke/monkey v1.0.2
 	github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d
-	github.com/Project-Faster/quicly-go v0.0.0-00010101000000-000000000000
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
@@ -35,7 +33,6 @@ require (
 
 require (
 	git.sr.ht/~sbinet/gg v0.3.1 // indirect
-	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
 	github.com/getlantern/errors v0.0.0-20190325191628-abdb3e3e36f7 // indirect

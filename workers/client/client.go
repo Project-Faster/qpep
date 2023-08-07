@@ -1,15 +1,15 @@
 package client
 
 import (
-	"github.com/parvit/qpep/logger"
+	"github.com/Project-Faster/qpep/logger"
 	"net"
 	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/shared"
 	"golang.org/x/net/context"
 )
 

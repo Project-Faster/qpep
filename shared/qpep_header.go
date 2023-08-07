@@ -7,7 +7,7 @@ package shared
 
 import (
 	"encoding/binary"
-	"github.com/parvit/qpep/logger"
+	"github.com/Project-Faster/qpep/logger"
 	"io"
 	"net"
 )

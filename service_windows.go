@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +10,7 @@ import (
 	"time"
 	"unsafe"
 
-	. "github.com/parvit/qpep/logger"
+	. "github.com/Project-Faster/qpep/logger"
 	"golang.org/x/sys/windows"
 )
 

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/parvit/qpep/logger"
+	"github.com/Project-Faster/qpep/logger"
 	"net"
 	"net/http"
 	"net/url"
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 )
 
 // getClientForAPI method returns a correctly configured http client to be able to

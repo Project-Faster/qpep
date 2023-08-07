@@ -6,9 +6,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/Project-Faster/quic-go"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/shared"
 	"net"
 	"time"
 )

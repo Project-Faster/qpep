@@ -10,15 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/qpep-tray/icons"
+	"github.com/Project-Faster/qpep/qpep-tray/toast"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/version"
 	"github.com/getlantern/systray"
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/qpep-tray/icons"
-	"github.com/parvit/qpep/qpep-tray/toast"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
-
-	. "github.com/sqweek/dialog"
 )
 
 const (

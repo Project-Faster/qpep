@@ -11,8 +11,7 @@ package shared
 import (
 	"errors"
 	"fmt"
-	"github.com/parvit/qpep/logger"
-	"gopkg.in/yaml.v3"
+	"github.com/Project-Faster/qpep/logger"
 	"io"
 	"os"
 	"path/filepath"

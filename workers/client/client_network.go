@@ -14,10 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/windivert"
+	"github.com/Project-Faster/qpep/backend"
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/windivert"
 	"golang.org/x/net/context"
 )
 

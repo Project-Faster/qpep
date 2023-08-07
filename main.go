@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/service"
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/service"
+	"github.com/Project-Faster/qpep/shared"
 	"os"
 	"runtime/debug"
 	"runtime/trace"

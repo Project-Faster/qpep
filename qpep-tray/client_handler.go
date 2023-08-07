@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 )
 
 var clientActive bool = false

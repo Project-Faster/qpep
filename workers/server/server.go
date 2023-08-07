@@ -5,9 +5,9 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/shared"
 )
 
 var (

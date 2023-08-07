@@ -9,11 +9,11 @@ package windivert
 import "C"
 
 import (
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 	"time"
 	"unsafe"
 
-	. "github.com/parvit/qpep/logger"
+	. "github.com/Project-Faster/qpep/logger"
 )
 
 func init() {

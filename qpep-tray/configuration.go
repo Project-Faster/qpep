@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 	"github.com/skratchdot/open-golang/open"
 )
 

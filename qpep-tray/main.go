@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/Project-Faster/qpep/shared"
 	"github.com/getlantern/systray"
-	"github.com/parvit/qpep/shared"
 )
 
 func main() {

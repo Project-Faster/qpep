@@ -7,8 +7,8 @@ package shared
  */
 
 import (
+	"github.com/Project-Faster/qpep/logger"
 	"github.com/jackpal/gateway"
-	"github.com/parvit/qpep/logger"
 	"net/url"
 )
 

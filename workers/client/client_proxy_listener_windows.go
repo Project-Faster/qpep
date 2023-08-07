@@ -3,7 +3,7 @@
 package client
 
 import (
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 	"net"
 )
 
