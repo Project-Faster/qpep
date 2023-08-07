@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Project-Faster/qpep/logger"
+	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"path/filepath"
