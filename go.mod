@@ -2,9 +2,6 @@ module github.com/Project-Faster/qpep
 
 go 1.18
 
-// do not commit
-replace github.com/Project-Faster/quicly-go => C:\home\dev\src\github.com\Project-Faster\quicly-go
-
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getlantern/systray v1.2.1
