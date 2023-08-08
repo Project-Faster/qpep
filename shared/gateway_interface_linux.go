@@ -28,7 +28,7 @@ func RunCommand(name string, cmd ...string) ([]byte, error, int) {
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	defaultIP, err := gateway.DiscoverInterface()
 	if err != nil {
-		logger.Panic("Could not discover default lan address and the requested one is not suitable, error (code: %d): %v", code, err)
+		logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
 	}
 
 	logger.Info("Found default ip address: %s\n", defaultIP.String())
