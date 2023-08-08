@@ -7,10 +7,15 @@ package shared
  */
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
 	"github.com/Project-Faster/qpep/logger"
 	"github.com/jackpal/gateway"
 	"net/url"
 	"os/exec"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -20,6 +25,12 @@ import (
 // networksetup -setwebproxystate "Wi-fi" on -> activate HTTP proxy
 // networksetup -setsecurewebproxy "Wi-fi" 127.0.0.1 8443 -> HTTPS proxy
 // networksetup -setsecurewebproxystate "Wi-fi" on -> activate HTTPS proxy
+
+var (
+	enabledSep = []byte(`Enabled: Yes`)
+	serverSep  = []byte(`Server: `)
+	portSep    = []byte(`Port: `)
+)
 
 // RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
 // an error if there was any issue with the command executed
@@ -33,7 +44,7 @@ func RunCommand(name string, cmd ...string) ([]byte, error, int) {
 }
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
-	defaultIP, err := gateway.DiscoverInterface()
+	defaultIP, err := gateway.DiscoverGateway()
 	if err != nil {
 		logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
 	}
@@ -44,12 +55,117 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 
 func SetSystemProxy(active bool) {
 	if !active {
+		setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort))
+
 		logger.Info("Clearing system proxy settings\n")
+		ProxyAddress = nil
+		UsingProxy = false
 		return
 	}
-	logger.Info("Setting system proxy not yet supported\n")
+
+	setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort))
+
+	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort))
+	if err != nil {
+		panic(err)
+	}
+	ProxyAddress = urlValue
+	UsingProxy = true
+}
+
+func setAllInterfacesToProxy(address string, port int64) {
+	output, err, code := RunCommand("networksetup", "-listallnetworkservices")
+	if err != nil || code != 0 {
+		logger.Error("Could not set system proxy, error (code: %d): %v", code, err)
+		return
+	}
+
+	scn := bufio.NewScanner(bytes.NewReader(output))
+	scn.Split(bufio.ScanLines)
+
+	strPort := strconv.FormatInt(port, 10)
+
+	for scn.Scan() {
+		iface := strings.TrimSpace(scn.Text())
+		if len(iface) == 0 {
+			continue
+		}
+
+		// http proxy values
+		_, _, _ = RunCommand("networksetup", "-setwebproxy", `"`+iface+`"`, address, strPort)
+
+		// https proxy values
+		_, _, _ = RunCommand("networksetup", "-setsecurewebproxy", `"`+iface+`"`, address, strPort)
+
+		// proxy enabled
+		_, _, _ = RunCommand("networksetup", "-setwebproxystate", `"`+iface+`"`, address, strPort)
+
+		_, _, _ = RunCommand("networksetup", "-setsecurewebproxystate", `"`+iface+`"`, address, strPort)
+
+	}
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
+	output, err, code := RunCommand("networksetup", "-listallnetworkservices")
+	if err != nil || code != 0 {
+		logger.Error("Could not get system proxy, error (code: %d): %v", code, err)
+		return false, nil
+	}
+
+	scn := bufio.NewScanner(bytes.NewReader(output))
+	scn.Split(bufio.ScanLines)
+
+	proxyUrlString := ""
+
+	for scn.Scan() {
+		iface := strings.TrimSpace(scn.Text())
+		if len(iface) == 0 {
+			continue
+		}
+
+		// proxy enabled
+		output, _, _ := RunCommand("networksetup", "-getwebproxy", `"`+iface+`"`)
+		if !bytes.Contains(output, enabledSep) {
+			return false, nil
+		}
+		httpProxy := parseProxyUrlFromOutput(output)
+
+		output, _, _ = RunCommand("networksetup", "-getsecurewebproxy", `"`+iface+`"`)
+		if !bytes.Contains(output, enabledSep) {
+			return false, nil
+		}
+		httpsProxy := parseProxyUrlFromOutput(output)
+
+		if len(httpProxy) == 0 || len(httpsProxy) == 0 || !strings.EqualFold(httpsProxy, httpProxy) {
+			logger.Error("Could not get system proxy, http and https proxy servers for '%s' are different: %v != %v",
+				iface, httpProxy, httpsProxy)
+			return false, nil
+		}
+
+		proxyUrlString = httpProxy
+		break
+	}
+
+	proxyUrl, err := url.Parse("http://" + proxyUrlString)
+	if err == nil {
+		return true, proxyUrl
+	}
 	return false, nil
+}
+
+func parseProxyUrlFromOutput(output []byte) string {
+	if len(output) == 0 {
+		return ""
+	}
+	serverIndex := bytes.Index(output, serverSep)
+	portIndex := bytes.Index(output, portSep)
+	if serverIndex == -1 || portIndex == -1 {
+		return ""
+	}
+
+	serverEndIndex := bytes.IndexByte(output[serverIndex:], byte('\n'))
+	portEndIndex := bytes.IndexByte(output[portIndex:], byte('\n'))
+
+	return fmt.Sprintf("%s:%s", bytes.TrimSpace(output[serverIndex:serverEndIndex]),
+		bytes.TrimSpace(output[portIndex:portEndIndex]))
 }
