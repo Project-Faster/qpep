@@ -55,7 +55,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 
 func SetSystemProxy(active bool) {
 	if !active {
-		setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort))
+		setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort), false)
 
 		logger.Info("Clearing system proxy settings\n")
 		ProxyAddress = nil
@@ -63,7 +63,7 @@ func SetSystemProxy(active bool) {
 		return
 	}
 
-	setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort))
+	setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort), true)
 
 	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort))
 	if err != nil {
@@ -73,7 +73,7 @@ func SetSystemProxy(active bool) {
 	UsingProxy = true
 }
 
-func setAllInterfacesToProxy(address string, port int64) {
+func setAllInterfacesToProxy(address string, port int64, active bool) {
 	output, err, code := RunCommand("networksetup", "-listallnetworkservices")
 	if err != nil || code != 0 {
 		logger.Error("Could not set system proxy, error (code: %d): %v", code, err)
@@ -84,6 +84,13 @@ func setAllInterfacesToProxy(address string, port int64) {
 	scn.Split(bufio.ScanLines)
 
 	strPort := strconv.FormatInt(port, 10)
+
+	state := "on"
+	if !active {
+		address = ""
+		strPort = "0"
+		state = "off"
+	}
 
 	for scn.Scan() {
 		iface := strings.TrimSpace(scn.Text())
@@ -98,9 +105,9 @@ func setAllInterfacesToProxy(address string, port int64) {
 		_, _, _ = RunCommand("networksetup", "-setsecurewebproxy", `"`+iface+`"`, address, strPort)
 
 		// proxy enabled
-		_, _, _ = RunCommand("networksetup", "-setwebproxystate", `"`+iface+`"`, address, strPort)
+		_, _, _ = RunCommand("networksetup", "-setwebproxystate", `"`+iface+`"`, state)
 
-		_, _, _ = RunCommand("networksetup", "-setsecurewebproxystate", `"`+iface+`"`, address, strPort)
+		_, _, _ = RunCommand("networksetup", "-setsecurewebproxystate", `"`+iface+`"`, state)
 
 	}
 }
