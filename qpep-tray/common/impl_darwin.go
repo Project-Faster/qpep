@@ -1,6 +1,7 @@
-package main
+package common
 
 import (
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -34,10 +35,17 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 
 	cmd := exec.Command(exeFile, serviceFlag, clientFlag, verboseFlag)
 	if cmd == nil {
-		ErrorMsg("Could not create client command")
+		notify.ErrorMsg("Could not create client command")
 		return nil
 	}
 	cmd.Dir, _ = filepath.Abs(ExeDir)
 	cmd.SysProcAttr = attr
 	return cmd
+}
+
+// fakeAPICallCheckProxy executes a "fake" api call to the local server to check for the connection running through
+// the global proxy, this is checked by the client that adds the "X-QPEP-PROXY" header with value "true", a missing or
+// "false" value means the proxy is not running correctly
+func fakeAPICallCheckProxy() bool {
+	return true
 }

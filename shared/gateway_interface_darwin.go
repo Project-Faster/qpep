@@ -10,6 +10,8 @@ import (
 	"github.com/Project-Faster/qpep/logger"
 	"github.com/jackpal/gateway"
 	"net/url"
+	"os/exec"
+	"syscall"
 )
 
 // notes
@@ -18,6 +20,17 @@ import (
 // networksetup -setwebproxystate "Wi-fi" on -> activate HTTP proxy
 // networksetup -setsecurewebproxy "Wi-fi" 127.0.0.1 8443 -> HTTPS proxy
 // networksetup -setsecurewebproxystate "Wi-fi" on -> activate HTTPS proxy
+
+// RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
+// an error if there was any issue with the command executed
+func RunCommand(name string, cmd ...string) ([]byte, error, int) {
+	routeCmd := exec.Command(name, cmd...)
+	routeCmd.SysProcAttr = &syscall.SysProcAttr{}
+	result, err := routeCmd.CombinedOutput()
+	code := routeCmd.ProcessState.ExitCode()
+
+	return result, err, code
+}
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	defaultIP, err := gateway.DiscoverInterface()

@@ -1,7 +1,8 @@
-package main
+package common
 
 import (
 	"errors"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"log"
 
 	"github.com/Project-Faster/qpep/shared"
@@ -29,30 +30,30 @@ func startClient() error {
 	})
 
 	if err := startClientProcess(); err != nil {
-		ErrorMsg("Could not start client program: %v", err)
+		notify.ErrorMsg("Could not start client program: %v", err)
 		clientActive = false
 		return shared.ErrCommandNotStarted
 	}
 	clientActive = true
-	InfoMsg("Client started")
+	notify.InfoMsg("Client started")
 
 	return nil
 }
 
 func stopClient() error {
 	if !clientActive {
-		ErrorMsg("ERROR: Cannot stop an already stopped client, first start it")
+		notify.ErrorMsg("ERROR: Cannot stop an already stopped client, first start it")
 		return nil
 	}
 
 	if err := stopClientProcess(); err != nil {
-		ErrorMsg("Could not stop process gracefully (%v)n", err)
+		notify.ErrorMsg("Could not stop process gracefully (%v)n", err)
 		return err
 	}
 
 	clientActive = false
 	shared.SetSystemProxy(false)
-	InfoMsg("Client stopped")
+	notify.InfoMsg("Client stopped")
 	return nil
 }
 

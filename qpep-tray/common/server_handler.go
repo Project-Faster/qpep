@@ -1,7 +1,8 @@
-package main
+package common
 
 import (
 	"errors"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"log"
 
 	"github.com/Project-Faster/qpep/shared"
@@ -29,12 +30,12 @@ func startServer() error {
 	})
 
 	if err := startServerProcess(); err != nil {
-		ErrorMsg("Could not start server program: %v", err)
+		notify.ErrorMsg("Could not start server program: %v", err)
 		serverActive = false
 		return shared.ErrCommandNotStarted
 	}
 	serverActive = true
-	InfoMsg("Server started")
+	notify.InfoMsg("Server started")
 
 	return nil
 }
@@ -51,7 +52,7 @@ func stopServer() error {
 	}
 
 	serverActive = false
-	InfoMsg("Server stopped")
+	notify.InfoMsg("Server stopped")
 	return nil
 }
 
