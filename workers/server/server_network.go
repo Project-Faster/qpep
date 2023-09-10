@@ -245,6 +245,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				continue
 			}
+			logger.Info("[%d] END Q->T: %v", src.ID(), err)
 			return
 		}
 	}
@@ -306,13 +307,13 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 }
 
 func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string, counter *int) (written int64, err error) {
-	limitSrc := io.LimitReader(src, BUFFER_SIZE)
+	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
 	lastActivity := time.Now()
 
 	for {
 		src.SetReadDeadline(time.Now().Add(10 * time.Second))
 
-		nr, er := limitSrc.Read(buf)
+		nr, er := src.Read(buf)
 
 		if nr > 0 {
 			lastActivity = time.Now()
