@@ -224,7 +224,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case <-time.After(1 * time.Millisecond):
 		}
 
 		//logger.Info("[%d] Q->T: %v: %v", src.ID(), activityFlag, *activityFlag)
@@ -308,16 +308,13 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string, counter *int) (written int64, err error) {
 	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
-	lastActivity := time.Now()
 
 	for {
-		src.SetReadDeadline(time.Now().Add(10 * time.Second))
+		src.SetReadDeadline(time.Now().Add(3 * time.Second))
 
 		nr, er := src.Read(buf)
 
 		if nr > 0 {
-			lastActivity = time.Now()
-
 			if DEBUG_DUMP_PACKETS {
 				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
 				if derr != nil {
@@ -330,10 +327,10 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 				}()
 				logger.Info("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
 			} else {
-				logger.Debug("[%d] rd: %d", *counter, nr)
+				logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
 			}
 
-			dst.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			dst.SetWriteDeadline(time.Now().Add(3 * time.Second))
 
 			nw, ew := dst.Write(buf[0:nr])
 			if nw < 0 || nr < nw {
@@ -355,7 +352,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 				}()
 				logger.Info("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
 			} else {
-				logger.Debug("[%d] wr: %d", *counter, nw)
+				logger.Debug("[%d][%s] wr: %d", *counter, prefix, nw)
 			}
 			*counter = *counter + 1
 
@@ -370,11 +367,6 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 			}
 		} else {
 			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
-		}
-
-		if time.Now().Sub(lastActivity) > 10*time.Second {
-			logger.Error("[%s] ACTIVITY TIMEOUT", prefix)
-			return written, io.ErrNoProgress
 		}
 
 		if er != nil {
