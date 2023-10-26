@@ -12,12 +12,12 @@ import "C"
 // * _numThreads_ Number of threads to use for the packet capturing routines
 // * _gatewayInterfaces_ Only accept divert of packets of this interface id
 func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) int {
-	return DIVERT_OK
+	return DIVERT_ERROR_NOTINITILIZED
 }
 
 // CloseWinDivertEngine method closes a running WinDivert engine
 func CloseWinDivertEngine() int {
-	return DIVERT_OK
+	return DIVERT_ERROR_NOTINITILIZED
 }
 
 // GetConnectionStateData method returns the data for a connection on the specified port:
@@ -27,7 +27,7 @@ func CloseWinDivertEngine() int {
 // * source address
 // * destination address
 func GetConnectionStateData(port int) (int, int, int, string, string) {
-	return int(DIVERT_OK), -1, -1, "", ""
+	return int(DIVERT_ERROR_NOTINITILIZED), -1, -1, "", ""
 }
 
 // EnableDiverterLogging method sets to active or not the verbose logging of the windivert library

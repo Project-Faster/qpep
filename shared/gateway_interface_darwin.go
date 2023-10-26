@@ -99,15 +99,15 @@ func setAllInterfacesToProxy(address string, port int64, active bool) {
 		}
 
 		// http proxy values
-		_, _, _ = RunCommand("networksetup", "-setwebproxy", `"`+iface+`"`, address, strPort)
+		_, _, _ = RunCommand("networksetup", "-setwebproxy", iface, address, strPort)
 
 		// https proxy values
-		_, _, _ = RunCommand("networksetup", "-setsecurewebproxy", `"`+iface+`"`, address, strPort)
+		_, _, _ = RunCommand("networksetup", "-setsecurewebproxy", iface, address, strPort)
 
 		// proxy enabled
-		_, _, _ = RunCommand("networksetup", "-setwebproxystate", `"`+iface+`"`, state)
+		_, _, _ = RunCommand("networksetup", "-setwebproxystate", iface, state)
 
-		_, _, _ = RunCommand("networksetup", "-setsecurewebproxystate", `"`+iface+`"`, state)
+		_, _, _ = RunCommand("networksetup", "-setsecurewebproxystate", iface, state)
 
 	}
 }
@@ -126,18 +126,18 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 
 	for scn.Scan() {
 		iface := strings.TrimSpace(scn.Text())
-		if len(iface) == 0 {
+		if len(iface) == 0 || strings.Contains(iface, "*") {
 			continue
 		}
 
 		// proxy enabled
-		output, _, _ := RunCommand("networksetup", "-getwebproxy", `"`+iface+`"`)
+		output, _, _ := RunCommand("networksetup", "-getwebproxy", iface)
 		if !bytes.Contains(output, enabledSep) {
 			return false, nil
 		}
 		httpProxy := parseProxyUrlFromOutput(output)
 
-		output, _, _ = RunCommand("networksetup", "-getsecurewebproxy", `"`+iface+`"`)
+		output, _, _ = RunCommand("networksetup", "-getsecurewebproxy", iface)
 		if !bytes.Contains(output, enabledSep) {
 			return false, nil
 		}
