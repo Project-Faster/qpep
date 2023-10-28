@@ -1,14 +1,15 @@
 package service
 
 import (
-	"github.com/Project-Faster/qpep/logger"
-	"github.com/Project-Faster/qpep/shared"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 	"unsafe"
+
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/shared"
 
 	"golang.org/x/sys/windows"
 )
@@ -18,6 +19,8 @@ const (
 	// to be able to start and stop services while allowing the actual service to run with elevated privileges
 	// One can use `ConvertFrom-SddlString -Sddl "<sd-descriptor>"` in a powershell shell to see the contents of the descriptor
 	USER_ACCESS_LIST = `D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPCR;;;S-1-1-0)S:(AU;FA;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;WD)`
+
+	PLATFORM_EXE_NAME = "qpep.exe"
 )
 
 // setCurrentWorkingDir method allows to change the working directory of the current executable, because the default

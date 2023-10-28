@@ -1,9 +1,30 @@
 package service
 
 import (
-	"github.com/Project-Faster/qpep/logger"
+	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	"github.com/Project-Faster/qpep/logger"
 )
+
+const (
+	PLATFORM_EXE_NAME = "qpep"
+)
+
+// RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
+// an error if there was any issue with the command executed
+func runCommand(name string, cmd ...string) ([]byte, error, int) {
+	routeCmd := exec.Command(name, cmd...)
+	routeCmd.SysProcAttr = &syscall.SysProcAttr{}
+	result, err := routeCmd.CombinedOutput()
+	code := routeCmd.ProcessState.ExitCode()
+
+	return result, err, code
+}
 
 // setCurrentWorkingDir method is currently a no-op
 func setCurrentWorkingDir(path string) bool {
@@ -26,15 +47,25 @@ func sendProcessInterrupt() {
 
 // waitChildProcessTermination method is currently a no-op
 func waitChildProcessTermination(name string) {
-	return
+	pid := os.Getpid()
+	p, _ := os.FindProcess(pid)
+	for p != nil {
+		p, _ = os.FindProcess(pid)
+		<-time.After(10 * time.Millisecond)
+	}
 }
 
-// setServiceUserPermissions method is currently a no-op
 func setServiceUserPermissions(serviceName string) {
-	return
+	user := os.Getenv("USER")
+	serviceFile := fmt.Sprintf("/Users/%s/Library/LaunchAgents/%s.plist", user, serviceName)
+	out, _, _ := runCommand("sudo", "chown", "root:wheel", serviceFile)
+	fmt.Printf("service ownership: %s\n", string(out))
+	out, _, _ = runCommand("sudo", "chmod", "o-w", serviceFile)
+	fmt.Printf("service permission: %s\n", string(out))
 }
 
 // setInstallDirectoryPermissions method is currently a no-op
 func setInstallDirectoryPermissions(installDir string) {
+	_ = os.Mkdir(filepath.Join(installDir, "log"), 0777)
 	return
 }

@@ -3,13 +3,14 @@ package shared
 import (
 	"bufio"
 	"fmt"
-	"github.com/Project-Faster/qpep/logger"
 	"net/url"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/Project-Faster/qpep/logger"
 )
 
 const (
@@ -43,6 +44,10 @@ func RunCommand(name string, cmd ...string) ([]byte, error, int) {
 	code := routeCmd.ProcessState.ExitCode()
 
 	return result, err, code
+}
+
+func getRouteListeningAddresses() []string {
+	return defaultListeningAddress
 }
 
 // getRouteGatewayInterfaces method extracts routing information using the "netsh" utility and returns specifically:

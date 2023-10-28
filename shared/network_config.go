@@ -1,10 +1,11 @@
 package shared
 
 import (
-	"github.com/jackpal/gateway"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/jackpal/gateway"
 
 	"github.com/Project-Faster/qpep/logger"
 )
@@ -110,7 +111,7 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 
 // GetLanListeningAddresses returns all detected addresses and interfaces that can be used for listening
 func GetLanListeningAddresses() ([]string, []int64) {
-	return detectedGatewayAddresses, detectedGatewayInterfaces
+	return getRouteListeningAddresses(), detectedGatewayInterfaces
 }
 
 func GetScaledTimeout(base int64, duration time.Duration) time.Duration {

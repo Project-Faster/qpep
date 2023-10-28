@@ -1,8 +1,13 @@
 package service
 
 import (
-	"github.com/Project-Faster/qpep/logger"
 	"os"
+
+	"github.com/Project-Faster/qpep/logger"
+)
+
+const (
+	PLATFORM_EXE_NAME = "qpep"
 )
 
 // setCurrentWorkingDir method is currently a no-op

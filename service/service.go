@@ -2,10 +2,6 @@ package service
 
 import (
 	"context"
-	"github.com/Project-Faster/qpep/workers/client"
-	"github.com/Project-Faster/qpep/workers/server"
-	"github.com/davecgh/go-spew/spew"
-	log "github.com/rs/zerolog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,6 +9,11 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Project-Faster/qpep/workers/client"
+	"github.com/Project-Faster/qpep/workers/server"
+	"github.com/davecgh/go-spew/spew"
+	log "github.com/rs/zerolog"
 
 	service "github.com/parvit/kardianos-service"
 
@@ -47,7 +48,7 @@ const (
 	clientService = "qpep-client"
 
 	// defaultLinuxWorkDir default working directory for linux platform
-	defaultLinuxWorkDir = "/var/run/qpep"
+	defaultLinuxWorkDir = "/opt/qpep"
 )
 
 // QPepService struct models the service and its internal state to the operating system
@@ -104,7 +105,7 @@ func ServiceMain() int {
 		DisplayName: strings.ToTitle(serviceName),
 		Description: "QPep - high-latency network accelerator",
 
-		Executable: "qpep.exe",
+		Executable: PLATFORM_EXE_NAME,
 		Option:     make(service.KeyValue),
 
 		WorkingDirectory: workingDir,
@@ -115,6 +116,11 @@ func ServiceMain() int {
 
 	svcConfig.Option["StartType"] = "manual"
 	svcConfig.Option["OnFailure"] = "noaction"
+	if runtime.GOOS == "darwin" {
+		svcConfig.Option["UserService"] = true
+		svcConfig.Option["KeepAlive"] = false
+		svcConfig.Option["LogDirectory"] = "/tmp"
+	}
 
 	path, _ := os.LookupEnv("PATH")
 	svcConfig.EnvVars["PATH"] = workingDir + ";" + path
@@ -154,7 +160,8 @@ func ServiceMain() int {
 
 		err = service.Control(serviceInst, svcCommand)
 		if err != nil {
-			logger.Info("Error %v\nPossible actions: %q\n", err.Error(), service.ControlAction)
+			logger.Error("%v\n", err.Error())
+			logger.Info("Possible actions: %q", service.ControlAction)
 			return WIN32_UNKNOWN_CODE
 		}
 
@@ -170,9 +177,9 @@ func ServiceMain() int {
 	}
 
 	// As-service run
-	logName := "qpep-server.log"
+	logName := "log/qpep-server.log"
 	if flags.Globals.Client {
-		logName = "qpep-client.log"
+		logName = "log/qpep-client.log"
 	}
 	logger.SetupLogger(logName)
 

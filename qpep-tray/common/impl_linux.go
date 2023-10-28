@@ -1,10 +1,10 @@
 package common
 
 import (
-	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"os/exec"
 	"path/filepath"
-	"syscall"
+
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
 
 	"github.com/Project-Faster/qpep/shared"
 )
@@ -19,8 +19,8 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 	exeFile, _ := filepath.Abs(filepath.Join(ExeDir, EXENAME))
 
 	var serviceFlag = "start"
-	var clientFlag = "-client"
-	var verboseFlag = "-verbose"
+	var clientFlag = "--client"
+	var verboseFlag = "--verbose"
 	if !start {
 		serviceFlag = "stop"
 	}
@@ -31,15 +31,15 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 		verboseFlag = ""
 	}
 
-	attr := &syscall.SysProcAttr{}
-
-	cmd := exec.Command(exeFile, serviceFlag, clientFlag, verboseFlag)
+	cmd := exec.Command(exeFile, clientFlag,
+		"--service", serviceFlag,
+		"-Dlistenaddress", shared.QPepConfig.ListenHost,
+		verboseFlag)
 	if cmd == nil {
 		notify.ErrorMsg("Could not create client command")
 		return nil
 	}
 	cmd.Dir, _ = filepath.Abs(ExeDir)
-	cmd.SysProcAttr = attr
 	return cmd
 }
 

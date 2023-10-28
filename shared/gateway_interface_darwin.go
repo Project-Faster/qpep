@@ -10,13 +10,15 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/Project-Faster/qpep/logger"
-	"github.com/jackpal/gateway"
 	"net/url"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/jackpal/gateway"
 )
 
 // notes
@@ -30,6 +32,9 @@ var (
 	enabledSep = []byte(`Enabled: Yes`)
 	serverSep  = []byte(`Server: `)
 	portSep    = []byte(`Port: `)
+	ipSep      = []byte(`IP address: `)
+
+	ipRegexp = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
 )
 
 // RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
@@ -51,6 +56,40 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 
 	logger.Info("Found default ip address: %s\n", defaultIP.String())
 	return []int64{}, []string{defaultIP.String()}, nil
+}
+
+func getRouteListeningAddresses() []string {
+	output, err, code := RunCommand("networksetup", "-listallnetworkservices")
+	if err != nil || code != 0 {
+		logger.Error("Could not set system proxy, error (code: %d): %v", code, err)
+		return []string{}
+	}
+
+	outAddress := []string{}
+
+	scn := bufio.NewScanner(bytes.NewReader(output))
+	scn.Split(bufio.ScanLines)
+
+	for scn.Scan() {
+		iface := strings.TrimSpace(scn.Text())
+		if len(iface) == 0 || strings.Contains(iface, "*") {
+			continue
+		}
+
+		// http proxy values
+		output, _, _ := RunCommand("networksetup", "-getinfo", iface)
+
+		if idx := bytes.Index(output, ipSep); idx != 0 {
+			start := idx + len(ipSep)
+			end := bytes.Index(output[idx:], []byte("\n")) + idx
+
+			if ipRegexp.Match(output[start:end]) {
+				outAddress = append(outAddress, string(output[start:end]))
+			}
+		}
+	}
+
+	return outAddress
 }
 
 func SetSystemProxy(active bool) {

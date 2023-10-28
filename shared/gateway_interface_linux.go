@@ -7,11 +7,12 @@ package shared
  */
 
 import (
-	"github.com/Project-Faster/qpep/logger"
-	"github.com/jackpal/gateway"
 	"net/url"
 	"os/exec"
 	"syscall"
+
+	"github.com/Project-Faster/qpep/logger"
+	"github.com/jackpal/gateway"
 )
 
 // RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
@@ -23,6 +24,10 @@ func RunCommand(name string, cmd ...string) ([]byte, error, int) {
 	code := routeCmd.ProcessState.ExitCode()
 
 	return result, err, code
+}
+
+func getRouteListeningAddresses(gateway string) []string {
+	return defaultListeningAddress
 }
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
