@@ -55,9 +55,11 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 		_ = generateTLSConfig("client")
 
 		quicConfig := quicly.Options{
-			Logger:          logger.GetLogger(),
-			CertificateFile: "client_cert.pem",
-			CertificateKey:  "",
+			Logger:              logger.GetLogger(),
+			CertificateFile:     "client_cert.pem",
+			CertificateKey:      "",
+			ApplicationProtocol: "qpep_quicly",
+			IdleTimeoutMs:       3 * 1000,
 		}
 
 		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
@@ -118,9 +120,11 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 		_ = generateTLSConfig("server")
 
 		quicConfig := quicly.Options{
-			Logger:          logger.GetLogger(),
-			CertificateFile: "server_cert.pem",
-			CertificateKey:  "server_key.pem",
+			Logger:              logger.GetLogger(),
+			CertificateFile:     "server_cert.pem",
+			CertificateKey:      "server_key.pem",
+			ApplicationProtocol: "qpep_quicly",
+			IdleTimeoutMs:       3 * 1000,
 		}
 
 		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
