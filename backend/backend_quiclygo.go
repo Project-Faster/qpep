@@ -36,14 +36,14 @@ type quiclyGoBackend struct {
 	connections map[string]QuicBackendConnection
 }
 
-func (q *quiclyGoBackend) getConnection(destination string) QuicBackendConnection {
+func (q *quiclyGoBackend) getListener(destination string) QuicBackendConnection {
 	q.opLock.Lock()
 	defer q.opLock.Unlock()
 
 	return q.connections[destination]
 }
 
-func (q *quiclyGoBackend) setConnection(destination string, conn QuicBackendConnection) {
+func (q *quiclyGoBackend) setListener(destination string, conn QuicBackendConnection) {
 	q.opLock.Lock()
 	defer q.opLock.Unlock()
 
@@ -60,6 +60,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 			CertificateKey:      "",
 			ApplicationProtocol: "qpep_quicly",
 			IdleTimeoutMs:       3 * 1000,
+			CongestionAlgorithm: "search",
 		}
 
 		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
@@ -70,7 +71,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 
 	remoteAddress := fmt.Sprintf("%s:%d", destination, port)
 
-	conn := q.getConnection(remoteAddress)
+	conn := q.getListener(remoteAddress)
 	if conn != nil {
 		return conn, nil
 	}
@@ -89,7 +90,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 		OnConnectionClose: func(connection types.Session) {
 			logger.Info("CLOSE: %v", connection)
 
-			q.setConnection(remoteAddress, nil)
+			q.setListener(remoteAddress, nil)
 		},
 		OnStreamOpenCallback: func(stream types.Stream) {
 			logger.Info(">> Callback open %d", stream.ID())
@@ -104,13 +105,13 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 		return nil, shared.ErrFailedGatewayConnect
 	}
 
-	sessionAdapter := &connectionAdapter{
+	sessionAdapter := &cliConnectionAdapter{
 		context:    ctx,
 		connection: session,
 	}
 
 	logger.Info("== QUIC Session Dial ==\n")
-	q.setConnection(destination, sessionAdapter)
+	q.setListener(destination, sessionAdapter)
 
 	return sessionAdapter, nil
 }
@@ -125,19 +126,13 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 			CertificateKey:      "server_key.pem",
 			ApplicationProtocol: "qpep_quicly",
 			IdleTimeoutMs:       3 * 1000,
+			CongestionAlgorithm: "search",
 		}
 
 		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
 			return nil, shared.ErrFailed
 		}
 		q.initialized = true
-	}
-
-	remoteAddress := fmt.Sprintf("%s:%d", address, port)
-
-	previousConn := q.getConnection(remoteAddress)
-	if previousConn != nil {
-		return previousConn, nil
 	}
 
 	ipAddr := net.ParseIP(address)
@@ -147,14 +142,12 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 		Port: port,
 	}
 
-	conn := quicly.Listen(&localAddr, types.Callbacks{
+	session := quicly.Listen(&localAddr, types.Callbacks{
 		OnConnectionOpen: func(conn types.Session) {
 			logger.Info("OnStart")
 		},
 		OnConnectionClose: func(conn types.Session) {
 			logger.Info("OnClose")
-
-			q.setConnection(remoteAddress, nil)
 		},
 		OnStreamOpenCallback: func(stream types.Stream) {
 			logger.Info(">> Callback open %d", stream.ID())
@@ -164,15 +157,11 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 		},
 	}, ctx)
 
-	newConn := &connectionAdapter{
-		context:    ctx,
-		connection: conn,
-		backend:    q,
-	}
-
-	q.setConnection(remoteAddress, newConn)
-
-	return newConn, nil
+	return &srvListenerAdapter{
+		context:  ctx,
+		listener: session,
+		backend:  q,
+	}, nil
 }
 
 func (q *quiclyGoBackend) Close() error {
@@ -189,38 +178,139 @@ func (q *quiclyGoBackend) Close() error {
 	return nil
 }
 
-type connectionAdapter struct {
+// -------------------------- //
+type srvListenerAdapter struct {
+	context  context.Context
+	backend  *quiclyGoBackend
+	listener types.ServerSession
+}
+
+func (c *srvListenerAdapter) LocalAddr() net.Addr {
+	if c.listener != nil {
+		return c.listener.Addr()
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *srvListenerAdapter) RemoteAddr() net.Addr {
+	if c.listener != nil {
+		return c.listener.Addr()
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *srvListenerAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
+	if c.listener != nil {
+		conn, err := c.listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		return &srvConnectionAdapter{
+			context:    ctx,
+			backend:    c.backend,
+			connection: conn,
+		}, nil
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *srvListenerAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *srvListenerAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *srvListenerAdapter) Close(code int, message string) error {
+	if c.listener != nil {
+		return c.listener.Close()
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+// -------------------------- //
+
+type srvConnectionAdapter struct {
 	context    context.Context
-	connection types.Session
 	backend    *quiclyGoBackend
+	connection types.ServerConnection
 }
 
-func (c *connectionAdapter) LocalAddr() net.Addr {
+func (c *srvConnectionAdapter) LocalAddr() net.Addr {
 	if c.connection != nil {
 		return c.connection.Addr()
 	}
 	panic(shared.ErrInvalidBackendOperation)
 }
 
-func (c *connectionAdapter) RemoteAddr() net.Addr {
-	if c.connection != nil {
-		return c.connection.Addr()
-	}
+func (c *srvConnectionAdapter) RemoteAddr() net.Addr {
+	return nil
+}
+
+func (c *srvConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
 	panic(shared.ErrInvalidBackendOperation)
 }
 
-func (c *connectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
+func (c *srvConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream, err := c.connection.Accept()
 		return &streamAdapter{
 			Conn: stream,
-			id:   c.connection.ID(),
+			id:   stream.ID(),
 		}, err
 	}
 	panic(shared.ErrInvalidBackendOperation)
 }
 
-func (c *connectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
+func (c *srvConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *srvConnectionAdapter) Close(code int, message string) error {
+	if c.connection != nil {
+		return c.connection.Close()
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+// -------------------------- //
+
+var _ QuicBackendConnection = &srvConnectionAdapter{}
+
+type cliConnectionAdapter struct {
+	context    context.Context
+	connection types.ClientSession
+	backend    *quiclyGoBackend
+}
+
+func (c *cliConnectionAdapter) LocalAddr() net.Addr {
+	return nil
+}
+
+func (c *cliConnectionAdapter) RemoteAddr() net.Addr {
+	if c.connection != nil {
+		return c.connection.Addr()
+	}
+	return nil
+}
+
+func (c *cliConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *cliConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
+	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *cliConnectionAdapter) Close(code int, message string) error {
+	if c.connection != nil {
+		return c.connection.Close()
+	}
+	return nil
+}
+
+func (c *cliConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream := c.connection.OpenStream()
 		if stream == nil {
@@ -235,19 +325,9 @@ func (c *connectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, 
 	panic(shared.ErrInvalidBackendOperation)
 }
 
-func (c *connectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
-	return c, nil
-}
+var _ QuicBackendConnection = &cliConnectionAdapter{}
 
-func (c *connectionAdapter) Close(code int, message string) error {
-	if c.connection != nil {
-		return c.connection.Close()
-	}
-	panic(shared.ErrInvalidBackendOperation)
-}
-
-var _ QuicBackendConnection = &connectionAdapter{}
-
+// -------------------------- //
 type streamAdapter struct {
 	net.Conn
 
