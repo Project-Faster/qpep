@@ -56,6 +56,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 
 		quicConfig := quicly.Options{
 			Logger:              logger.GetLogger(),
+			IsClient:            true,
 			CertificateFile:     "client_cert.pem",
 			CertificateKey:      "",
 			ApplicationProtocol: "qpep_quicly",
@@ -122,6 +123,7 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) 
 
 		quicConfig := quicly.Options{
 			Logger:              logger.GetLogger(),
+			IsClient:            false,
 			CertificateFile:     "server_cert.pem",
 			CertificateKey:      "server_key.pem",
 			ApplicationProtocol: "qpep_quicly",
