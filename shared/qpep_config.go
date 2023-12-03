@@ -37,7 +37,9 @@ const (
 acks: 10
 ackdelay: 25
 backend: quic-go
-congestion: 4
+ccalgorithm: reno
+certificate: server_cert.pem
+certificate_key:
 decimate: 4
 decimatetime: 100
 maxretries: 10
@@ -88,6 +90,12 @@ type QPepConfigType struct {
 	Verbose bool `yaml:"verbose"`
 	// WinDivertThreads (yaml:threads) Indicates the number of threads that the diverter should use to handle packages
 	WinDivertThreads int `yaml:"threads"`
+	// Certificate (yaml:certificate) Points to the PEM format certificate to use for connections
+	Certificate string `yaml:"certificate"`
+	// CertKey (yaml:certificate_key) Points to the PEM format private key to use for connections (only server)
+	CertKey string `yaml:"certificate_key"`
+	// CCAlgorithm (yaml:ccalgorithm) String passed to the quic backend to select the congestion algorithm to use
+	CCAlgorithm string `yaml:"ccalgorithm"`
 
 	// Limits (yaml:limits) Declares the incoming and outgoing speed limits for clients and destination addresses
 	Limits LimitsDefinition `yaml:"limits"`
@@ -107,9 +115,6 @@ type QPepConfigType struct {
 	DelayDecimate int `yaml:"decimatetime"`
 	// VarAckDelay unused currently
 	VarAckDelay int `yaml:"varackdelay"`
-
-	// Congestion unused but probably will have an implementation soon
-	Congestion int `yaml:"congestion"`
 
 	// -- Unused values -- //
 }

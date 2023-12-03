@@ -55,7 +55,9 @@ func listenQuicSession(address string, port int) {
 	}
 
 	var err error
-	quicListener, err = quicProvider.Listen(context.Background(), address, port)
+	quicListener, err = quicProvider.Listen(context.Background(), address, port,
+		shared.QPepConfig.Certificate, shared.QPepConfig.CertKey,
+		shared.QPepConfig.CCAlgorithm)
 	if err != nil {
 		logger.Error("Unrecoverable error while listening for QUIC connections: %s\n", err)
 		return

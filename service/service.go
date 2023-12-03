@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/parvit/qpep/version"
 	"github.com/parvit/qpep/workers/client"
 	"github.com/parvit/qpep/workers/server"
 	log "github.com/rs/zerolog"
@@ -20,7 +21,6 @@ import (
 	"github.com/parvit/qpep/flags"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
 	"github.com/parvit/qpep/windivert"
 )
 
@@ -72,6 +72,9 @@ func ServiceMain() int {
 		log.SetGlobalLevel(log.DebugLevel)
 	}
 
+	logger.Info("=== QPep version %s ===", version.Version())
+	logger.Info(spew.Sdump(flags.Globals))
+
 	execPath, err := os.Executable()
 	if err != nil {
 		logger.Error("Could not find executable: %s", err)
@@ -91,9 +94,6 @@ func ServiceMain() int {
 		context:    ctx,
 		cancelFunc: cancel,
 	}
-
-	logger.Info("=== QPep version %s ===", version.Version())
-	logger.Info(spew.Sdump(flags.Globals))
 
 	serviceName := serverService
 	if flags.Globals.Client {

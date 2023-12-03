@@ -564,7 +564,8 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 	}
 
 	logger.Info("== Dialing QUIC Session: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
-	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
+	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort,
+		shared.QPepConfig.Certificate, shared.QPepConfig.CCAlgorithm)
 
 	if err != nil {
 		logger.Error("Unable to Dial QUIC Session: %v\n", err)
@@ -582,7 +583,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 	lastActivity := time.Now()
 
 	for {
-		src.SetReadDeadline(time.Now().Add(3 * time.Second))
+		src.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
 
 		nr, er := src.Read(buf)
 
@@ -604,7 +605,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 				logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
 			}
 
-			dst.SetWriteDeadline(time.Now().Add(3 * time.Second))
+			dst.SetWriteDeadline(time.Now().Add(10 * time.Millisecond))
 
 			nw, ew := dst.Write(buf[0:nr])
 			if nw < 0 || nr < nw {

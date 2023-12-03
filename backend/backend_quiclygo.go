@@ -10,7 +10,10 @@ import (
 	"github.com/Project-Faster/quicly-go/quiclylib/types"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	log "github.com/rs/zerolog"
 	"net"
+	"os"
+	"strings"
 	"sync"
 )
 
@@ -19,7 +22,9 @@ func init() {
 }
 
 const (
-	QUICLYGO_BACKEND = "quicly-go"
+	QUICLYGO_BACKEND     = "quicly-go"
+	QUICLYGO_ALPN        = "qpep_quicly"
+	QUICLYGO_DEFAULT_CCA = "reno"
 )
 
 var (
@@ -50,18 +55,25 @@ func (q *quiclyGoBackend) setListener(destination string, conn QuicBackendConnec
 	q.connections[destination] = conn
 }
 
-func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int) (QuicBackendConnection, error) {
+func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int, clientCertPath string,
+	ccAlgorithm string) (QuicBackendConnection, error) {
+
 	if !q.initialized {
-		_ = generateTLSConfig("client")
+		lg := log.New(os.Stdout).With().Logger()
+
+		ccAlgorithm = strings.TrimSpace(ccAlgorithm)
+		if len(ccAlgorithm) == 0 {
+			ccAlgorithm = QUICLYGO_DEFAULT_CCA
+		}
 
 		quicConfig := quicly.Options{
-			Logger:              logger.GetLogger(),
+			Logger:              &lg,
 			IsClient:            true,
-			CertificateFile:     "client_cert.pem",
+			CertificateFile:     clientCertPath,
 			CertificateKey:      "",
-			ApplicationProtocol: "qpep_quicly",
+			ApplicationProtocol: QUICLYGO_ALPN,
 			IdleTimeoutMs:       3 * 1000,
-			CongestionAlgorithm: "search",
+			CongestionAlgorithm: ccAlgorithm,
 		}
 
 		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
@@ -117,18 +129,29 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 	return sessionAdapter, nil
 }
 
-func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int) (QuicBackendConnection, error) {
+func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int,
+	serverCertPath string, serverKeyPath string, ccAlgorithm string) (QuicBackendConnection, error) {
+
 	if !q.initialized {
-		_ = generateTLSConfig("server")
+		lg := log.New(os.Stdout).With().Logger()
+
+		ccAlgorithm = strings.TrimSpace(ccAlgorithm)
+		if len(ccAlgorithm) == 0 {
+			ccAlgorithm = QUICLYGO_DEFAULT_CCA
+		}
+
+		if _, err := os.Stat(serverCertPath); err != nil {
+			generateTLSConfig(serverCertPath, serverKeyPath)
+		}
 
 		quicConfig := quicly.Options{
-			Logger:              logger.GetLogger(),
+			Logger:              &lg,
 			IsClient:            false,
-			CertificateFile:     "server_cert.pem",
-			CertificateKey:      "server_key.pem",
-			ApplicationProtocol: "qpep_quicly",
+			CertificateFile:     serverCertPath,
+			CertificateKey:      serverKeyPath,
+			ApplicationProtocol: QUICLYGO_ALPN,
 			IdleTimeoutMs:       3 * 1000,
-			CongestionAlgorithm: "search",
+			CongestionAlgorithm: ccAlgorithm,
 		}
 
 		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
