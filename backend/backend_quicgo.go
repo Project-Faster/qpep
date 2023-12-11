@@ -45,7 +45,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int, 
 	var err error
 	var session quic.Connection
 
-	tlsConf := loadTLSConfig(clientCertPath, "")
+	tlsConf := loadTLSConfig(clientCertPath, "server_key.pem")
 	gatewayPath := fmt.Sprintf("%s:%d", destination, port)
 
 	session, err = quic.DialAddr(gatewayPath, tlsConf, quicConfig)
@@ -296,8 +296,9 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 	}
 
 	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		NextProtos:   []string{QUICGO_ALPN},
+		Certificates:       []tls.Certificate{cert},
+		NextProtos:         []string{QUICGO_ALPN},
+		InsecureSkipVerify: true,
 	}
 }
 

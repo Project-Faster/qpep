@@ -59,7 +59,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 	ccAlgorithm string) (QuicBackendConnection, error) {
 
 	if !q.initialized {
-		lg := log.New(os.Stdout).With().Logger()
+		lg := logger.GetLogger()
 
 		ccAlgorithm = strings.TrimSpace(ccAlgorithm)
 		if len(ccAlgorithm) == 0 {
@@ -67,12 +67,12 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 		}
 
 		quicConfig := quicly.Options{
-			Logger:              &lg,
+			Logger:              lg,
 			IsClient:            true,
 			CertificateFile:     clientCertPath,
 			CertificateKey:      "",
 			ApplicationProtocol: QUICLYGO_ALPN,
-			IdleTimeoutMs:       3 * 1000,
+			IdleTimeoutMs:       30 * 1000,
 			CongestionAlgorithm: ccAlgorithm,
 		}
 
@@ -150,7 +150,7 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int,
 			CertificateFile:     serverCertPath,
 			CertificateKey:      serverKeyPath,
 			ApplicationProtocol: QUICLYGO_ALPN,
-			IdleTimeoutMs:       3 * 1000,
+			IdleTimeoutMs:       30 * 1000,
 			CongestionAlgorithm: ccAlgorithm,
 		}
 
@@ -280,6 +280,9 @@ func (c *srvConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBacken
 func (c *srvConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream, err := c.connection.Accept()
+		if stream == nil {
+			return nil, err
+		}
 		return &streamAdapter{
 			Conn: stream,
 			id:   stream.ID(),

@@ -233,7 +233,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		i++
 		//if speedLimit == 0 {
-		_, err = copyBuffer(dst, src, tempBuffer, pktPrefix, &pktcounter)
+		_, err = copyBuffer(dst, src, tempBuffer, 500*time.Millisecond, 10*time.Millisecond, pktPrefix, &pktcounter)
 		pktcounter++
 		//} else {
 		//	var now = time.Now()
@@ -288,7 +288,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		i++
 		//if speedLimit == 0 {
-		_, err = copyBuffer(dst, src, tempBuffer, pktPrefix, &pktcounter)
+		_, err = copyBuffer(dst, src, tempBuffer, 10*time.Millisecond, 500*time.Millisecond, pktPrefix, &pktcounter)
 		pktcounter++
 		//} else {
 		//	var now = time.Now()
@@ -308,15 +308,20 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	}
 }
 
-func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string, counter *int) (written int64, err error) {
+func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst time.Duration, timeoutSrc time.Duration,
+	prefix string, counter *int) (written int64, err error) {
+
 	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
+	lastActivity := time.Now()
 
 	for {
-		src.SetReadDeadline(time.Now().Add(3 * time.Second))
+		src.SetReadDeadline(time.Now().Add(timeoutDst))
 
 		nr, er := src.Read(buf)
 
 		if nr > 0 {
+			lastActivity = time.Now()
+
 			if DEBUG_DUMP_PACKETS {
 				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
 				if derr != nil {
@@ -332,7 +337,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 				logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
 			}
 
-			dst.SetWriteDeadline(time.Now().Add(3 * time.Second))
+			dst.SetWriteDeadline(time.Now().Add(timeoutSrc))
 
 			nw, ew := dst.Write(buf[0:nr])
 			if nw < 0 || nr < nw {
@@ -341,6 +346,7 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 					ew = io.ErrUnexpectedEOF
 				}
 			}
+			lastActivity = time.Now()
 
 			if DEBUG_DUMP_PACKETS {
 				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
@@ -369,6 +375,11 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, prefix string,
 			}
 		} else {
 			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
+		}
+
+		if time.Now().Sub(lastActivity) > 3*time.Second {
+			logger.Error("[%s] ACTIVITY TIMEOUT", prefix)
+			return written, io.ErrNoProgress
 		}
 
 		if er != nil {
