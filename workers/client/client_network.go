@@ -442,6 +442,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 	buf := make([]byte, BUFFER_SIZE)
 
 	pktPrefix := fmt.Sprintf("%v.client.tq", dst.ID())
+	lastActivity := time.Now()
 
 	for {
 		select {
@@ -450,12 +451,19 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		case <-time.After(1 * time.Millisecond):
 		}
 
-		_, err := copyBuffer(dst, src, buf, 10*time.Millisecond, 500*time.Millisecond, pktPrefix, &pktcounter)
+		wr, err := copyBuffer(dst, src, buf, 10*time.Millisecond, 500*time.Millisecond, pktPrefix, &pktcounter)
+
+		if wr > 0 {
+			lastActivity = time.Now()
+		}
 
 		//logger.Info("[%d][%v] T->Q: %v, %v", dst.ID(), time.Now().Sub(lastActivity), wr, err)
 
 		if err != nil {
-			if err2, ok := err.(net.Error); ok && err2.Timeout() {
+			if time.Now().Sub(lastActivity) > 3*time.Second {
+				logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+				return
+			} else if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
 			logger.Info("[%d] END T->Q: %v", dst.ID(), err)
@@ -483,6 +491,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 	pktCounter := 0
 
 	buf := make([]byte, BUFFER_SIZE)
+	lastActivity := time.Now()
 
 	for {
 		select {
@@ -491,12 +500,18 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		case <-time.After(1 * time.Millisecond):
 		}
 
-		_, err := copyBuffer(dst, src, buf, 500*time.Millisecond, 10*time.Millisecond, pktPrefix, &pktCounter)
+		wr, err := copyBuffer(dst, src, buf, 500*time.Millisecond, 10*time.Millisecond, pktPrefix, &pktCounter)
 
+		if wr > 0 {
+			lastActivity = time.Now()
+		}
 		//logger.Info("[%d][%v] Q->T: %v, %v", src.ID(), time.Now().Sub(lastActivity), wr, err)
 
 		if err != nil {
-			if err2, ok := err.(net.Error); ok && err2.Timeout() {
+			if time.Now().Sub(lastActivity) > 3*time.Second {
+				logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+				return
+			} else if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
 			// closed tcp endpoint means its useless to go on with quic side
@@ -582,7 +597,6 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 	prefix string, counter *int) (written int64, err error) {
 
 	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
-	lastActivity := time.Now()
 
 	for {
 		src.SetReadDeadline(time.Now().Add(timeoutDst))
@@ -590,8 +604,6 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 		nr, er := src.Read(buf)
 
 		if nr > 0 {
-			lastActivity = time.Now()
-
 			if DEBUG_DUMP_PACKETS {
 				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
 				if derr != nil {
@@ -616,7 +628,6 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 					ew = io.ErrUnexpectedEOF
 				}
 			}
-			lastActivity = time.Now()
 
 			if DEBUG_DUMP_PACKETS {
 				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
@@ -645,11 +656,6 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 			}
 		} else {
 			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
-		}
-
-		if time.Now().Sub(lastActivity) > 3*time.Second {
-			logger.Error("[%s] ACTIVITY TIMEOUT", prefix)
-			return written, io.ErrNoProgress
 		}
 
 		if er != nil {

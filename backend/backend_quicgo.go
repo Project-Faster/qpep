@@ -45,7 +45,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int, 
 	var err error
 	var session quic.Connection
 
-	tlsConf := loadTLSConfig(clientCertPath, "server_key.pem")
+	tlsConf := loadTLSConfig(clientCertPath, "")
 	gatewayPath := fmt.Sprintf("%s:%d", destination, port)
 
 	session, err = quic.DialAddr(gatewayPath, tlsConf, quicConfig)
