@@ -459,11 +459,12 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 
 		//logger.Info("[%d][%v] T->Q: %v, %v", dst.ID(), time.Now().Sub(lastActivity), wr, err)
 
+		if time.Now().Sub(lastActivity) > 3*time.Second {
+			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+			return
+		}
 		if err != nil {
-			if time.Now().Sub(lastActivity) > 3*time.Second {
-				logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
-				return
-			} else if err2, ok := err.(net.Error); ok && err2.Timeout() {
+			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
 			logger.Info("[%d] END T->Q: %v", dst.ID(), err)
@@ -505,13 +506,15 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		if wr > 0 {
 			lastActivity = time.Now()
 		}
+
 		//logger.Info("[%d][%v] Q->T: %v, %v", src.ID(), time.Now().Sub(lastActivity), wr, err)
 
+		if time.Now().Sub(lastActivity) > 3*time.Second {
+			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+			return
+		}
 		if err != nil {
-			if time.Now().Sub(lastActivity) > 3*time.Second {
-				logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
-				return
-			} else if err2, ok := err.(net.Error); ok && err2.Timeout() {
+			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
 			// closed tcp endpoint means its useless to go on with quic side
@@ -598,71 +601,66 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 
 	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
 
-	for {
-		src.SetReadDeadline(time.Now().Add(timeoutDst))
+	src.SetReadDeadline(time.Now().Add(timeoutDst))
 
-		nr, er := src.Read(buf)
+	nr, er := src.Read(buf)
 
-		if nr > 0 {
-			if DEBUG_DUMP_PACKETS {
-				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
-				if derr != nil {
-					panic(derr)
-				}
-				dump.Write(buf[0:nr])
-				go func() {
-					dump.Sync()
-					dump.Close()
-				}()
-				logger.Info("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
-			} else {
-				logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
+	if nr > 0 {
+		if DEBUG_DUMP_PACKETS {
+			dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
+			if derr != nil {
+				panic(derr)
 			}
-
-			dst.SetWriteDeadline(time.Now().Add(timeoutSrc))
-
-			nw, ew := dst.Write(buf[0:nr])
-			if nw < 0 || nr < nw {
-				nw = 0
-				if ew == nil {
-					ew = io.ErrUnexpectedEOF
-				}
-			}
-
-			if DEBUG_DUMP_PACKETS {
-				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
-				if derr != nil {
-					panic(derr)
-				}
-				dump.Write(buf[0:nw])
-				go func() {
-					dump.Sync()
-					dump.Close()
-				}()
-				logger.Info("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
-			} else {
-				logger.Debug("[%d][%s] wr: %d", *counter, prefix, nw)
-			}
-			*counter = *counter + 1
-
-			written += int64(nw)
-			if ew != nil {
-				err = ew
-				break
-			}
-			if nr != nw {
-				err = io.ErrShortWrite
-				break
-			}
+			dump.Write(buf[0:nr])
+			go func() {
+				dump.Sync()
+				dump.Close()
+			}()
+			logger.Info("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
 		} else {
-			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
+			logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
 		}
 
-		if er != nil {
-			if er != io.EOF {
-				err = er
+		dst.SetWriteDeadline(time.Now().Add(timeoutSrc))
+
+		nw, ew := dst.Write(buf[0:nr])
+		if nw < 0 || nr < nw {
+			nw = 0
+			if ew == nil {
+				ew = io.ErrUnexpectedEOF
 			}
-			break
+		}
+
+		if DEBUG_DUMP_PACKETS {
+			dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
+			if derr != nil {
+				panic(derr)
+			}
+			dump.Write(buf[0:nw])
+			go func() {
+				dump.Sync()
+				dump.Close()
+			}()
+			logger.Info("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
+		} else {
+			logger.Debug("[%d][%s] wr: %d", *counter, prefix, nw)
+		}
+		*counter = *counter + 1
+
+		written += int64(nw)
+		if ew != nil {
+			err = ew
+		}
+		if nr != nw {
+			err = io.ErrShortWrite
+		}
+	} else {
+		logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
+	}
+
+	if er != nil {
+		if er != io.EOF {
+			err = er
 		}
 	}
 	return written, err
