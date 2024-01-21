@@ -246,12 +246,13 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		if wr > 0 {
 			lastActivity = time.Now()
 		}
+		if time.Now().Sub(lastActivity) > 3*time.Second {
+			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+			return
+		}
 
 		if err != nil {
-			if time.Now().Sub(lastActivity) > 3*time.Second {
-				logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
-				return
-			} else if err2, ok := err.(net.Error); ok && err2.Timeout() {
+			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
 			logger.Info("[%d] END Q->T: %v", src.ID(), err)
@@ -309,12 +310,13 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		if wr > 0 {
 			lastActivity = time.Now()
 		}
+		if time.Now().Sub(lastActivity) > 3*time.Second {
+			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+			return
+		}
 
 		if err != nil {
-			if time.Now().Sub(lastActivity) > 3*time.Second {
-				logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
-				return
-			} else if err2, ok := err.(net.Error); ok && err2.Timeout() {
+			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
 			logger.Info("[%d] END T->Q: %v", dst.ID(), err)

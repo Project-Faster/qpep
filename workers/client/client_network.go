@@ -154,8 +154,8 @@ func handleTCPConn(tcpConn net.Conn) {
 	streamWait.Wait()
 	logger.Info("== Stream %d WaitEnd ==", quicStream.ID())
 
-	quicStream.Close()
-	tcpConn.Close()
+	logger.Error("== stream err: %v ==", quicStream.Close())
+	logger.Error("== tcp err: %v ==", tcpConn.Close())
 
 	logger.Info("== Stream %d End ==", quicStream.ID())
 
@@ -451,7 +451,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		case <-time.After(1 * time.Millisecond):
 		}
 
-		wr, err := copyBuffer(dst, src, buf, 10*time.Millisecond, 500*time.Millisecond, pktPrefix, &pktcounter)
+		wr, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
 
 		if wr > 0 {
 			lastActivity = time.Now()
@@ -501,7 +501,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		case <-time.After(1 * time.Millisecond):
 		}
 
-		wr, err := copyBuffer(dst, src, buf, 500*time.Millisecond, 10*time.Millisecond, pktPrefix, &pktCounter)
+		wr, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktCounter)
 
 		if wr > 0 {
 			lastActivity = time.Now()
