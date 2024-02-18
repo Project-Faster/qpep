@@ -151,7 +151,7 @@ func serviceMain() {
 	if flags.Globals.Client {
 		logName = "qpep-client.log"
 	}
-	SetupLogger(logName)
+	SetupLogger(logName, "info")
 
 	err = serviceInst.Run()
 	if err != nil {

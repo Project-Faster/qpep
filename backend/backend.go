@@ -29,6 +29,8 @@ type QuicBackendConnection interface {
 	AcceptStream(context.Context) (QuicBackendStream, error)
 	AcceptConnection(context.Context) (QuicBackendConnection, error)
 	Close(code int, message string) error
+
+	IsClosed() bool
 }
 
 type QuicBackendStream interface {

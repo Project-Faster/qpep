@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	logger.SetupLogger("qpep-service.log")
+	logger.SetupLogger("qpep-service.log", "info")
 }
 
 func main() {
@@ -21,6 +21,7 @@ func main() {
 			logger.Error("PANIC: %v", err)
 			debug.PrintStack()
 		}
+		logger.CloseLogger()
 	}()
 
 	tsk := shared.StartRegion("ServiceMain")
@@ -28,7 +29,6 @@ func main() {
 	tsk.End()
 
 	logger.Info("=== EXIT - code(%d) ===", retcode)
-	logger.CloseLogger()
 
 	//trace.Stop()
 	//f.Sync()

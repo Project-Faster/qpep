@@ -4,13 +4,11 @@ package backend
 
 import (
 	"context"
-	"fmt"
 	"github.com/Project-Faster/quicly-go"
 	"github.com/Project-Faster/quicly-go/quiclylib/errors"
 	"github.com/Project-Faster/quicly-go/quiclylib/types"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-	log "github.com/rs/zerolog"
 	"net"
 	"os"
 	"strings"
@@ -42,50 +40,64 @@ type quiclyGoBackend struct {
 }
 
 func (q *quiclyGoBackend) getListener(destination string) QuicBackendConnection {
-	q.opLock.Lock()
-	defer q.opLock.Unlock()
-
 	return q.connections[destination]
 }
 
 func (q *quiclyGoBackend) setListener(destination string, conn QuicBackendConnection) {
+	q.connections[destination] = conn
+}
+
+func (q *quiclyGoBackend) init(isClient bool, certPath, certKeyPath string, ccAlgorithm string) error {
 	q.opLock.Lock()
 	defer q.opLock.Unlock()
 
-	q.connections[destination] = conn
+	if q.initialized {
+		return nil
+	}
+	lg := logger.GetLogger()
+
+	ccAlgorithm = strings.TrimSpace(ccAlgorithm)
+	if len(ccAlgorithm) == 0 {
+		ccAlgorithm = QUICLYGO_DEFAULT_CCA
+	}
+
+	if len(certKeyPath) > 0 {
+		if _, err := os.Stat(certPath); err != nil {
+			generateTLSConfig(certPath, certKeyPath)
+		}
+	}
+
+	quicConfig := quicly.Options{
+		Logger:              lg,
+		IsClient:            isClient,
+		CertificateFile:     certPath,
+		CertificateKey:      certKeyPath,
+		ApplicationProtocol: QUICLYGO_ALPN,
+		IdleTimeoutMs:       30 * 1000,
+		CongestionAlgorithm: ccAlgorithm,
+	}
+
+	if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
+		return shared.ErrFailed
+	}
+	q.initialized = true
+
+	return nil
 }
 
 func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int, clientCertPath string,
 	ccAlgorithm string) (QuicBackendConnection, error) {
 
-	if !q.initialized {
-		lg := logger.GetLogger()
-
-		ccAlgorithm = strings.TrimSpace(ccAlgorithm)
-		if len(ccAlgorithm) == 0 {
-			ccAlgorithm = QUICLYGO_DEFAULT_CCA
-		}
-
-		quicConfig := quicly.Options{
-			Logger:              lg,
-			IsClient:            true,
-			CertificateFile:     clientCertPath,
-			CertificateKey:      "",
-			ApplicationProtocol: QUICLYGO_ALPN,
-			IdleTimeoutMs:       30 * 1000,
-			CongestionAlgorithm: ccAlgorithm,
-		}
-
-		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
-			return nil, shared.ErrFailed
-		}
-		q.initialized = true
+	if err := q.init(true, clientCertPath, "", ccAlgorithm); err != nil {
+		return nil, err
 	}
 
-	remoteAddress := fmt.Sprintf("%s:%d", destination, port)
+	remoteAddress := destination
 
+	q.opLock.Lock()
 	conn := q.getListener(remoteAddress)
 	if conn != nil {
+		q.opLock.Unlock()
 		return conn, nil
 	}
 
@@ -115,6 +127,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 
 	if session == nil {
 		logger.Error("Unable to Dial QUIC Session\n")
+		q.opLock.Unlock()
 		return nil, shared.ErrFailedGatewayConnect
 	}
 
@@ -125,6 +138,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 
 	logger.Info("== QUIC Session Dial ==\n")
 	q.setListener(destination, sessionAdapter)
+	q.opLock.Unlock()
 
 	return sessionAdapter, nil
 }
@@ -132,32 +146,8 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int,
 	serverCertPath string, serverKeyPath string, ccAlgorithm string) (QuicBackendConnection, error) {
 
-	if !q.initialized {
-		lg := log.New(os.Stdout).With().Logger()
-
-		ccAlgorithm = strings.TrimSpace(ccAlgorithm)
-		if len(ccAlgorithm) == 0 {
-			ccAlgorithm = QUICLYGO_DEFAULT_CCA
-		}
-
-		if _, err := os.Stat(serverCertPath); err != nil {
-			generateTLSConfig(serverCertPath, serverKeyPath)
-		}
-
-		quicConfig := quicly.Options{
-			Logger:              &lg,
-			IsClient:            false,
-			CertificateFile:     serverCertPath,
-			CertificateKey:      serverKeyPath,
-			ApplicationProtocol: QUICLYGO_ALPN,
-			IdleTimeoutMs:       30 * 1000,
-			CongestionAlgorithm: ccAlgorithm,
-		}
-
-		if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
-			return nil, shared.ErrFailed
-		}
-		q.initialized = true
+	if err := q.init(false, serverCertPath, serverKeyPath, ccAlgorithm); err != nil {
+		return nil, err
 	}
 
 	ipAddr := net.ParseIP(address)
@@ -182,11 +172,12 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int,
 		},
 	}, ctx)
 
-	return &srvListenerAdapter{
+	conn := &srvListenerAdapter{
 		context:  ctx,
 		listener: session,
 		backend:  q,
-	}, nil
+	}
+	return conn, nil
 }
 
 func (q *quiclyGoBackend) Close() error {
@@ -194,6 +185,8 @@ func (q *quiclyGoBackend) Close() error {
 		logger.Error("Backend was not initialized")
 		return shared.ErrFailed
 	}
+	q.opLock.Lock()
+	defer q.opLock.Unlock()
 	for _, conn := range q.connections {
 		_ = conn.Close(0, "")
 	}
@@ -214,14 +207,14 @@ func (c *srvListenerAdapter) LocalAddr() net.Addr {
 	if c.listener != nil {
 		return c.listener.Addr()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil
 }
 
 func (c *srvListenerAdapter) RemoteAddr() net.Addr {
 	if c.listener != nil {
 		return c.listener.Addr()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil
 }
 
 func (c *srvListenerAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
@@ -236,7 +229,7 @@ func (c *srvListenerAdapter) AcceptConnection(ctx context.Context) (QuicBackendC
 			connection: conn,
 		}, nil
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil, shared.ErrInvalidBackendOperation
 }
 
 func (c *srvListenerAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
@@ -248,10 +241,17 @@ func (c *srvListenerAdapter) OpenStream(ctx context.Context) (QuicBackendStream,
 }
 
 func (c *srvListenerAdapter) Close(code int, message string) error {
+	defer func() {
+		c.listener = nil
+	}()
 	if c.listener != nil {
 		return c.listener.Close()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil
+}
+
+func (c *srvListenerAdapter) IsClosed() bool {
+	return c.listener != nil
 }
 
 // -------------------------- //
@@ -266,7 +266,7 @@ func (c *srvConnectionAdapter) LocalAddr() net.Addr {
 	if c.connection != nil {
 		return c.connection.Addr()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil
 }
 
 func (c *srvConnectionAdapter) RemoteAddr() net.Addr {
@@ -288,7 +288,7 @@ func (c *srvConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStr
 			id:   stream.ID(),
 		}, err
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil, shared.ErrInvalidBackendOperation
 }
 
 func (c *srvConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
@@ -297,9 +297,16 @@ func (c *srvConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 
 func (c *srvConnectionAdapter) Close(code int, message string) error {
 	if c.connection != nil {
+		defer func() {
+			c.connection = nil
+		}()
 		return c.connection.Close()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil
+}
+
+func (c *srvConnectionAdapter) IsClosed() bool {
+	return c.connection != nil
 }
 
 // -------------------------- //
@@ -333,6 +340,9 @@ func (c *cliConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBacken
 
 func (c *cliConnectionAdapter) Close(code int, message string) error {
 	if c.connection != nil {
+		defer func() {
+			c.connection = nil
+		}()
 		return c.connection.Close()
 	}
 	return nil
@@ -350,7 +360,11 @@ func (c *cliConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 			id:   stream.ID(),
 		}, nil
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil, shared.ErrFailed
+}
+
+func (c *cliConnectionAdapter) IsClosed() bool {
+	return c.connection != nil
 }
 
 var _ QuicBackendConnection = &cliConnectionAdapter{}

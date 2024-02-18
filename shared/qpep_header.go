@@ -10,6 +10,7 @@ import (
 	"github.com/parvit/qpep/logger"
 	"io"
 	"net"
+	"time"
 )
 
 // QPEP_PREAMBLE_LENGTH Length in bytes of the qpep header preamble that indicates the ip versions of the addresses
@@ -57,6 +58,10 @@ func (header QPepHeader) ToBytes() []byte {
 	byteOutput = append(byteOutput, flagsToBytes(header.Flags)...)
 
 	return byteOutput
+}
+
+type readTimeoutReader interface {
+	SetReadDeadline(t time.Time) error
 }
 
 // ipToBytes converts the indicated ip address to the bytes slice of the
@@ -108,7 +113,11 @@ func getNetworkTypeFromAddr(addr *net.TCPAddr) byte {
 // * Nil header and ErrInvalidHeaderAddressType, if preamble values are invalid
 // * Nil header and ErrInvalidHeaderDataLength, if the data length is not suitable for extracting the indicated header
 func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
+	var timeoutReader readTimeoutReader = stream.(readTimeoutReader)
+
 	preamble := make([]byte, QPEP_PREAMBLE_LENGTH)
+
+	timeoutReader.SetReadDeadline(time.Now().Add(1 * time.Second))
 	ipBytesNum, err := stream.Read(preamble)
 	if ipBytesNum != 2 || err != nil {
 		return nil, ErrInvalidHeader
@@ -139,6 +148,8 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 	flagsEnd := destPortEnd + 2
 
 	byteInput := make([]byte, flagsEnd)
+
+	timeoutReader.SetReadDeadline(time.Now().Add(1 * time.Second))
 	readDataBytes, err := stream.Read(byteInput)
 	logger.Info("HEADER: %v - (%d/%d/%d/%d/%d/%d) - %v", err,
 		sourceIpEnd, sourcePortEnd, destIpEnd, destPortEnd, flagsEnd, readDataBytes,

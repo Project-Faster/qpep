@@ -164,6 +164,10 @@ func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBacken
 }
 
 func (c *qgoConnectionAdapter) Close(code int, message string) error {
+	defer func() {
+		c.connection = nil
+		c.listener = nil
+	}()
 	if c.connection != nil {
 		return c.connection.CloseWithError(quic.ApplicationErrorCode(code), message)
 	}
@@ -171,6 +175,10 @@ func (c *qgoConnectionAdapter) Close(code int, message string) error {
 		return c.listener.Close()
 	}
 	panic(shared.ErrInvalidBackendOperation)
+}
+
+func (c *qgoConnectionAdapter) IsClosed() bool {
+	return c.connection != nil || c.listener != nil
 }
 
 var _ QuicBackendConnection = &qgoConnectionAdapter{}

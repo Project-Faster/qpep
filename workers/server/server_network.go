@@ -7,6 +7,7 @@ import (
 	"github.com/parvit/qpep/backend"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/workers"
 	"hash/crc64"
 	"io"
 	"net"
@@ -75,6 +76,13 @@ func listenQuicSession(address string, port int) {
 	}
 }
 
+func setLinger(c net.Conn) {
+	if conn, ok := c.(*net.TCPConn); ok {
+		err1 := conn.SetLinger(1)
+		logger.OnError(err1, "error on setLinger")
+	}
+}
+
 // listenQuicConn handles opened quic sessions and accepts connections in goroutines to actually serve them
 func listenQuicConn(quicSession backend.QuicBackendConnection) {
 	defer func() {
@@ -91,26 +99,32 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 			}
 			return
 		}
-		go func() {
-			tskKey := fmt.Sprintf("QuicStream:%v", stream.ID())
+		go func(st backend.QuicBackendStream) {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Info("PANIC: %v\n", err)
+					debug.PrintStack()
+				}
+			}()
+			tskKey := fmt.Sprintf("QuicStream:%v", st.ID())
 			tsk := shared.StartRegion(tskKey)
 			defer tsk.End()
 			//for i := 0; i < 10; i++ {
 			//	connCounter := api.Statistics.GetCounter("", api.TOTAL_CONNECTIONS)
 			//	if connCounter >= 16 {
-			//		logger.Info("== [%d] Stream Queued (current: %d / max: %d) ==", stream.ID(), connCounter, 16)
+			//		logger.Info("== [%d] Stream Queued (current: %d / max: %d) ==", st.ID(), connCounter, 16)
 			//		<-time.After(100 * time.Millisecond)
 			//		continue
 			//	}
-			logger.Info("== [%d] Stream Start ==", stream.ID())
-			handleQuicStream(stream)
-			logger.Info("== [%d] Stream End ==", stream.ID())
+			logger.Info("== [%d] Stream Start ==", st.ID())
+			handleQuicStream(st)
+			logger.Info("== [%d] Stream End ==", st.ID())
 			//	return
 			//}
 			//logger.Info("== [%d] Session Rejected for too many connections ==", stream.ID())
 			//_ = stream.Close()
 			//_ = quicSession.Close(1, "Session Rejected for too many connections")
-		}()
+		}(stream)
 	}
 }
 
@@ -153,8 +167,8 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	logger.Debug("[%d] >> Opening TCP Conn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
 		LocalAddr:     &net.TCPAddr{IP: net.ParseIP(ServerConfiguration.ListenHost)},
-		Timeout:       10 * time.Second,
-		KeepAlive:     5 * time.Second,
+		Timeout:       1 * time.Second,
+		KeepAlive:     100 * time.Millisecond,
 		DualStack:     true,
 		FallbackDelay: 10 * time.Millisecond,
 	}
@@ -169,6 +183,8 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	trackedAddress := qpepHeader.SourceAddr.IP.String()
 	proxyAddress := tcpConn.LocalAddr().String()
+
+	setLinger(tcpConn)
 
 	api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS)
 	api.Statistics.IncrementCounter(1.0, api.PERF_CONN, trackedAddress)
@@ -192,6 +208,8 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	tcpConn.Close()
 	quicStream.Close()
+
+	logger.Info(">> [%d] Closed TCP Conn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
 }
 
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64,
@@ -233,7 +251,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		i++
 		//if speedLimit == 0 {
-		wr, err := copyBuffer(dst, src, tempBuffer, 500*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
+		wr, err := copyBuffer(dst, src, tempBuffer, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
 		pktcounter++
 		//} else {
 		//	var now = time.Now()
@@ -246,7 +264,9 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		if wr > 0 {
 			lastActivity = time.Now()
 		}
-		if time.Now().Sub(lastActivity) > 3*time.Second {
+		logger.Debug("[%d] Q->T: %v, %v, [%v/%v]", src.ID(), wr, err, time.Now().Sub(lastActivity), workers.WK_IDLE_TIMEOUT)
+
+		if time.Now().Sub(lastActivity) > workers.WK_IDLE_TIMEOUT {
 			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
 			return
 		}
@@ -255,7 +275,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
-			logger.Info("[%d] END Q->T: %v", src.ID(), err)
+			logger.Debug("[%d] END Q->T: %v", src.ID(), err)
 			return
 		}
 	}
@@ -297,7 +317,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 
 		i++
 		//if speedLimit == 0 {
-		wr, err := copyBuffer(dst, src, tempBuffer, 100*time.Millisecond, 500*time.Millisecond, pktPrefix, &pktcounter)
+		wr, err := copyBuffer(dst, src, tempBuffer, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
 		pktcounter++
 		//} else {
 		//	var now = time.Now()
@@ -310,7 +330,9 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		if wr > 0 {
 			lastActivity = time.Now()
 		}
-		if time.Now().Sub(lastActivity) > 3*time.Second {
+		logger.Debug("[%d] T->Q: %v, %v, [%v/%v]", dst.ID(), wr, err, time.Now().Sub(lastActivity), workers.WK_IDLE_TIMEOUT)
+
+		if time.Now().Sub(lastActivity) > workers.WK_IDLE_TIMEOUT {
 			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
 			return
 		}
@@ -319,7 +341,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
-			logger.Info("[%d] END T->Q: %v", dst.ID(), err)
+			logger.Debug("[%d] END T->Q: %v", dst.ID(), err)
 			return
 		}
 	}
@@ -330,71 +352,66 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 
 	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
 
-	for {
-		src.SetReadDeadline(time.Now().Add(timeoutDst))
+	src.SetReadDeadline(time.Now().Add(timeoutDst))
 
-		nr, er := src.Read(buf)
+	nr, er := src.Read(buf)
 
-		if nr > 0 {
-			if DEBUG_DUMP_PACKETS {
-				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
-				if derr != nil {
-					panic(derr)
-				}
-				dump.Write(buf[0:nr])
-				go func() {
-					dump.Sync()
-					dump.Close()
-				}()
-				logger.Info("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
-			} else {
-				logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
+	if nr > 0 {
+		if DEBUG_DUMP_PACKETS {
+			dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
+			if derr != nil {
+				panic(derr)
 			}
-
-			dst.SetWriteDeadline(time.Now().Add(timeoutSrc))
-
-			nw, ew := dst.Write(buf[0:nr])
-			if nw < 0 || nr < nw {
-				nw = 0
-				if ew == nil {
-					ew = io.ErrUnexpectedEOF
-				}
-			}
-
-			if DEBUG_DUMP_PACKETS {
-				dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
-				if derr != nil {
-					panic(derr)
-				}
-				dump.Write(buf[0:nw])
-				go func() {
-					dump.Sync()
-					dump.Close()
-				}()
-				logger.Info("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
-			} else {
-				logger.Debug("[%d][%s] wr: %d", *counter, prefix, nw)
-			}
-			*counter = *counter + 1
-
-			written += int64(nw)
-			if ew != nil {
-				err = ew
-				break
-			}
-			if nr != nw {
-				err = io.ErrShortWrite
-				break
-			}
+			dump.Write(buf[0:nr])
+			go func() {
+				dump.Sync()
+				dump.Close()
+			}()
+			logger.Debug("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
 		} else {
-			logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
+			logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
 		}
 
-		if er != nil {
-			if er != io.EOF {
-				err = er
+		dst.SetWriteDeadline(time.Now().Add(timeoutSrc))
+
+		nw, ew := dst.Write(buf[0:nr])
+		if nw < 0 || nr < nw {
+			nw = 0
+			if ew == nil {
+				ew = io.ErrUnexpectedEOF
 			}
-			break
+		}
+
+		if DEBUG_DUMP_PACKETS {
+			dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
+			if derr != nil {
+				panic(derr)
+			}
+			dump.Write(buf[0:nw])
+			go func() {
+				dump.Sync()
+				dump.Close()
+			}()
+			logger.Debug("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
+		} else {
+			logger.Debug("[%d][%s] wr: %d", *counter, prefix, nw)
+		}
+		*counter = *counter + 1
+
+		written += int64(nw)
+		if ew != nil {
+			err = ew
+		}
+		if nr != nw {
+			err = io.ErrShortWrite
+		}
+	} else {
+		logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
+	}
+
+	if er != nil {
+		if er != io.EOF {
+			err = er
 		}
 	}
 	return written, err

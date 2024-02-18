@@ -171,10 +171,14 @@ func ServiceMain() int {
 
 	// As-service run
 	logName := "qpep-server.log"
+	logLevel := "info"
 	if flags.Globals.Client {
 		logName = "qpep-client.log"
 	}
-	logger.SetupLogger(logName)
+	if flags.Globals.Verbose {
+		logLevel = "verbose"
+	}
+	logger.SetupLogger(logName, logLevel)
 
 	err = serviceInst.Run()
 	if err != nil {
