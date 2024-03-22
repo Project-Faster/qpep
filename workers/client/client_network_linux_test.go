@@ -638,7 +638,7 @@ User-Agent: windows
 `
 	srcConn.readData.WriteString(testdata)
 
-	go handleTcpToQuic(ctx, wg, dstConn, srcConn)
+	go handleTcpToQuic(ctx, wg, dstConn, srcConn, &lastActivityTime)
 
 	wg.Wait()
 
@@ -668,7 +668,7 @@ User-Agent: windows
 `
 	srcConn.readData.WriteString(testdata)
 
-	go handleQuicToTcp(ctx, wg, dstConn, srcConn)
+	go handleQuicToTcp(ctx, wg, dstConn, srcConn, &lastActivityTime)
 
 	wg.Wait()
 

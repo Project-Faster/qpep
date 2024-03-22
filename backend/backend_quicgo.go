@@ -39,14 +39,14 @@ type quicGoBackend struct {
 	connections []QuicBackendConnection
 }
 
-func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int, clientCertPath string, ccAlgorithm string) (QuicBackendConnection, error) {
+func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
 	quicConfig := qgoGetConfiguration()
 
 	var err error
 	var session quic.Connection
 
 	tlsConf := loadTLSConfig(clientCertPath, "")
-	gatewayPath := fmt.Sprintf("%s:%d", destination, port)
+	gatewayPath := fmt.Sprintf("%s:%d", remoteAddress, port)
 
 	session, err = quic.DialAddr(gatewayPath, tlsConf, quicConfig)
 	if err != nil {
@@ -63,7 +63,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int, 
 	return sessionAdapter, nil
 }
 
-func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string) (QuicBackendConnection, error) {
+func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath, serverKeyPath, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
 	quicConfig := qgoGetConfiguration()
 
 	tlsConf := loadTLSConfig(serverCertPath, serverKeyPath)
@@ -178,7 +178,7 @@ func (c *qgoConnectionAdapter) Close(code int, message string) error {
 }
 
 func (c *qgoConnectionAdapter) IsClosed() bool {
-	return c.connection != nil || c.listener != nil
+	return c.connection == nil && c.listener == nil
 }
 
 var _ QuicBackendConnection = &qgoConnectionAdapter{}
@@ -195,6 +195,10 @@ func (stream *qgoStreamAdapter) AbortRead(code uint64) {
 
 func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
 	stream.CancelWrite(quic.StreamErrorCode(code))
+}
+
+func (stream *qgoStreamAdapter) Sync() bool {
+	return true
 }
 
 func (stream *qgoStreamAdapter) ID() uint64 {
@@ -214,6 +218,10 @@ func (stream *qgoStreamAdapter) ID() uint64 {
 		return *stream.id
 	}
 	return 0
+}
+
+func (stream *qgoStreamAdapter) IsClosed() bool {
+	return false
 }
 
 var _ QuicBackendStream = &qgoStreamAdapter{}

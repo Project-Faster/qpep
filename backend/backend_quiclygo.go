@@ -47,7 +47,7 @@ func (q *quiclyGoBackend) setListener(destination string, conn QuicBackendConnec
 	q.connections[destination] = conn
 }
 
-func (q *quiclyGoBackend) init(isClient bool, certPath, certKeyPath string, ccAlgorithm string) error {
+func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, ccAlgorithm string) error {
 	q.opLock.Lock()
 	defer q.opLock.Unlock()
 
@@ -75,6 +75,7 @@ func (q *quiclyGoBackend) init(isClient bool, certPath, certKeyPath string, ccAl
 		ApplicationProtocol: QUICLYGO_ALPN,
 		IdleTimeoutMs:       30 * 1000,
 		CongestionAlgorithm: ccAlgorithm,
+		TraceQuicly:         traceOn,
 	}
 
 	if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
@@ -85,23 +86,24 @@ func (q *quiclyGoBackend) init(isClient bool, certPath, certKeyPath string, ccAl
 	return nil
 }
 
-func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int, clientCertPath string,
-	ccAlgorithm string) (QuicBackendConnection, error) {
+func (q *quiclyGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string,
+	ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
 
-	if err := q.init(true, clientCertPath, "", ccAlgorithm); err != nil {
+	if err := q.init(true, traceOn, clientCertPath, "", ccAlgorithm); err != nil {
 		return nil, err
 	}
-
-	remoteAddress := destination
 
 	q.opLock.Lock()
 	conn := q.getListener(remoteAddress)
 	if conn != nil {
-		q.opLock.Unlock()
-		return conn, nil
+		if !conn.IsClosed() {
+			q.opLock.Unlock()
+			return conn, nil
+		}
+		q.setListener(remoteAddress, nil)
 	}
 
-	ipAddr := net.ParseIP(destination)
+	ipAddr := net.ParseIP(remoteAddress)
 
 	remoteAddr := net.UDPAddr{
 		IP:   ipAddr,
@@ -110,10 +112,10 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 
 	session := quicly.Dial(&remoteAddr, types.Callbacks{
 		OnConnectionOpen: func(connection types.Session) {
-			logger.Info("OPEN: %v", connection)
+			logger.Info("OPEN [%v]: %v", remoteAddress, &connection)
 		},
 		OnConnectionClose: func(connection types.Session) {
-			logger.Info("CLOSE: %v", connection)
+			logger.Info("CLOSE [%v]: %v", remoteAddress, &connection)
 
 			q.setListener(remoteAddress, nil)
 		},
@@ -137,16 +139,16 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, destination string, port int
 	}
 
 	logger.Info("== QUIC Session Dial ==\n")
-	q.setListener(destination, sessionAdapter)
+	q.setListener(remoteAddress, sessionAdapter)
 	q.opLock.Unlock()
 
 	return sessionAdapter, nil
 }
 
-func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int,
-	serverCertPath string, serverKeyPath string, ccAlgorithm string) (QuicBackendConnection, error) {
+func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath, serverKeyPath,
+	ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
 
-	if err := q.init(false, serverCertPath, serverKeyPath, ccAlgorithm); err != nil {
+	if err := q.init(false, traceOn, serverCertPath, serverKeyPath, ccAlgorithm); err != nil {
 		return nil, err
 	}
 
@@ -251,7 +253,10 @@ func (c *srvListenerAdapter) Close(code int, message string) error {
 }
 
 func (c *srvListenerAdapter) IsClosed() bool {
-	return c.listener != nil
+	if c.listener != nil {
+		return c.listener.IsClosed()
+	}
+	return true
 }
 
 // -------------------------- //
@@ -284,8 +289,9 @@ func (c *srvConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStr
 			return nil, err
 		}
 		return &streamAdapter{
-			Conn: stream,
-			id:   stream.ID(),
+			Conn:      stream,
+			rawStream: stream,
+			id:        stream.ID(),
 		}, err
 	}
 	return nil, shared.ErrInvalidBackendOperation
@@ -306,7 +312,10 @@ func (c *srvConnectionAdapter) Close(code int, message string) error {
 }
 
 func (c *srvConnectionAdapter) IsClosed() bool {
-	return c.connection != nil
+	if c.connection != nil {
+		return c.connection.IsClosed()
+	}
+	return true
 }
 
 // -------------------------- //
@@ -356,15 +365,19 @@ func (c *cliConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 		}
 
 		return &streamAdapter{
-			Conn: stream,
-			id:   stream.ID(),
+			Conn:      stream,
+			rawStream: stream,
+			id:        stream.ID(),
 		}, nil
 	}
 	return nil, shared.ErrFailed
 }
 
 func (c *cliConnectionAdapter) IsClosed() bool {
-	return c.connection != nil
+	if c.connection != nil {
+		return c.connection.IsClosed()
+	}
+	return true
 }
 
 var _ QuicBackendConnection = &cliConnectionAdapter{}
@@ -373,7 +386,8 @@ var _ QuicBackendConnection = &cliConnectionAdapter{}
 type streamAdapter struct {
 	net.Conn
 
-	id uint64
+	id        uint64
+	rawStream types.Stream
 }
 
 func (s *streamAdapter) ID() uint64 {
@@ -386,6 +400,17 @@ func (s *streamAdapter) AbortRead(code uint64) {
 
 func (s *streamAdapter) AbortWrite(code uint64) {
 	// no-op
+}
+
+func (s *streamAdapter) Sync() bool {
+	return s.rawStream.Sync()
+}
+
+func (s *streamAdapter) IsClosed() bool {
+	if s.rawStream != nil {
+		return s.rawStream.IsClosed()
+	}
+	return true
 }
 
 var _ QuicBackendStream = &streamAdapter{}

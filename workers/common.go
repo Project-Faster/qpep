@@ -3,5 +3,5 @@ package workers
 import "time"
 
 const (
-	WK_IDLE_TIMEOUT = 3 * time.Second
+	WK_IDLE_TIMEOUT = 5 * time.Second
 )

@@ -117,7 +117,7 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 
 	preamble := make([]byte, QPEP_PREAMBLE_LENGTH)
 
-	timeoutReader.SetReadDeadline(time.Now().Add(1 * time.Second))
+	timeoutReader.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
 	ipBytesNum, err := stream.Read(preamble)
 	if ipBytesNum != 2 || err != nil {
 		return nil, ErrInvalidHeader
@@ -149,7 +149,7 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 
 	byteInput := make([]byte, flagsEnd)
 
-	timeoutReader.SetReadDeadline(time.Now().Add(1 * time.Second))
+	timeoutReader.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
 	readDataBytes, err := stream.Read(byteInput)
 	logger.Info("HEADER: %v - (%d/%d/%d/%d/%d/%d) - %v", err,
 		sourceIpEnd, sourcePortEnd, destIpEnd, destPortEnd, flagsEnd, readDataBytes,

@@ -216,8 +216,14 @@ func (p *QPepService) Main() {
 	go api.RunServer(p.context, p.cancelFunc, true) // api server for local webgui
 
 	if flags.Globals.Client {
+		if flags.Globals.Verbose {
+			SetupLogger("qpep-client.log", "debug")
+		}
 		runAsClient(p.context, p.cancelFunc)
 	} else {
+		if flags.Globals.Verbose {
+			SetupLogger("qpep-server.log", "debug")
+		}
 		runAsServer(p.context, p.cancelFunc)
 	}
 

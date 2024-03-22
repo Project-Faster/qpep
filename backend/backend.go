@@ -15,8 +15,8 @@ import (
 )
 
 type QuicBackend interface {
-	Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string) (QuicBackendConnection, error)
-	Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string) (QuicBackendConnection, error)
+	Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error)
+	Listen(ctx context.Context, address string, port int, serverCertPath, serverKeyPath, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error)
 	Close() error
 }
 
@@ -40,11 +40,14 @@ type QuicBackendStream interface {
 
 	ID() uint64
 
+	Sync() bool
 	AbortRead(code uint64)
 	AbortWrite(code uint64)
 
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
+
+	IsClosed() bool
 }
 
 // generateTLSConfig creates a new x509 key/certificate pair and dumps it to the disk
