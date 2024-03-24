@@ -178,7 +178,8 @@ jobs:
     runs-on: vm-server
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
-      SERVER_BACKEND: ${{ inputs. }}
+      SERVER_BACKEND: ${{ inputs.backend }}
+      SERVER_CCA: ${{ inputs.cca }}
       LISTEN_ADDRESS: 127.0.0.1
     steps:
       - name: Pre-Cleanup
