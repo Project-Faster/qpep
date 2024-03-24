@@ -4,6 +4,39 @@ on:
   schedule:
     - cron: '1 1 * * *'
 
+  workflow_dispatch:
+    inputs:
+      server_public_address:
+        description: 'public address for the server'
+        type: string
+        default: 35.163.142.7
+        required: true
+      server_private_address:
+        description: 'private address for the server'
+        type: string
+        default: 172.31.38.198
+        required: true
+      client_listen_address:
+        description: 'address for the client to listen on'
+        type: string
+        default: 192.168.1.21
+        required: true
+      server_wait_timeout:
+        description: 'Server global timeout for tests'
+        type: integer
+        default: 45
+        required: false
+      connection_delay_ms:
+        description: 'connection delay in milliseconds set on the server'
+        type: integer
+        default: 0
+        required: true
+      connection_delay_device:
+        description: 'serverside network device to set delay on'
+        type: string
+        default: eth0
+        required: true
+
 run-name: Performance Testing [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] - ${{ inputs.server_public_address || '35.163.142.7' }}/${{ inputs.connect_delay_ms || '500' }}ms delay
 
 jobs:
@@ -20,6 +53,11 @@ jobs:
             cca: 'search'
     uses: './.github/workflows/common-perfomance.yml'
     with:
+      server_public_address: ${{ inputs.server_public_address }]
+      server_private_address: ${{ inputs.server_private_address }]
+      client_listen_address: ${{ inputs.client_listen_address }]
+      server_wait_timeout: ${{ inputs.server_wait_timeout }]
+      connection_delay_device: ${{ inputs.connection_delay_device }]
       download_size: ${{ matrix.download_size }}
       connections_number: ${{ matrix.connections_number }}
       backend: ${{ matrix.backend }}
