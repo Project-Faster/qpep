@@ -6,6 +6,8 @@ ENV CGO_ENABLED "0"
 ENV QPEP_REPO "https://github.com/Project-Faster/qpep.git"
 ENV QPEP_BRANCH "main"
 ENV QPEP_REV "HEAD"
+ENV QPEP_BACKEND "quic-go"
+ENV QPEP_CCA "reno"
 ENV GOROOT "/opt/go"
 ENV BUILDKIT_PROGRESS "plain"
 
@@ -34,10 +36,15 @@ if [[ ! "${QPEP_REV}" -eq "HEAD" ]]; then \n\
   git reset --hard ${QPEP_REV} \n\
 fi \n\
 export PATH=$GOROOT/bin:$PATH \n\
+echo [GEN BACKENDS] \n\
+cd backend/ \n\
+go generate \n\
+cd ../ \n\
 echo [BUILD] \n\
 go build -v -o qpep \n\
 chmod +x qpep \n\
 cp /root/qpep/qpep /build/qpep \n\
+envsubst < /root/qpep/config/qpep.yml.tpl > /root/qpep/config/qpep.yml
 echo [DONE] \n\
 ' > /root/build-qpep.sh
 

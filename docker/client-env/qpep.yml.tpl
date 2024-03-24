@@ -6,6 +6,10 @@ apiport: 444
 listenaddress: <QPEP_ADDRESS>
 listenport: 9443
 
+# backend
+backend: <QPEP_BACKEND>
+ccalgorithm: <QPEP_CCA>
+
 # default
 acks: 10
 ackdelay: 25

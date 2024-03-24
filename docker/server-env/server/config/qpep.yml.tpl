@@ -6,6 +6,10 @@ apiport: 444
 listenaddress: QPEP_ADDRESS # added via extra_hosts
 listenport: 1443
 
+# backend
+backend: ${QPEP_BACKEND}
+ccalgorithm: ${QPEP_CCA}
+
 # broker settings
 analytics:
   enabled: true
