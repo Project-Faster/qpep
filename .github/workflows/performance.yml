@@ -51,7 +51,7 @@ jobs:
         exclude:
           - backend: 'quic-go'
             cca: 'search'
-    uses: './.github/workflows/common-perfomance.yml'
+    uses: './.github/workflows/common-performance.yml'
     with:
       server_public_address: ${{ inputs.server_public_address }]
       server_private_address: ${{ inputs.server_private_address }]
