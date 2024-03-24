@@ -36,7 +36,7 @@ on:
       download_size:
         description: 'Size of the file MB to download'
         type: number
-        default: 1'
+        default: 1
         required: false
       connections_number:
         description: 'Number of concurrent connections to execute'
