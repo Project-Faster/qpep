@@ -19,7 +19,7 @@ jobs:
           - backend: 'quic-go'
             cca: 'search'
     uses: './.github/workflows/common-perfomance.yml'
-        with:
+    with:
       download_size: ${{ matrix.download_size }}
       connections_number: ${{ matrix.connections_number }}
       backend: ${{ matrix.backend }}
