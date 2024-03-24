@@ -18,7 +18,7 @@ jobs:
         exclude:
           - backend: 'quic-go'
             cca: 'search'
-    uses: './common-perfomance.yml'
+    uses: './workflows/common-perfomance.yml'
         with:
       download_size: ${{ matrix.download_size }}
       connections_number: ${{ matrix.connections_number }}
