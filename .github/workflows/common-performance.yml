@@ -20,12 +20,12 @@ on:
         required: true
       server_wait_timeout:
         description: 'Server global timeout for tests'
-        type: integer
+        type: number
         default: 45
         required: false
       connection_delay_ms:
         description: 'connection delay in milliseconds set on the server'
-        type: integer
+        type: number
         default: 0
         required: true
       connection_delay_device:
@@ -35,12 +35,12 @@ on:
         required: true
       download_size:
         description: 'Size of the file MB to download'
-        type: integer
+        type: number
         default: 1'
         required: false
       connections_number:
         description: 'Number of concurrent connections to execute'
-        type: integer
+        type: number
         default: 1
         required: false
       backend:
