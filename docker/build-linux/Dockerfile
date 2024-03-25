@@ -44,7 +44,7 @@ echo [BUILD] \n\
 go build -v -o qpep \n\
 chmod +x qpep \n\
 cp /root/qpep/qpep /build/qpep \n\
-envsubst < /root/qpep/config/qpep.yml.tpl > /root/qpep/config/qpep.yml
+envsubst < /root/qpep/config/qpep.yml.tpl > /root/qpep/config/qpep.yml \n\
 echo [DONE] \n\
 ' > /root/build-qpep.sh
 
