@@ -22,8 +22,8 @@ RUN sh -c 'apt-get update'
 RUN sh -c 'apt-get install -y wget git dos2unix iputils-ping'
 
 WORKDIR /opt
-RUN sh -c 'wget https://go.dev/dl/go1.18.10.linux-amd64.tar.gz'
-RUN sh -c 'tar -xvvf go1.18.10.linux-amd64.tar.gz'
+RUN sh -c 'wget https://go.dev/dl/go1.20.14.linux-amd64.tar.gz'
+RUN sh -c 'tar -xvvf go1.20.14.linux-amd64.tar.gz'
 
 WORKDIR /root
 RUN printf '#!/bin/bash -xe \n\
