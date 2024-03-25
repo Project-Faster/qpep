@@ -81,6 +81,7 @@ jobs:
   test-matrix:
     needs: launch-aws-vm
     strategy:
+      max-parallel: 1
       matrix:
         download_size: [ 10 ]
         connection_delay: [ 0, 500 ]

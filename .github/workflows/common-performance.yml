@@ -65,11 +65,11 @@ jobs:
         with:
           clean: true
 
-      #      - name: Set up Go
-      #        uses: actions/setup-go@v3
-      #        with:
-      #          go-version: 1.18.10
-      #
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.14
+
       - name: Prepare
         shell: powershell
         run: |
@@ -78,8 +78,8 @@ jobs:
           $config = Get-Content -Path ./docker/client-env/qpep.yml.tpl
           $config = $config.replace('<QPEP_GATEWAY>',$env:REMOTE_GATEWAY)
           $config = $config.replace('<QPEP_ADDRESS>',$env:LISTEN_ADDRESS)
-          $config = $config.replace('<QPEP_BACKEND>',${{ inputs.backend }})
-          $config = $config.replace('<QPEP_CCA>',${{ inputs.cca }})
+          $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
+          $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
           $config > ./build/config/qpep.yml
           Copy-Item "./windivert/x64/*" -Destination "./build"
 
