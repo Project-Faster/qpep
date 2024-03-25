@@ -20,12 +20,12 @@ on:
         required: true
       server_wait_timeout:
         description: 'Server global timeout for tests'
-        type: integer
+        type: number
         default: 45
         required: false
       connection_delay_ms:
         description: 'connection delay in milliseconds set on the server'
-        type: integer
+        type: number
         default: 0
         required: true
       connection_delay_device:
@@ -33,19 +33,14 @@ on:
         type: string
         default: eth0
         required: true
-      remove_qpep_image:
-        description: 'remove qpep image at end of run'
-        type: boolean
-        default: false
-        required: true
       download_size:
         description: 'Size of the file MB to download'
-        type: integer
-        default: 1'
+        type: number
+        default: 1
         required: false
       connections_number:
         description: 'Number of concurrent connections to execute'
-        type: integer
+        type: number
         default: 1
         required: false
       backend:
@@ -183,7 +178,8 @@ jobs:
     runs-on: vm-server
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
-      SERVER_BACKEND: ${{ inputs. }}
+      SERVER_BACKEND: ${{ inputs.backend }}
+      SERVER_CCA: ${{ inputs.cca }}
       LISTEN_ADDRESS: 127.0.0.1
     steps:
       - name: Pre-Cleanup
@@ -283,10 +279,10 @@ jobs:
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
           sudo rm -rf docker/server-data-env/output/* || true
 
-      - name: Remove server image
-        if: ${{ inputs.remove_qpep_image }}
+      - name: Clean Docker data
+        if: failure()
         run: |
-          docker image rm project-faster/qpep_server || true
+          docker system prune -af || true
 
       - name: Auto-cancel workflow on error
         if: failure()
