@@ -70,11 +70,6 @@ jobs:
         with:
           go-version: 1.20.14
 
-      - name: Git checkout
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: '0'
-
       - name: Prepare
         shell: powershell
         run: |
@@ -100,8 +95,8 @@ jobs:
           set GOHOSTARCH=amd64
           set GOHOSTOS=windows
           cd backend/
-          git submodule init quicly-go
-          git submodule update --init --recursive
+          "C:\Program Files\Git\bin\git.exe" submodule init quicly-go
+          "C:\Program Files\Git\bin\git.exe" submodule update --init --recursive
           go generate
 
       - name: Build Client
