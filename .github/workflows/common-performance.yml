@@ -95,6 +95,8 @@ jobs:
           set GOHOSTARCH=amd64
           set GOHOSTOS=windows
           cd backend/
+          git submodule init quicly-go
+          git submodule update --init --recursive
           go generate
 
       - name: Build Client
