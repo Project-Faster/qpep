@@ -61,17 +61,15 @@ jobs:
       REMOTE_GATEWAY: ${{ inputs.server_public_address }}
       LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           clean: true
+          submodules: true
 
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.20.14
-
-      - name: Setup Git for Windows' minimal SDK
-        uses: git-for-windows/setup-git-for-windows-sdk@v0
 
       - name: Prepare
         shell: powershell
@@ -98,8 +96,6 @@ jobs:
           set GOHOSTARCH=amd64
           set GOHOSTOS=windows
           cd backend/
-          git.exe submodule init quicly-go
-          git.exe submodule update --init --recursive
           go generate
 
       - name: Build Client
