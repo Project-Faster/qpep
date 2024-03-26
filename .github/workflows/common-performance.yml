@@ -61,7 +61,7 @@ jobs:
       REMOTE_GATEWAY: ${{ inputs.server_public_address }}
       LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           clean: true
           submodules: true
