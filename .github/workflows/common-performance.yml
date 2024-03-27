@@ -71,7 +71,7 @@ jobs:
           submodules: true
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: 1.20.14
 
@@ -165,7 +165,7 @@ jobs:
         run: |
           go run docker/speedtests/utils/reset_proxy_util.go
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: client_${{ inputs.connection_delay_ms }}ms_${{ inputs.download_size }}MB_${{ inputs.connections_number }}conn
           path: |
