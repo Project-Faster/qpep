@@ -61,6 +61,10 @@ jobs:
       REMOTE_GATEWAY: ${{ inputs.server_public_address }}
       LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
     steps:
+      - name: Cleanup workspace
+        shell: powershell
+        run: rm -Recurse ${{github.workspace}}\*
+
       - uses: actions/checkout@v4
         with:
           clean: true
