@@ -63,7 +63,9 @@ jobs:
     steps:
       - name: Cleanup workspace
         shell: powershell
-        run: rm -Recurse ${{github.workspace}}\*
+        run: |
+          rm -Recurse ${{github.workspace}}\..\..\*
+          mkdir ${{github.workspace}}\qpep
 
       - uses: actions/checkout@v4
         with:
