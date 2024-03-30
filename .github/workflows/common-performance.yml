@@ -120,7 +120,7 @@ jobs:
 
   run-client:
     runs-on: vm-client
-    needs: build-client
+    needs: [build-client, build-server]
     strategy:
       max-parallel: 1
       matrix:
@@ -220,11 +220,8 @@ jobs:
         if: failure()
         uses: andymckay/cancel-action@0.4
 
-  run-server:
+  build-server:
     runs-on: vm-server
-    strategy:
-      matrix:
-        connection_delay_ms: [ 0, 500 ]
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
       SERVER_BACKEND: ${{ inputs.backend }}
@@ -250,6 +247,31 @@ jobs:
           cd docker/
           pushd build-linux/
           docker build -t project-faster/qpep_server .
+
+  run-server:
+    runs-on: vm-server
+    needs: [ build-client, build-server ]
+    strategy:
+      matrix:
+        connection_delay_ms: [ 0, 500 ]
+    env:
+      SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      SERVER_BACKEND: ${{ inputs.backend }}
+      SERVER_CCA: ${{ inputs.cca }}
+      LISTEN_ADDRESS: 127.0.0.1
+    steps:
+      - name: Pre-Cleanup
+        run: |
+          sudo rm -rf docker/server-data-env/output/* || true
+
+      - uses: actions/checkout@v3
+        with:
+          clean: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.14
 
       - name: Run data server
         run: |
