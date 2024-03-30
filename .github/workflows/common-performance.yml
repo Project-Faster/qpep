@@ -55,28 +55,36 @@ on:
         required: false
 
 jobs:
-  run-client:
+  build-client:
     runs-on: vm-client
-    env:
-      REMOTE_GATEWAY: ${{ inputs.server_public_address }}
-      LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
     steps:
+      - name: Cache build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: qpep-${{ github.head_ref || github.ref_name }}
+
       - uses: actions/checkout@v4
+        if: steps.cache-build.outputs.cache-hit != 'true'
         with:
           clean: true
           submodules: true
 
       - name: Set up Go
+        if: steps.cache-build.outputs.cache-hit != 'true'
         uses: actions/setup-go@v4
         with:
           go-version: 1.20.14
 
       - name: Set up CMake
+        if: steps.cache-build.outputs.cache-hit != 'true'
         uses: jwlawson/actions-setup-cmake@v1.14
         with:
           cmake-version: '3.22.x'
 
       - name: Prepare
+        if: steps.cache-build.outputs.cache-hit != 'true'
         shell: powershell
         run: |
           New-Item -Path . -Name "build" -ItemType "directory" -Force
@@ -89,11 +97,8 @@ jobs:
           $config > ./build/config/qpep.yml
           Copy-Item "./windivert/x64/*" -Destination "./build"
 
-      - name: Prepare tests reporting
-        run: |
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-
       - name: Build Client (Backends)
+        if: steps.cache-build.outputs.cache-hit != 'true'
         shell: cmd
         run: |
           set CGO_ENABLED=1
@@ -104,6 +109,7 @@ jobs:
           go generate
 
       - name: Build Client
+        if: steps.cache-build.outputs.cache-hit != 'true'
         shell: cmd
         run: |
           set CGO_ENABLED=1
@@ -111,6 +117,41 @@ jobs:
           set GOHOSTARCH=amd64
           set GOHOSTOS=windows
           go build -v -o build/qpep.exe
+
+  run-client:
+    runs-on: vm-client
+    needs: build-client
+    strategy:
+      max-parallel: 1
+      matrix:
+        download_size: [ 10 ]
+        connection_delay: [ 0, 500 ]
+        connections_number: [ 1, 4 ]
+    env:
+      REMOTE_GATEWAY: ${{ inputs.server_public_address }}
+      LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
+    steps:
+      - name: Cache build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: qpep-${{ github.head_ref || github.ref_name }}
+          fail-on-cache-miss: true
+
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20.14
+
+      - name: Prepare tests reporting
+        run: |
+          go install github.com/jstemmer/go-junit-report@v1.0.0
 
       - name: Run Client
         shell: cmd

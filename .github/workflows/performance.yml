@@ -78,14 +78,11 @@ jobs:
           aws ec2 stop-instances --instance-ids ${{ secrets.AWS_INSTANCE_ID }}
         shell: bash
 
-  test-matrix:
+  qpep-run:
     needs: launch-aws-vm
     strategy:
       max-parallel: 1
       matrix:
-        download_size: [ 10 ]
-        connection_delay: [ 0, 500 ]
-        connections_number: [ 1, 4 ]
         backend: [ 'quic-go', 'quicly-go' ]
         cca: [ 'reno', 'search' ]
         exclude:
