@@ -64,7 +64,7 @@ jobs:
 
   stop-aws-vm:
     runs-on: ubuntu-latest
-    needs: test-matrix
+    needs: qpep-run
     if: ${{ always() && ! inputs.keep_aws_running }}
     steps:
       - name: Install AWS cli
