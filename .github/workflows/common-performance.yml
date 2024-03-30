@@ -21,13 +21,13 @@ on:
       server_wait_timeout:
         description: 'Server global timeout for tests'
         type: number
-        default: 180
+        default: 30
         required: false
       connection_delay_ms:
         description: 'connection delay in milliseconds set on the server'
         type: number
         default: 0
-        required: true
+        required: false
       connection_delay_device:
         description: 'serverside network device to set delay on'
         type: string
@@ -124,8 +124,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        download_size: [ 10 ]
-        connection_delay: [ 0, 500 ]
+        download_size: [ 5, 10 ]
         connections_number: [ 1, 4 ]
     env:
       REMOTE_GATEWAY: ${{ inputs.server_public_address }}
@@ -190,11 +189,11 @@ jobs:
           cd docker/speedtests/
           go test speed_test.go -v -c -o speedtests.test
 
-          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ inputs.download_size }}M.dat ^
-             -expect_mb ${{ inputs.download_size }} -connections_num ${{ inputs.connections_number }} ^
+          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
+             -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
              -test.v -test.timeout 5m > speedtests.out
 
-          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms][TargetSize:${{ inputs.download_size }}M][Connections:${{ inputs.connections_number }}]"
+          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms][TargetSize:${{ matrix.download_size }}M][Connections:${{ matrix.connections_number }}]"
 
       - name: Stop Client
         if: always()
@@ -209,7 +208,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: client_${{ inputs.connection_delay_ms }}ms_${{ inputs.download_size }}MB_${{ inputs.connections_number }}conn
+          name: client_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
           path: |
             ${{ github.workspace }}/docker/speedtests/output.csv
             ${{ github.workspace }}/docker/speedtests/speedtests.out
@@ -223,6 +222,9 @@ jobs:
 
   run-server:
     runs-on: vm-server
+    strategy:
+      matrix:
+        connection_delay_ms: [ 0, 500 ]
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
       SERVER_BACKEND: ${{ inputs.backend }}
@@ -269,7 +271,7 @@ jobs:
       - name: Set connection delay
         if: inputs.connection_delay_device > 0
         run: |
-          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ matrix.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
 
       - name: Wait Tests
         timeout-minutes: 60 # max allowed timeouts
@@ -310,11 +312,11 @@ jobs:
       - name: Generate results
         run: |
           cd docker/speedtests/
-          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms]" "perf-dw-speed"
+          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ matrix.connection_delay_ms }}ms]" "perf-dw-speed"
 
       - uses: actions/upload-artifact@v3
         with:
-          name: server_${{ inputs.connection_delay_ms }}ms
+          name: server_${{ matrix.connection_delay_ms }}ms
           path: |
             ${{ github.workspace }}/docker/server-data-env/output/data.csv
             ${{ github.workspace }}/docker/speedtests/data.png
@@ -325,10 +327,6 @@ jobs:
         run: |
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
           sudo rm -rf docker/server-data-env/output/* || true
-
-      - name: Clean Docker data
-        if: failure()
-        run: |
           docker system prune -af || true
 
       - name: Auto-cancel workflow on error
