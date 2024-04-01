@@ -68,7 +68,7 @@ jobs:
       - name: Cleanup
         if: steps.cache-build.outputs.cache-hit != 'true'
         shell: powershell
-        run: rm -rf ${{ github.workspace }}/*
+        run: rm ${{ github.workspace }}\* -r -force
 
       - uses: actions/checkout@v4
         if: steps.cache-build.outputs.cache-hit != 'true'
