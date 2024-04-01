@@ -32,6 +32,11 @@ on:
         type: string
         default: eth0
         required: true
+      ignore_caches:
+        description: 'resets caches to force new build'
+        type: boolean
+        default: false
+        required: true
       keep_aws_running:
         description: 'keeps aws vm running for subsequent runs'
         type: boolean
@@ -94,6 +99,7 @@ jobs:
       server_private_address: ${{ inputs.server_private_address }}
       client_listen_address: ${{ inputs.client_listen_address }}
       connection_delay_device: ${{ inputs.connection_delay_device }}
+      ignore_caches: ${{ inputs.ignore_caches }}
       backend: ${{ matrix.backend }}
       cca: ${{ matrix.cca }}
     secrets: inherit
