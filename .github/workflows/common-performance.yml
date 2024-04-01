@@ -63,7 +63,7 @@ jobs:
   build-client:
     runs-on: vm-client
     steps:
-      - name: Cache build
+      - name: Restore cached build
         id: cache-build
         uses: actions/cache/restore@v4
         with:
@@ -127,6 +127,13 @@ jobs:
           set GOHOSTARCH=amd64
           set GOHOSTOS=windows
           go build -v -o build/qpep.exe
+
+      - name: Cache build
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: qpep-${{ github.head_ref || github.ref_name }}
 
   run-client:
     runs-on: vm-client
