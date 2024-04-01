@@ -65,6 +65,11 @@ jobs:
           path: ${{ github.workspace }}/build
           key: qpep-${{ github.head_ref || github.ref_name }}
 
+      - name: Cleanup
+        if: steps.cache-build.outputs.cache-hit != 'true'
+        shell: powershell
+        run: rm -rf ${{ github.workspace }}/*
+
       - uses: actions/checkout@v4
         if: steps.cache-build.outputs.cache-hit != 'true'
         with:
@@ -137,10 +142,6 @@ jobs:
           path: ${{ github.workspace }}/build
           key: qpep-${{ github.head_ref || github.ref_name }}
           fail-on-cache-miss: true
-
-      - name: Cleanup
-        shell: powershell
-        run: rm -rf ${{ github.workspace }}/*
 
       - uses: actions/checkout@v4
         with:
