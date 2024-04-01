@@ -138,6 +138,10 @@ jobs:
           key: qpep-${{ github.head_ref || github.ref_name }}
           fail-on-cache-miss: true
 
+      - name: Cleanup
+        shell: powershell
+        run: rm -rf ${{ github.workspace }}/*
+
       - uses: actions/checkout@v4
         with:
           clean: true
