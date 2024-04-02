@@ -3,13 +3,14 @@ FROM debian:latest
 ENV HTTP_PROXY ""
 ENV HTTPS_PROXY ""
 ENV CGO_ENABLED "0"
-ENV QPEP_REPO "https://github.com/Project-Faster/qpep.git"
-ENV QPEP_BRANCH "main"
-ENV QPEP_REV "HEAD"
-ENV QPEP_BACKEND "quic-go"
-ENV QPEP_CCA "reno"
 ENV GOROOT "/opt/go"
 ENV BUILDKIT_PROGRESS "plain"
+
+ARG QPEP_REPO "https://github.com/Project-Faster/qpep.git"
+ARG QPEP_BRANCH "main"
+ARG QPEP_REV "HEAD"
+ARG QPEP_BACKEND "quic-go"
+ARG QPEP_CCA "reno"
 
 USER root
 
