@@ -147,6 +147,11 @@ jobs:
       REMOTE_GATEWAY: ${{ inputs.server_public_address }}
       LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
+
       - name: Cache build
         id: cache-build
         uses: actions/cache/restore@v4
@@ -154,11 +159,6 @@ jobs:
           path: ${{ github.workspace }}/build
           key: qpep-${{ github.head_ref || github.ref_name }}
           fail-on-cache-miss: true
-
-      - uses: actions/checkout@v4
-        with:
-          clean: true
-          submodules: true
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -273,9 +273,6 @@ jobs:
   run-server:
     runs-on: vm-server
     needs: [ build-client, build-server ]
-    strategy:
-      matrix:
-        connection_delay_ms: [ 0, 500 ]
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
       SERVER_BACKEND: ${{ inputs.backend }}

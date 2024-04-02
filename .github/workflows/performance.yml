@@ -90,6 +90,7 @@ jobs:
       matrix:
         backend: [ 'quic-go', 'quicly-go' ]
         cca: [ 'reno', 'search' ]
+        connection_delay_ms: [ 0, 500 ]
         exclude:
           - backend: 'quic-go'
             cca: 'search'
