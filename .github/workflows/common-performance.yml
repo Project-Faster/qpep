@@ -68,12 +68,11 @@ jobs:
         with:
           version:
             2.24.3
-        run: |
-          gh version
 
       - name: Clear cache
         if: ${{ inputs.ignore_caches }}
         run: |
+          gh version
           gh cache delete qpep-${{ github.head_ref || github.ref_name }}
 
       - name: Restore cached build
