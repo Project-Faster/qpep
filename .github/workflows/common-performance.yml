@@ -62,6 +62,8 @@ on:
 jobs:
   build-client:
     runs-on: vm-client
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Install the github cli
         uses: sersoft-gmbh/setup-gh-cli-action@v2
