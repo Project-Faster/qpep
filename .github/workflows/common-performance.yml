@@ -64,10 +64,10 @@ jobs:
     runs-on: vm-client
     steps:
       - name: Install the github cli
-        uses: ksivamuthu/actions-setup-gh-cli@v2
+        uses: actions4gh/setup-gh@v1
         with:
-          version:
-            2.46.0
+          gh-version:
+            2.46.x
 
       - name: Clear cache
         if: ${{ inputs.ignore_caches }}
