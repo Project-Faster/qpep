@@ -151,6 +151,10 @@ jobs:
           path: ${{ github.workspace }}/build
           key: qpep-${{ github.head_ref || github.ref_name }}
 
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.4
+
   run-client:
     runs-on: vm-client
     needs: [build-client, build-server]
@@ -286,6 +290,10 @@ jobs:
             --build-arg QPEP_BACKEND=${{ inputs.backend }} \
             --build-arg QPEP_CCA=${{ inputs.cca }} \
             .
+
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.4
 
   run-server:
     runs-on: vm-server
