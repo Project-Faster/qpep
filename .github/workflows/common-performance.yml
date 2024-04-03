@@ -64,7 +64,7 @@ jobs:
     runs-on: vm-client
     steps:
       - name: Install the github cli
-        uses: ksivamuthu/actions-setup-gh-cli@<VERSION>
+        uses: ksivamuthu/actions-setup-gh-cli@2
         with:
           version:
             2.24.3
