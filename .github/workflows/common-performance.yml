@@ -106,6 +106,9 @@ jobs:
           $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
           $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
           $config > ./build/config/qpep.yml
+          write-host '${{ inputs.server_public_address }}'
+          write-host '${{ inputs.client_listen_address }}'
+          write-host $config
           Copy-Item "./windivert/x64/*" -Destination "./build"
 
       - name: Build Client (Backends)
