@@ -63,6 +63,19 @@ jobs:
   build-client:
     runs-on: vm-client
     steps:
+      - name: Install the github cli
+        uses: ksivamuthu/actions-setup-gh-cli@<VERSION>
+        with:
+          version:
+            2.24.3
+        run: |
+          gh version
+
+      - name: Clear cache
+        if: ${{ inputs.ignore_caches }}
+        run: |
+          gh cache delete qpep-${{ github.head_ref || github.ref_name }}
+
       - name: Restore cached build
         if: ${{ ! inputs.ignore_caches }}
         id: cache-build
@@ -257,7 +270,7 @@ jobs:
         with:
           go-version: 1.20.14
 
-      - name: Start cleanup
+      - name: Cleanup all docker
         if: ${{ inputs.ignore_caches }}
         run: |
           docker system prune -af || true
