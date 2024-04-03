@@ -67,7 +67,7 @@ jobs:
         uses: ksivamuthu/actions-setup-gh-cli@v2
         with:
           version:
-            2.24.3
+            2.46.0
 
       - name: Clear cache
         if: ${{ inputs.ignore_caches }}
