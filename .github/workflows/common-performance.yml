@@ -64,7 +64,7 @@ jobs:
     runs-on: vm-client
     steps:
       - name: Install the github cli
-        uses: ksivamuthu/actions-setup-gh-cli@2
+        uses: ksivamuthu/actions-setup-gh-cli@v2
         with:
           version:
             2.24.3
@@ -118,8 +118,6 @@ jobs:
           $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
           $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
           $config > ./build/config/qpep.yml
-          write-host '${{ inputs.server_public_address }}'
-          write-host '${{ inputs.client_listen_address }}'
           write-host $config
           Copy-Item "./windivert/x64/*" -Destination "./build"
 
