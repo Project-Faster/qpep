@@ -192,7 +192,7 @@ jobs:
       - name: Check configuration
         shell: powershell
         run: |
-          $config = Get-Content -Path ./build/qpep.yml
+          $config = Get-Content -Path ./build/config/qpep.yml
           write-host $config
 
       - name: Run Client
