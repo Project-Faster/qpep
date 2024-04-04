@@ -149,23 +149,7 @@ func ServiceMain() int {
 	if len(svcCommand) != 0 {
 		// Service control / status run
 		if svcCommand == "status" {
-			status, err := serviceInst.Status()
-			if err != nil {
-				status = kservice.StatusUnknown
-			}
-
-			switch status {
-			case kservice.StatusRunning:
-				return WIN32_RUNNING_CODE
-
-			case kservice.StatusStopped:
-				return WIN32_STOPPED_CODE
-
-			default:
-				fallthrough
-			case kservice.StatusUnknown:
-				return WIN32_UNKNOWN_CODE
-			}
+			return getStatusCode(serviceInst)
 		}
 
 		err = kservice.Control(serviceInst, svcCommand)
@@ -196,7 +180,10 @@ func ServiceMain() int {
 	}
 	logger.SetupLogger(logName, logLevel)
 
-	if kservice.ChosenSystem().Interactive() {
+	// detect forced interactive mode because service was not installed
+	status := getStatusCode(serviceInst)
+
+	if status == WIN32_UNKNOWN_CODE || kservice.ChosenSystem().Interactive() {
 		logger.Info("Executes as Interactive mode\n")
 		err = qpepService.Main()
 	} else {
@@ -210,6 +197,26 @@ func ServiceMain() int {
 
 	logger.Info("Exit errorcode: %d\n", qpepService.exitValue)
 	return qpepService.exitValue
+}
+
+func getStatusCode(svc kservice.Service) int {
+	status, err := svc.Status()
+	if err != nil {
+		status = kservice.StatusUnknown
+	}
+
+	switch status {
+	case kservice.StatusRunning:
+		return WIN32_RUNNING_CODE
+
+	case kservice.StatusStopped:
+		return WIN32_STOPPED_CODE
+
+	default:
+		fallthrough
+	case kservice.StatusUnknown:
+		return WIN32_UNKNOWN_CODE
+	}
 }
 
 // Start method sets the internal state to startingSvc and then start the Main method.
