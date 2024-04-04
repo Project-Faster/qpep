@@ -189,6 +189,12 @@ jobs:
         run: |
           go install github.com/jstemmer/go-junit-report@v1.0.0
 
+      - name: Check configuration
+        shell: powershell
+        run: |
+          $config = Get-Content -Path ./build/qpep.yml
+          write-host $config
+
       - name: Run Client
         shell: cmd
         run: |
