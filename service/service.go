@@ -176,13 +176,13 @@ func ServiceMain() int {
 		logName = "qpep-client.log"
 	}
 	if flags.Globals.Verbose {
-		logLevel = "verbose"
+		logLevel = "debug"
 	}
 	logger.SetupLogger(logName, logLevel)
 
 	err = serviceInst.Run()
 	if err != nil {
-		logger.Error("Error while starting QPep service")
+		logger.Error("Error while starting QPep service: %v", err)
 	}
 
 	logger.Info("Exit errorcode: %d\n", svc.exitValue)
