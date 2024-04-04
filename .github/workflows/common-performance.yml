@@ -288,7 +288,7 @@ jobs:
         run: |
           docker version
           cd docker/
-          pushd build-linux/
+          pushd server-env/server/
           docker build -t project-faster/qpep_server \
             --build-arg QPEP_REPO=https://github.com/${{github.repository}}.git \
             --build-arg QPEP_BRANCH=${{ github.head_ref || github.ref_name }} \
@@ -296,6 +296,11 @@ jobs:
             --build-arg QPEP_BACKEND=${{ inputs.backend }} \
             --build-arg QPEP_CCA=${{ inputs.cca }} \
             .
+
+      - name: Build Data Server
+        run: |
+          cd docker/server-data-env/
+          docker compose build
 
       - name: Auto-cancel workflow on error
         if: failure()
@@ -399,7 +404,6 @@ jobs:
         run: |
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
           sudo rm -rf docker/server-data-env/output/* || true
-          docker system prune -af || true
 
       - name: Auto-cancel workflow on error
         if: failure()
