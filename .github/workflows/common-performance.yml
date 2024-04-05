@@ -64,6 +64,7 @@ jobs:
     runs-on: vm-client
     env:
       GH_TOKEN: ${{ github.token }}
+      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
       - name: Install the github cli
         uses: sersoft-gmbh/setup-gh-cli-action@v2
@@ -75,7 +76,7 @@ jobs:
         if: ${{ inputs.ignore_caches }}
         run: |
           gh version
-          gh cache delete qpep-${{ github.head_ref || github.ref_name }}
+          gh cache delete ${{ env.CACHE_KEY }}
 
       - name: Restore cached build
         if: ${{ ! inputs.ignore_caches }}
@@ -83,12 +84,15 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ github.workspace }}/build
-          key: qpep-${{ github.head_ref || github.ref_name }}
+          key: ${{ env.CACHE_KEY }}
 
       - name: Cleanup
         if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
         shell: powershell
-        run: rm ${{ github.workspace }}\* -r -force
+        run: |
+          rm ${{ github.workspace }}\* -r -force
+          $old_id = gh cache list --json id,key -q ".[]|select(.key | startswith(\"qpep-\"))|.id"
+          gh cache delete $old_id
 
       - uses: actions/checkout@v4
         if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
@@ -149,7 +153,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ github.workspace }}/build
-          key: qpep-${{ github.head_ref || github.ref_name }}
+          key: ${{ env.CACHE_KEY }}
 
       - name: Auto-cancel workflow on error
         if: failure()
