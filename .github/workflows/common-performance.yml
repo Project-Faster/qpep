@@ -90,8 +90,8 @@ jobs:
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         shell: powershell
         run: |
-          $old_id = gh cache list --json id,key -q ".[]|select(.key | startswith(\"qpep-\"))|.id"
-          write-host 'removing cache # $old_id'
+          $old_id = @(gh cache list --json id,key -q ".[]|select(.key | startswith(\"qpep-\"))|.id")
+          write-host "removing cache # $old_id"
           gh cache delete $old_id
 
       - name: Cleanup workspace
