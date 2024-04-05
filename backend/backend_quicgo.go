@@ -233,6 +233,7 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 	dataKey, err2 := ioutil.ReadFile(keyPEM)
 
 	if err1 != nil {
+		logger.Error("Could not find certificate file %s", certPEM)
 		return nil
 	}
 
@@ -252,11 +253,13 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 	}
 
 	if len(cert.Certificate) == 0 {
+		logger.Error("Certificate file %s does not contain valid certificates", certPEM)
 		return nil
 	}
 
 	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
 	if err != nil {
+		logger.Error("Certificate parsing in file %s failed: %v", certPEM, err)
 		return nil
 	}
 
@@ -268,9 +271,11 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 		for {
 			keyDERBlock, dataKey = pem.Decode(dataKey)
 			if keyDERBlock == nil {
+				logger.Error("Certificate key parsing in file %s failed", dataKey)
 				return nil
 			}
 			if keyDERBlock.Type == "PRIVATE KEY" || strings.HasSuffix(keyDERBlock.Type, " PRIVATE KEY") {
+				logger.Error("Certificate PEM key parsing in file %s failed", dataKey)
 				break
 			}
 			skippedBlockTypes = append(skippedBlockTypes, keyDERBlock.Type)
@@ -278,6 +283,7 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 
 		cert.PrivateKey, err = parsePrivateKey(keyDERBlock.Bytes)
 		if err != nil {
+			logger.Error("Error loading private key from file %s: %v", dataKey, err)
 			return nil
 		}
 
@@ -285,28 +291,35 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 		case *rsa.PublicKey:
 			priv, ok := cert.PrivateKey.(*rsa.PrivateKey)
 			if !ok {
+				logger.Error("Error loading private key from file %s: Not a valid RSA key", dataKey)
 				return nil
 			}
 			if pub.N.Cmp(priv.N) != 0 {
+				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
 				return nil
 			}
 		case *ecdsa.PublicKey:
 			priv, ok := cert.PrivateKey.(*ecdsa.PrivateKey)
 			if !ok {
+				logger.Error("Error loading private key from file %s: Not a valid ECDSA key", dataKey, err)
 				return nil
 			}
 			if pub.X.Cmp(priv.X) != 0 || pub.Y.Cmp(priv.Y) != 0 {
+				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
 				return nil
 			}
 		case ed25519.PublicKey:
 			priv, ok := cert.PrivateKey.(ed25519.PrivateKey)
 			if !ok {
+				logger.Error("Error loading private key from file %s: Not a valida ED25519 key", dataKey, err)
 				return nil
 			}
 			if !bytes.Equal(priv.Public().(ed25519.PublicKey), pub) {
+				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
 				return nil
 			}
 		default:
+			logger.Error("Error loading private key from file %s: unsupported key type %v", dataKey, pub)
 			return nil
 		}
 	}
