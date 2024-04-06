@@ -74,6 +74,7 @@ jobs:
 
       - name: Clear cache
         if: ${{ inputs.ignore_caches }}
+        continue-on-error: true
         run: |
           gh version
           gh cache delete ${{ env.CACHE_KEY }}
