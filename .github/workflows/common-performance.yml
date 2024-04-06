@@ -124,6 +124,7 @@ jobs:
         run: |
           New-Item -Path . -Name "build" -ItemType "directory" -Force | Out-Null
           New-Item -Path . -Name "build/config" -ItemType "directory" -Force | Out-Null
+          Copy-Item "./docker/client-env/*.pem" "./build"
           $config = Get-Content -Path ./docker/client-env/qpep.yml.tpl
           $config = $config.replace('<QPEP_GATEWAY>','${{ inputs.server_public_address }}')
           $config = $config.replace('<QPEP_ADDRESS>','${{ inputs.client_listen_address }}')
