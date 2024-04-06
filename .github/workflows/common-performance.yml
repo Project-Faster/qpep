@@ -88,7 +88,7 @@ jobs:
 
       - name: Cleanup previous cached build
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
-        shell: powershell
+        shell: pwsh
         run: |
           $old_id = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep-"))|.id' )
           write-host "removing cache # $old_id"
@@ -96,7 +96,7 @@ jobs:
 
       - name: Cleanup workspace
         if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
-        shell: powershell
+        shell: pwsh
         run: |
           rm ${{ github.workspace }}\* -r -force
 
@@ -120,7 +120,7 @@ jobs:
 
       - name: Prepare
         if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
-        shell: powershell
+        shell: pwsh
         run: |
           New-Item -Path . -Name "build" -ItemType "directory" -Force | Out-Null
           New-Item -Path . -Name "build/config" -ItemType "directory" -Force | Out-Null
@@ -200,7 +200,7 @@ jobs:
           go install github.com/jstemmer/go-junit-report@v1.0.0
 
       - name: Check configuration
-        shell: powershell
+        shell: pwsh
         run: |
           $config = Get-Content -Path ./build/config/qpep.yml
           write-host $config
@@ -212,7 +212,7 @@ jobs:
           cmd /c "START /b qpep.exe -c"
 
       - name: Wait Server
-        shell: powershell
+        shell: pwsh
         run: |
           $Stoploop = $false
           [ int ]$Retrycount = "20"
@@ -250,7 +250,7 @@ jobs:
 
       - name: Stop Client
         if: always()
-        shell: powershell
+        shell: pwsh
         run: |
           Get-Process qpep | Stop-Process
 
