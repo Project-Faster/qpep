@@ -6,13 +6,13 @@ ENV CGO_ENABLED "1"
 ENV GOROOT "/opt/go"
 ENV GOPATH "/opt/gopath"
 ENV BUILDKIT_PROGRESS "plain"
+ENV QPEP_BACKEND="quic-go"
+ENV QPEP_CCA="reno"
 
 ARG GO_VERSION="1.20.14"
 ARG QPEP_REPO="https://github.com/Project-Faster/qpep.git"
 ARG QPEP_BRANCH="main"
 ARG QPEP_REV="HEAD"
-ARG QPEP_BACKEND="quic-go"
-ARG QPEP_CCA="reno"
 
 USER root
 
@@ -56,21 +56,16 @@ echo [BUILD] \n\
 export PATH=$GOROOT/bin:$GOPATH/bin:$PATH \n\
 cd /root/qpep \n\
 go build -v -o qpep \n\
-chmod +x qpep \n\
-' > /root/build-qpep.sh
-
-RUN printf '#!/bin/bash -xe \n\
 echo [INSTALL] \n\
 cp /root/qpep/qpep /opt/build/qpep \n\
+chmod +x /opt/build/qpep \n\
 mkdir -p /opt/build/config \n\
-envsubst < /root/qpep/docker/server-env/server/config/qpep.yml.tpl > /opt/build/config/qpep.yml \n\
-cp /root/qpep/docker/server-env/server/*.pem /opt/build/ \n\
-echo [DONE] \n\
-' > /root/install-qpep.sh
+' > /root/build-qpep.sh
 
 WORKDIR /root
 RUN printf '#!/bin/bash -xe \n\
-bash /root/build-qpep.sh \n\
+envsubst < /root/qpep/docker/server-env/server/config/qpep.yml.tpl > /opt/build/config/qpep.yml \n\
+cp /root/qpep/docker/server-env/server/*.pem /opt/build/ \n\
 ping -c 3 QPEP_GATEWAY \n\
 ping -c 3 QPEP_ADDRESS \n\
 ping -c 3 MQTT \n\
@@ -85,4 +80,3 @@ RUN sh -c 'chmod +x /root/*.sh'
 RUN sh -c 'bash -c /root/clone-qpep.sh'
 RUN sh -c 'bash -c /root/backends-qpep.sh'
 RUN sh -c 'bash -c /root/build-qpep.sh'
-RUN sh -c 'bash -c /root/install-qpep.sh'

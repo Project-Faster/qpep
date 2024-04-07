@@ -2,11 +2,29 @@
 
 # set environment variables before running:
 # SERVER_ADDRESS
+# QPEP_BACKEND
+# QPEP_CCA
+
+# set these env variables before building:
+# GO_VERSION
+# QPEP_REPO
+# QPEP_BRANCH
+# QPEP_REV
 
 version: "1.0"
 services:
   server:
     image: "project-faster/qpep-server"
+    environment:
+      - QPEP_BACKEND=${QPEP_BACKEND}
+      - QPEP_CCA=${QPEP_CCA}
+    build:
+      context: server/
+      args:
+        - GO_VERSION=${GO_VERSION}
+        - QPEP_REPO=${QPEP_REPO}
+        - QPEP_BRANCH=${QPEP_BRANCH}
+        - QPEP_REV=${QPEP_REV}
     extra_hosts:
       - "MQTT:${SERVER_ADDRESS}"
       - "QPEP_GATEWAY:127.0.0.1"

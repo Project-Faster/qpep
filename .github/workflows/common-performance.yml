@@ -278,6 +278,15 @@ jobs:
 
   build-server:
     runs-on: vm-server
+    env:
+      GO_VERSION: 1.20.14
+      REMOTE_GATEWAY: ${{ inputs.server_public_address }}
+      LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
+      QPEP_REPO: https://github.com/${{github.repository}}.git
+      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
+      QPEP_REV: HEAD
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
     steps:
       - name: Pre-Cleanup
         run: |
@@ -300,16 +309,8 @@ jobs:
       - name: Build Server
         run: |
           docker version
-          cd docker/
-          pushd server-env/server/
-          docker build -t project-faster/qpep-server \
-            --build-arg GO_VERSION=1.20.14 \
-            --build-arg QPEP_REPO=https://github.com/${{github.repository}}.git \
-            --build-arg QPEP_BRANCH=${{ github.head_ref || github.ref_name }} \
-            --build-arg QPEP_REV=HEAD \
-            --build-arg QPEP_BACKEND=${{ inputs.backend }} \
-            --build-arg QPEP_CCA=${{ inputs.cca }} \
-            .
+          pushd docker/server-env/
+          docker compose build
 
       - name: Build Data Server
         run: |
@@ -324,10 +325,11 @@ jobs:
     runs-on: vm-server
     needs: [ build-client, build-server ]
     env:
-      SERVER_ADDRESS: ${{ inputs.server_private_address }}
-      SERVER_BACKEND: ${{ inputs.backend }}
-      SERVER_CCA: ${{ inputs.cca }}
       LISTEN_ADDRESS: 127.0.0.1
+      SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      SERVER_CCA: ${{ inputs.cca }}
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
     steps:
       - name: Pre-Cleanup
         run: |
