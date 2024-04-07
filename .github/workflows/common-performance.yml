@@ -89,6 +89,7 @@ jobs:
 
       - name: Cleanup previous cached build
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        continue-on-error: true
         shell: pwsh
         run: |
           $old_id = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep-"))|.id' )
