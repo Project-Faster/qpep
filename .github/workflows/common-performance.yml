@@ -393,6 +393,7 @@ jobs:
         run: |
           cd docker/server-env/
           docker compose down -v
+          docker logs server-env-server-1 &> test.log || true
 
       - name: Stop Data Server Container
         if: always()
@@ -412,6 +413,7 @@ jobs:
             ${{ github.workspace }}/docker/server-data-env/output/data.csv
             ${{ github.workspace }}/docker/speedtests/data.png
             ${{ github.workspace }}/build/*.log
+            ${{ github.workspace }}/docker/server-env/*.log
 
       - name: Cleanup
         if: always()
