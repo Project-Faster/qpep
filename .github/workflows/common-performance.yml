@@ -301,7 +301,8 @@ jobs:
           docker version
           cd docker/
           pushd server-env/server/
-          docker build -t project-faster/qpep_server \
+          docker build -t project-faster/qpep-server \
+            --build-arg GO_VERSION=1.20.14 \
             --build-arg QPEP_REPO=https://github.com/${{github.repository}}.git \
             --build-arg QPEP_BRANCH=${{ github.head_ref || github.ref_name }} \
             --build-arg QPEP_REV=HEAD \

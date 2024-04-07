@@ -7,6 +7,7 @@ ENV GOROOT "/opt/go"
 ENV GOPATH "/opt/gopath"
 ENV BUILDKIT_PROGRESS "plain"
 
+ARG GO_VERSION="1.20.14"
 ARG QPEP_REPO="https://github.com/Project-Faster/qpep.git"
 ARG QPEP_BRANCH="main"
 ARG QPEP_REV="HEAD"
@@ -15,7 +16,7 @@ ARG QPEP_CCA="reno"
 
 USER root
 
-RUN sh -c 'mkdir /build'
+RUN sh -c 'mkdir /opt/build'
 
 RUN sh -c 'echo export GOROOT=/opt/go'
 RUN sh -c 'echo export PATH=$GOROOT/bin:$PATH'
@@ -24,8 +25,8 @@ RUN sh -c 'apt-get update'
 RUN sh -c 'apt-get install -y wget git dos2unix gettext-base iputils-ping g++ cmake'
 
 WORKDIR /opt
-RUN sh -c 'wget https://go.dev/dl/go1.20.14.linux-amd64.tar.gz'
-RUN sh -c 'tar -xf go1.20.14.linux-amd64.tar.gz'
+RUN sh -c 'wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz'
+RUN sh -c 'tar -xf go${GO_VERSION}.linux-amd64.tar.gz'
 
 WORKDIR /root
 RUN printf '#!/bin/bash -xe \n\
@@ -60,9 +61,9 @@ chmod +x qpep \n\
 
 RUN printf '#!/bin/bash -xe \n\
 echo [INSTALL] \n\
-cp /root/qpep/qpep /build/qpep \n\
-mkdir -p /build/config \n\
-envsubst < /root/qpep/docker/server-env/server/qpep.yml.tpl > /build/config/qpep.yml \n\
+cp /root/qpep/qpep /opt/build/qpep \n\
+mkdir -p /opt/build/config \n\
+envsubst < /root/qpep/docker/server-env/server/qpep.yml.tpl > /opt/build/config/qpep.yml \n\
 echo [DONE] \n\
 ' > /root/install-qpep.sh
 
@@ -72,7 +73,7 @@ bash /root/build-qpep.sh \n\
 ping -c 3 QPEP_GATEWAY \n\
 ping -c 3 QPEP_ADDRESS \n\
 ping -c 3 MQTT \n\
-cd /build \n\
+cd /opt/build \n\
 ./qpep -v \n\
 ' > /root/run-qpep.sh
 
