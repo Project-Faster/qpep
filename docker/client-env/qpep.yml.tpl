@@ -10,6 +10,9 @@ listenport: 9443
 backend: <QPEP_BACKEND>
 ccalgorithm: <QPEP_CCA>
 
+# certificate
+certificate: server_cert.pem
+
 # default
 acks: 10
 ackdelay: 25

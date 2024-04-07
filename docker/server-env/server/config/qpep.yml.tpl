@@ -10,6 +10,10 @@ listenport: 1443
 backend: ${QPEP_BACKEND}
 ccalgorithm: ${QPEP_CCA}
 
+# certificate
+certificate: server_cert.pem
+certificate_key: server_key.pem
+
 # broker settings
 analytics:
   enabled: true
