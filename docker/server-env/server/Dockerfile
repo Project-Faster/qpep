@@ -62,7 +62,7 @@ RUN printf '#!/bin/bash -xe \n\
 echo [INSTALL] \n\
 cp /root/qpep/qpep /build/qpep \n\
 mkdir -p /build/config \n\
-envsubst < /root/qpep/docker/client-env/qpep.yml.tpl > /build/config/qpep.yml \n\
+envsubst < /root/qpep/docker/server-env/server/qpep.yml.tpl > /build/config/qpep.yml \n\
 echo [DONE] \n\
 ' > /root/install-qpep.sh
 
