@@ -1,5 +1,11 @@
 name: PerformanceTests
 
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+  AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
+
 on:
   schedule:
     - cron: '1 1 * * *'
@@ -19,25 +25,72 @@ on:
       client_listen_address:
         description: 'address for the client to listen on'
         type: string
-        default: 192.168.1.21
+        default: 172.31.21.30
         required: true
       connection_delay_device:
         description: 'serverside network device to set delay on'
         type: string
         default: eth0
         required: true
+      ignore_caches:
+        description: 'resets caches to force new build'
+        type: boolean
+        default: false
+        required: true
+      keep_aws_running:
+        description: 'keeps aws vm running for subsequent runs'
+        type: boolean
+        default: false
+        required: true
 
 run-name: Performance Testing [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] - ${{ inputs.server_public_address || '35.163.142.7' }}/${{ inputs.connect_delay_ms || '500' }}ms delay
 
 jobs:
-  test-matrix:
+  launch-aws-vm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install AWS cli
+        id: install-aws-cli
+        uses: unfor19/install-aws-cli-action@master
+        with:
+          version: "2"
+
+      - run: |
+          aws --version
+          # run the instance
+          aws ec2 start-instances --instance-ids ${{ secrets.AWS_INSTANCE_ID }}
+        shell: bash
+
+      - run: |
+          # assure that the instance is stopped on error
+          aws ec2 stop-instances --instance-ids ${{ secrets.AWS_INSTANCE_ID }}
+        shell: bash
+        if: ${{ failure() && ! inputs.keep_aws_running }}
+
+  stop-aws-vm:
+    runs-on: ubuntu-latest
+    needs: qpep-run
+    if: ${{ always() && ! inputs.keep_aws_running }}
+    steps:
+      - name: Install AWS cli
+        id: install-aws-cli
+        uses: unfor19/install-aws-cli-action@master
+        with:
+          version: "2"
+
+      - run: |
+          # assure that the instance is stopped even on error
+          aws ec2 stop-instances --instance-ids ${{ secrets.AWS_INSTANCE_ID }}
+        shell: bash
+
+  qpep-run:
+    needs: launch-aws-vm
     strategy:
+      max-parallel: 1
       matrix:
-        download_size: [ 10 ]
-        connection_delay: [ 0, 500 ]
-        connections_number: [ 1, 4 ]
         backend: [ 'quic-go', 'quicly-go' ]
         cca: [ 'reno', 'search' ]
+        connection_delay_ms: [ 0, 500 ]
         exclude:
           - backend: 'quic-go'
             cca: 'search'
@@ -47,9 +100,7 @@ jobs:
       server_private_address: ${{ inputs.server_private_address }}
       client_listen_address: ${{ inputs.client_listen_address }}
       connection_delay_device: ${{ inputs.connection_delay_device }}
-      connection_delay_ms: ${{ matrix.connection_delay }}
-      download_size: ${{ matrix.download_size }}
-      connections_number: ${{ matrix.connections_number }}
+      ignore_caches: ${{ inputs.ignore_caches }}
       backend: ${{ matrix.backend }}
       cca: ${{ matrix.cca }}
     secrets: inherit
