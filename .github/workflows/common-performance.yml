@@ -21,13 +21,13 @@ on:
       server_wait_timeout:
         description: 'Server global timeout for tests'
         type: number
-        default: 45
+        default: 150
         required: false
       connection_delay_ms:
         description: 'connection delay in milliseconds set on the server'
         type: number
         default: 0
-        required: true
+        required: false
       connection_delay_device:
         description: 'serverside network device to set delay on'
         type: string
@@ -53,41 +53,91 @@ on:
         type: string
         default: 'reno'
         required: false
+      ignore_caches:
+        description: 'resets caches to force new build'
+        type: boolean
+        default: false
+        required: true
 
 jobs:
-  run-client:
+  build-client:
     runs-on: vm-client
     env:
-      REMOTE_GATEWAY: ${{ inputs.server_public_address }}
-      LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
+      GH_TOKEN: ${{ github.token }}
+      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Install the github cli
+        uses: sersoft-gmbh/setup-gh-cli-action@v2
+        with:
+          version:
+            stable
+
+      - name: Clear cache
+        if: ${{ inputs.ignore_caches }}
+        continue-on-error: true
+        run: |
+          gh version
+          gh cache delete ${{ env.CACHE_KEY }}
+
+      - name: Restore cached build
+        if: ${{ ! inputs.ignore_caches }}
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ env.CACHE_KEY }}
+
+      - name: Cleanup previous cached build
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $old_id = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep-"))|.id' )
+          write-host "removing cache # $old_id"
+          gh cache delete  --repo project-faster/qpep $old_id
+
+      - name: Cleanup workspace
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        shell: pwsh
+        run: |
+          rm ${{ github.workspace }}\* -r -force
+
+      - uses: actions/checkout@v4
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
         with:
           clean: true
+          submodules: true
 
-      #      - name: Set up Go
-      #        uses: actions/setup-go@v3
-      #        with:
-      #          go-version: 1.18.10
-      #
+      - name: Set up Go
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20.14
+
+      - name: Set up CMake
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: '3.22.x'
+
       - name: Prepare
-        shell: powershell
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        shell: pwsh
         run: |
-          New-Item -Path . -Name "build" -ItemType "directory" -Force
-          New-Item -Path . -Name "build/config" -ItemType "directory" -Force
+          New-Item -Path . -Name "build" -ItemType "directory" -Force | Out-Null
+          New-Item -Path . -Name "build/config" -ItemType "directory" -Force | Out-Null
+          Copy-Item "./docker/client-env/*.pem" "./build"
           $config = Get-Content -Path ./docker/client-env/qpep.yml.tpl
-          $config = $config.replace('<QPEP_GATEWAY>',$env:REMOTE_GATEWAY)
-          $config = $config.replace('<QPEP_ADDRESS>',$env:LISTEN_ADDRESS)
-          $config = $config.replace('<QPEP_BACKEND>',${{ inputs.backend }})
-          $config = $config.replace('<QPEP_CCA>',${{ inputs.cca }})
+          $config = $config.replace('<QPEP_GATEWAY>','${{ inputs.server_public_address }}')
+          $config = $config.replace('<QPEP_ADDRESS>','${{ inputs.client_listen_address }}')
+          $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
+          $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
           $config > ./build/config/qpep.yml
+          write-host $config
           Copy-Item "./windivert/x64/*" -Destination "./build"
 
-      - name: Prepare tests reporting
-        run: |
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-
       - name: Build Client (Backends)
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
         shell: cmd
         run: |
           set CGO_ENABLED=1
@@ -98,6 +148,7 @@ jobs:
           go generate
 
       - name: Build Client
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
         shell: cmd
         run: |
           set CGO_ENABLED=1
@@ -106,6 +157,57 @@ jobs:
           set GOHOSTOS=windows
           go build -v -o build/qpep.exe
 
+      - name: Cache build
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ env.CACHE_KEY }}
+
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.4
+
+  run-client:
+    runs-on: vm-client
+    needs: [ build-client, build-server ]
+    strategy:
+      max-parallel: 1
+      matrix:
+        download_size: [ 5, 10 ]
+        connections_number: [ 1, 4 ]
+    env:
+      REMOTE_GATEWAY: ${{ inputs.server_public_address }}
+      LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
+
+      - name: Cache build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: qpep-${{ github.head_ref || github.ref_name }}
+          fail-on-cache-miss: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.20.14
+
+      - name: Prepare tests reporting
+        run: |
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+
+      - name: Check configuration
+        shell: pwsh
+        run: |
+          $config = Get-Content -Path ./build/config/qpep.yml
+          write-host $config
+
       - name: Run Client
         shell: cmd
         run: |
@@ -113,7 +215,7 @@ jobs:
           cmd /c "START /b qpep.exe -c"
 
       - name: Wait Server
-        shell: powershell
+        shell: pwsh
         run: |
           $Stoploop = $false
           [ int ]$Retrycount = "20"
@@ -143,15 +245,15 @@ jobs:
           cd docker/speedtests/
           go test speed_test.go -v -c -o speedtests.test
 
-          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ inputs.download_size }}M.dat ^
-             -expect_mb ${{ inputs.download_size }} -connections_num ${{ inputs.connections_number }} ^
+          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
+             -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
              -test.v -test.timeout 5m > speedtests.out
 
-          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms][TargetSize:${{ inputs.download_size }}M][Connections:${{ inputs.connections_number }}]"
+          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms][TargetSize:${{ matrix.download_size }}M][Connections:${{ matrix.connections_number }}]"
 
       - name: Stop Client
         if: always()
-        shell: powershell
+        shell: pwsh
         run: |
           Get-Process qpep | Stop-Process
 
@@ -160,9 +262,9 @@ jobs:
         run: |
           go run docker/speedtests/utils/reset_proxy_util.go
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: client_${{ inputs.connection_delay_ms }}ms_${{ inputs.download_size }}MB_${{ inputs.connections_number }}conn
+          name: client_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
           path: |
             ${{ github.workspace }}/docker/speedtests/output.csv
             ${{ github.workspace }}/docker/speedtests/speedtests.out
@@ -172,15 +274,19 @@ jobs:
 
       - name: Auto-cancel workflow on error
         if: failure()
-        uses: andymckay/cancel-action@0.3
+        uses: andymckay/cancel-action@0.4
 
-  run-server:
+  build-server:
     runs-on: vm-server
     env:
-      SERVER_ADDRESS: ${{ inputs.server_private_address }}
-      SERVER_BACKEND: ${{ inputs.backend }}
-      SERVER_CCA: ${{ inputs.cca }}
-      LISTEN_ADDRESS: 127.0.0.1
+      GO_VERSION: 1.20.14
+      REMOTE_GATEWAY: ${{ inputs.server_public_address }}
+      LISTEN_ADDRESS: ${{ inputs.client_listen_address }}
+      QPEP_REPO: https://github.com/${{github.repository}}.git
+      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
+      QPEP_REV: HEAD
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
     steps:
       - name: Pre-Cleanup
         run: |
@@ -193,14 +299,50 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18.10
+          go-version: 1.20.14
+
+      - name: Cleanup all docker
+        if: ${{ inputs.ignore_caches }}
+        run: |
+          docker system prune -af || true
 
       - name: Build Server
         run: |
           docker version
-          cd docker/
-          pushd build-linux/
-          docker build -t project-faster/qpep_server .
+          pushd docker/server-env/
+          docker compose build
+
+      - name: Build Data Server
+        run: |
+          cd docker/server-data-env/
+          docker compose build
+
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.4
+
+  run-server:
+    runs-on: vm-server
+    needs: [ build-client, build-server ]
+    env:
+      LISTEN_ADDRESS: 127.0.0.1
+      SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      SERVER_CCA: ${{ inputs.cca }}
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
+    steps:
+      - name: Pre-Cleanup
+        run: |
+          sudo rm -rf docker/server-data-env/output/* || true
+
+      - uses: actions/checkout@v3
+        with:
+          clean: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.14
 
       - name: Run data server
         run: |
@@ -222,7 +364,7 @@ jobs:
       - name: Set connection delay
         if: inputs.connection_delay_device > 0
         run: |
-          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ matrix.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
 
       - name: Wait Tests
         timeout-minutes: 60 # max allowed timeouts
@@ -253,6 +395,7 @@ jobs:
         run: |
           cd docker/server-env/
           docker compose down -v
+          docker logs server-env-server-1 &> test.log || true
 
       - name: Stop Data Server Container
         if: always()
@@ -263,26 +406,22 @@ jobs:
       - name: Generate results
         run: |
           cd docker/speedtests/
-          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms]" "perf-dw-speed"
+          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ matrix.connection_delay_ms }}ms]" "perf-dw-speed"
 
       - uses: actions/upload-artifact@v3
         with:
-          name: server_${{ inputs.connection_delay_ms }}ms
+          name: server_${{ matrix.connection_delay_ms }}ms
           path: |
             ${{ github.workspace }}/docker/server-data-env/output/data.csv
             ${{ github.workspace }}/docker/speedtests/data.png
             ${{ github.workspace }}/build/*.log
+            ${{ github.workspace }}/docker/server-env/*.log
 
       - name: Cleanup
         if: always()
         run: |
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
           sudo rm -rf docker/server-data-env/output/* || true
-
-      - name: Clean Docker data
-        if: failure()
-        run: |
-          docker system prune -af || true
 
       - name: Auto-cancel workflow on error
         if: failure()
