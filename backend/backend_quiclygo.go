@@ -47,7 +47,7 @@ func (q *quiclyGoBackend) setListener(destination string, conn QuicBackendConnec
 	q.connections[destination] = conn
 }
 
-func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, ccAlgorithm string) error {
+func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, ccAlgorithm, ccSlowstartAlgo string) error {
 	q.opLock.Lock()
 	defer q.opLock.Unlock()
 
@@ -68,14 +68,15 @@ func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, cc
 	}
 
 	quicConfig := quicly.Options{
-		Logger:              lg,
-		IsClient:            isClient,
-		CertificateFile:     certPath,
-		CertificateKey:      certKeyPath,
-		ApplicationProtocol: QUICLYGO_ALPN,
-		IdleTimeoutMs:       30 * 1000,
-		CongestionAlgorithm: ccAlgorithm,
-		TraceQuicly:         traceOn,
+		Logger:               lg,
+		IsClient:             isClient,
+		CertificateFile:      certPath,
+		CertificateKey:       certKeyPath,
+		ApplicationProtocol:  QUICLYGO_ALPN,
+		IdleTimeoutMs:        30 * 1000,
+		CongestionAlgorithm:  ccAlgorithm,
+		CCSlowstartAlgorithm: ccSlowstartAlgo,
+		TraceQuicly:          traceOn,
 	}
 
 	if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
@@ -87,9 +88,9 @@ func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, cc
 }
 
 func (q *quiclyGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string,
-	ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
+	ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
 
-	if err := q.init(true, traceOn, clientCertPath, "", ccAlgorithm); err != nil {
+	if err := q.init(true, traceOn, clientCertPath, "", ccAlgorithm, ccSlowstartAlgo); err != nil {
 		return nil, err
 	}
 
@@ -145,10 +146,10 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, remoteAddress string, port i
 	return sessionAdapter, nil
 }
 
-func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath, serverKeyPath,
-	ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
+func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string,
+	ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
 
-	if err := q.init(false, traceOn, serverCertPath, serverKeyPath, ccAlgorithm); err != nil {
+	if err := q.init(false, traceOn, serverCertPath, serverKeyPath, ccAlgorithm, ccSlowstartAlgo); err != nil {
 		return nil, err
 	}
 

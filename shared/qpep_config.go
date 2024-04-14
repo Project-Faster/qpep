@@ -38,6 +38,7 @@ acks: 10
 ackdelay: 25
 backend: quic-go
 ccalgorithm: reno
+ccslowstart: search
 certificate: server_cert.pem
 certificate_key:
 decimate: 4
@@ -95,7 +96,8 @@ type QPepConfigType struct {
 	// CertKey (yaml:certificate_key) Points to the PEM format private key to use for connections (only server)
 	CertKey string `yaml:"certificate_key"`
 	// CCAlgorithm (yaml:ccalgorithm) String passed to the quic backend to select the congestion algorithm to use
-	CCAlgorithm string `yaml:"ccalgorithm"`
+	CCAlgorithm     string `yaml:"ccalgorithm"`
+	CCSlowstartAlgo string `yaml:"ccslowstart"`
 
 	// Limits (yaml:limits) Declares the incoming and outgoing speed limits for clients and destination addresses
 	Limits LimitsDefinition `yaml:"limits"`

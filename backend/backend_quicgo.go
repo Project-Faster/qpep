@@ -39,7 +39,7 @@ type quicGoBackend struct {
 	connections []QuicBackendConnection
 }
 
-func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
+func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
 	quicConfig := qgoGetConfiguration()
 
 	var err error
@@ -63,7 +63,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int
 	return sessionAdapter, nil
 }
 
-func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath, serverKeyPath, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error) {
+func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
 	quicConfig := qgoGetConfiguration()
 
 	tlsConf := loadTLSConfig(serverCertPath, serverKeyPath)

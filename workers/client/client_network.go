@@ -621,7 +621,7 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 
 	logger.Info("== Dialing QUIC Session: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort,
-		shared.QPepConfig.Certificate, shared.QPepConfig.CCAlgorithm, shared.QPepConfig.Verbose)
+		shared.QPepConfig.Certificate, shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo, shared.QPepConfig.Verbose)
 
 	if err != nil {
 		logger.Error("Unable to Dial QUIC Session: %v\n", err)

@@ -15,8 +15,8 @@ import (
 )
 
 type QuicBackend interface {
-	Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error)
-	Listen(ctx context.Context, address string, port int, serverCertPath, serverKeyPath, ccAlgorithm string, traceOn bool) (QuicBackendConnection, error)
+	Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error)
+	Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error)
 	Close() error
 }
 
