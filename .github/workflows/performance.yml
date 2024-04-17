@@ -92,14 +92,14 @@ jobs:
         cca: [ 'reno' ]
         slowstart: [ 'search' ]
         connection_delay_ms: [ 0 ]
-        # cca: [ 'reno', 'cubic' ]
-        # slowstart: [ 'search', 'basic' ]
-        # connection_delay_ms: [ 0, 500 ]
-        exclude:
-          - backend: 'quic-go'
-            slowstart: 'search'
-          - backend: 'quic-go'
-            cca: 'cubic'
+#        cca: [ 'reno', 'cubic' ]
+#        slowstart: [ 'search', 'basic' ]
+#        connection_delay_ms: [ 0, 500 ]
+#        exclude:
+#          - backend: 'quic-go'
+#            slowstart: 'search'
+#          - backend: 'quic-go'
+#            cca: 'cubic'
     uses: './.github/workflows/common-performance.yml'
     with:
       server_public_address: ${{ inputs.server_public_address }}
