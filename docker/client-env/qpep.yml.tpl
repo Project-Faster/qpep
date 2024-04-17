@@ -9,6 +9,7 @@ listenport: 9443
 # backend
 backend: <QPEP_BACKEND>
 ccalgorithm: <QPEP_CCA>
+ccslowstart: <QPEP_SLOWSTART>
 
 # certificate
 certificate: server_cert.pem

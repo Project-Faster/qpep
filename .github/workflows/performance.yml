@@ -89,11 +89,17 @@ jobs:
       max-parallel: 1
       matrix:
         backend: [ 'quic-go', 'quicly-go' ]
-        cca: [ 'reno', 'search' ]
-        connection_delay_ms: [ 0, 500 ]
+        cca: [ 'reno' ]
+        slowstart: [ 'search' ]
+        connection_delay_ms: [ 0 ]
+        # cca: [ 'reno', 'cubic' ]
+        # slowstart: [ 'search', 'basic' ]
+        # connection_delay_ms: [ 0, 500 ]
         exclude:
           - backend: 'quic-go'
-            cca: 'search'
+            slowstart: 'search'
+          - backend: 'quic-go'
+            cca: 'cubic'
     uses: './.github/workflows/common-performance.yml'
     with:
       server_public_address: ${{ inputs.server_public_address }}
@@ -103,4 +109,5 @@ jobs:
       ignore_caches: ${{ inputs.ignore_caches }}
       backend: ${{ matrix.backend }}
       cca: ${{ matrix.cca }}
+      slowstart: ${{ matrix.slowstart }}
     secrets: inherit

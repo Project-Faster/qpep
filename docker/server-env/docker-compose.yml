@@ -18,6 +18,7 @@ services:
     environment:
       - QPEP_BACKEND=${QPEP_BACKEND}
       - QPEP_CCA=${QPEP_CCA}
+      - QPEP_SLOWSTART=${QPEP_SLOWSTART}
     build:
       context: server/
       args:

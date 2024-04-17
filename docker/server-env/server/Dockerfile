@@ -8,6 +8,7 @@ ENV GOPATH "/opt/gopath"
 ENV BUILDKIT_PROGRESS "plain"
 ENV QPEP_BACKEND="quic-go"
 ENV QPEP_CCA="reno"
+ENV QPEP_SLOWSTART="basic"
 
 ARG GO_VERSION="1.20.14"
 ARG QPEP_REPO="https://github.com/Project-Faster/qpep.git"

@@ -53,6 +53,11 @@ on:
         type: string
         default: 'reno'
         required: false
+      slowstart:
+        description: 'CC Slowstart algorithm to use (if supported by the backend)'
+        type: string
+        default: 'basic'
+        required: false
       ignore_caches:
         description: 'resets caches to force new build'
         type: boolean
@@ -132,6 +137,7 @@ jobs:
           $config = $config.replace('<QPEP_ADDRESS>','${{ inputs.client_listen_address }}')
           $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
           $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
+          $config = $config.replace('<QPEP_SLOWSTART>','${{ inputs.slowstart }}')
           $config > ./build/config/qpep.yml
           write-host $config
           Copy-Item "./windivert/x64/*" -Destination "./build"
@@ -174,7 +180,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        download_size: [ 5, 10 ]
+        download_size: [ 10 ]
         connections_number: [ 1, 4 ]
     env:
       REMOTE_GATEWAY: ${{ inputs.server_public_address }}
@@ -287,6 +293,7 @@ jobs:
       QPEP_REV: HEAD
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
+      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     steps:
       - name: Pre-Cleanup
         run: |
