@@ -270,7 +270,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: client_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
+          name: client_${{ inputs.ccs }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
           path: |
             ${{ github.workspace }}/docker/speedtests/output.csv
             ${{ github.workspace }}/docker/speedtests/speedtests.out
@@ -334,7 +334,6 @@ jobs:
     env:
       LISTEN_ADDRESS: 127.0.0.1
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
-      SERVER_CCA: ${{ inputs.cca }}
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
     steps:
@@ -417,7 +416,7 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          name: server_${{ matrix.connection_delay_ms }}ms
+          name: server_${{ inputs.ccs }}_${{ inputs.slowstart }}_${{ matrix.connection_delay_ms }}ms
           path: |
             ${{ github.workspace }}/docker/server-data-env/output/data.csv
             ${{ github.workspace }}/docker/speedtests/data.png
