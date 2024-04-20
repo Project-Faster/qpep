@@ -448,6 +448,12 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn,
 	qtFlag, tqFlag *atomic.Bool, lastActivity *time.Time) {
 
+	buf := make([]byte, BUFFER_SIZE)
+	written := int64(0)
+	read := int64(0)
+
+	logger.Info("== [%d] Stream TCP->Quic start ==", dst.ID())
+
 	tskKey := fmt.Sprintf("Tcp->Quic:%v", dst.ID())
 	tsk := shared.StartRegion(tskKey)
 	defer func() {
@@ -458,14 +464,11 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		tsk.End()
 		streamWait.Done()
 		tqFlag.Store(false)
-		logger.Info("== Stream %v TCP->Quic done ==", dst.ID())
+		logger.Info("== Stream %v TCP->Quic [wr:%v rd:%d] done ==", dst.ID(), written, read)
 	}()
 
-	pktcounter := 0
-
-	buf := make([]byte, BUFFER_SIZE)
-
 	pktPrefix := fmt.Sprintf("%v.client.tq", dst.ID())
+	pktcounter := 0
 
 	for {
 		select {
@@ -479,7 +482,9 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 			return
 		}
 
-		wr, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
+		wr, rd, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
+		written += wr
+		read += rd
 
 		if wr > 0 {
 			*lastActivity = time.Now()
@@ -507,6 +512,12 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 	qtFlag, tqFlag *atomic.Bool,
 	lastActivity *time.Time) {
 
+	buf := make([]byte, BUFFER_SIZE)
+	written := int64(0)
+	read := int64(0)
+
+	logger.Info("== [%d] Stream Quic->TCP start ==", src.ID())
+
 	tskKey := fmt.Sprintf("Quic->Tcp:%v", src.ID())
 	tsk := shared.StartRegion(tskKey)
 	defer func() {
@@ -517,13 +528,11 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		tsk.End()
 		streamWait.Done()
 		qtFlag.Store(false)
-		logger.Info("== Stream %v Quic->TCP done ==", src.ID())
+		logger.Info("== Stream %v Quic->TCP [wr:%v rd:%d] done ==", src.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.client.qt", src.ID())
 	pktCounter := 0
-
-	buf := make([]byte, BUFFER_SIZE)
 
 	for {
 		select {
@@ -537,7 +546,9 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 			return
 		}
 
-		wr, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktCounter)
+		wr, rd, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktCounter)
+		written += wr
+		read += rd
 
 		if wr > 0 {
 			*lastActivity = time.Now()
@@ -635,7 +646,7 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 }
 
 func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst time.Duration, timeoutSrc time.Duration,
-	prefix string, counter *int) (written int64, err error) {
+	prefix string, counter *int) (written, read int64, err error) {
 
 	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
 
@@ -644,6 +655,8 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 	nr, er := src.Read(buf)
 
 	if nr > 0 {
+		read += int64(nr)
+
 		if DEBUG_DUMP_PACKETS {
 			dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
 			if derr != nil {
@@ -659,15 +672,30 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 			logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
 		}
 
-		dst.SetWriteDeadline(time.Now().Add(timeoutSrc))
+		offset := 0
+		for offset < nr {
+			dst.SetWriteDeadline(time.Now().Add(timeoutDst))
 
-		nw, ew := dst.Write(buf[0:nr])
-		logger.Debug("[%d][%s] nr: %d nw: %d ew: %v", *counter, prefix, nr, nw, ew)
-		if nw < 0 || nr < nw {
-			nw = 0
-			if ew == nil {
-				ew = io.ErrUnexpectedEOF
+			nw, ew := dst.Write(buf[offset:nr])
+			offset += nw
+			written += int64(nw)
+			if nw < 0 || nr < nw {
+				nw = 0
+				if ew == nil {
+					ew = io.ErrUnexpectedEOF
+					break
+				}
 			}
+			if ew != nil {
+				if err2, ok := ew.(net.Error); ok && err2.Timeout() {
+					continue
+				}
+				err = ew
+				break
+			}
+			//if nr != nw {
+			//err = io.ErrShortWrite
+			//}
 		}
 
 		if DEBUG_DUMP_PACKETS {
@@ -675,24 +703,17 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 			if derr != nil {
 				panic(derr)
 			}
-			dump.Write(buf[0:nw])
+			dump.Write(buf[0:offset])
 			go func() {
 				dump.Sync()
 				dump.Close()
 			}()
-			logger.Debug("[%d][%s] wr: %d (%v)", *counter, dump.Name(), nw, crc64.Checksum(buf[0:nw], crc64.MakeTable(crc64.ISO)))
+			logger.Debug("[%d][%s] wr: %d (%v)", *counter, dump.Name(), offset, crc64.Checksum(buf[0:offset], crc64.MakeTable(crc64.ISO)))
 		} else {
-			logger.Debug("[%d][%s] wr: %d", *counter, prefix, nw)
+			logger.Debug("[%d][%s] wr: %d", *counter, prefix, offset)
 		}
 		*counter = *counter + 1
 
-		written += int64(nw)
-		if ew != nil {
-			err = ew
-		}
-		if nr != nw {
-			err = io.ErrShortWrite
-		}
 	} else {
 		logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
 	}
@@ -702,5 +723,5 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 		err = er
 		//}
 	}
-	return written, err
+	return written, read, err
 }

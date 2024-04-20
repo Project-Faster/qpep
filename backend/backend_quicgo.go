@@ -198,7 +198,7 @@ func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
 }
 
 func (stream *qgoStreamAdapter) Sync() bool {
-	return true
+	return stream.IsClosed()
 }
 
 func (stream *qgoStreamAdapter) ID() uint64 {

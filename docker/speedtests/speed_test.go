@@ -134,15 +134,20 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 				assert.Failf(s.T(), "No response / wrong response", "%d != %d", toRead, int64(*expectedSize))
 				return
 			}
-			defer func() {
-				assert.Equalf(s.T(), 0, toRead, "Download was incomplete, remaining: %d", toRead)
-			}()
-
 			var eventTag = fmt.Sprintf("conn-%d-speed", id)
+
+			defer func() {
+				if toRead > 0 {
+					start := time.Now()
+					events = append(events, fmt.Sprintf("%s,%s,%d\n", start.Format(time.RFC3339Nano), eventTag, toRead/1024))
+					testlog.Info().Msgf("#%d bytes to read: %d", id, toRead)
+				}
+				assert.Equalf(s.T(), int64(0), toRead, "Download was incomplete, remaining: %d", toRead)
+			}()
 
 			var totalBytesInTimeDelta int64 = 0
 			var start = time.Now()
-			var buff = make([]byte, 1024)
+			var buff = make([]byte, 4096)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			go idlingTimeout(resp.Body, cancel, &flagActivity, &toRead, idleTimeout)
@@ -155,7 +160,7 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 				default:
 				}
 
-				rd := io.LimitReader(resp.Body, 1024)
+				rd := io.LimitReader(resp.Body, 4096)
 				read, err := rd.Read(buff)
 				if err != nil && err != io.EOF {
 					if nErr, ok := err.(net.Error); ok && nErr.Timeout() {
@@ -175,19 +180,13 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 				toRead -= int64(read)
 				flagActivity = time.Now().Unix()
 
-				//testlog.Info().Msgf("#%d read: %d, toRead: %d", id, totalBytesInTimeDelta, toRead)
+				testlog.Info().Msgf("#%d read: %d, total: %d, toRead: %d", id, read, resp.ContentLength, toRead)
 				if time.Since(start) > 1*time.Second {
 					start = time.Now()
-					testlog.Info().Msgf("#%d bytes to read: %d", id, toRead)
+					//testlog.Info().Msgf("#%d bytes to read: %d", id, toRead)
 					events = append(events, fmt.Sprintf("%s,%s,%d\n", start.Format(time.RFC3339Nano), eventTag, totalBytesInTimeDelta/1024))
 					totalBytesInTimeDelta = 0
 				}
-			}
-			if totalBytesInTimeDelta > 0 {
-				toRead -= totalBytesInTimeDelta
-				start = time.Now()
-				events = append(events, fmt.Sprintf("%s,%s,%d\n", start.Format(time.RFC3339Nano), eventTag, totalBytesInTimeDelta/1024))
-				testlog.Info().Msgf("#%d bytes to read: %d", id, toRead)
 			}
 		}(index)
 	}

@@ -270,7 +270,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: client_${{ inputs.ccs }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
+          name: client_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
           path: |
             ${{ github.workspace }}/docker/speedtests/output.csv
             ${{ github.workspace }}/docker/speedtests/speedtests.out
@@ -336,6 +336,7 @@ jobs:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
+      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     steps:
       - name: Pre-Cleanup
         run: |
@@ -370,7 +371,7 @@ jobs:
       - name: Set connection delay
         if: inputs.connection_delay_device > 0
         run: |
-          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ matrix.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
 
       - name: Wait Tests
         timeout-minutes: 60 # max allowed timeouts
@@ -400,8 +401,8 @@ jobs:
         if: always()
         run: |
           cd docker/server-env/
-          docker compose down -v
           docker logs server-env-server-1 &> test.log || true
+          docker compose down -v
 
       - name: Stop Data Server Container
         if: always()
@@ -412,11 +413,11 @@ jobs:
       - name: Generate results
         run: |
           cd docker/speedtests/
-          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ matrix.connection_delay_ms }}ms]" "perf-dw-speed"
+          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms]" "perf-dw-speed"
 
       - uses: actions/upload-artifact@v3
         with:
-          name: server_${{ inputs.ccs }}_${{ inputs.slowstart }}_${{ matrix.connection_delay_ms }}ms
+          name: server_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms
           path: |
             ${{ github.workspace }}/docker/server-data-env/output/data.csv
             ${{ github.workspace }}/docker/speedtests/data.png
