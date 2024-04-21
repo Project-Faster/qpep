@@ -335,7 +335,7 @@ jobs:
     needs: [ build-client, build-server ]
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
-      QPEP_ADDRESS: ${{ inputs.client_listen_address }}
+      QPEP_ADDRESS: ${{ inputs.server_private_address }}
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
       QPEP_SLOWSTART: ${{ inputs.slowstart }}
