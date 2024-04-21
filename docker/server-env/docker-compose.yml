@@ -29,6 +29,8 @@ services:
         - QPEP_REV=${QPEP_REV}
     extra_hosts:
       - "MQTT:${SERVER_ADDRESS}"
+      - "QPEP_GATEWAY:127.0.0.1"
+      - "QPEP_ADDRESS:${QPEP_ADDRESS}"
     ports:
       - target: 1443
         published: 1443
