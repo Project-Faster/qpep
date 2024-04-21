@@ -1,15 +1,14 @@
 # Performance server
 
 # set environment variables before running:
-# SERVER_ADDRESS
 # QPEP_BACKEND
 # QPEP_CCA
-
-# set these env variables before building:
 # GO_VERSION
 # QPEP_REPO
 # QPEP_BRANCH
 # QPEP_REV
+# QPEP_ADDRESS
+# QPEP_GATEWAY
 
 version: "1.0"
 services:
@@ -19,6 +18,8 @@ services:
       - QPEP_BACKEND=${QPEP_BACKEND}
       - QPEP_CCA=${QPEP_CCA}
       - QPEP_SLOWSTART=${QPEP_SLOWSTART}
+      - QPEP_ADDRESS:${QPEP_ADDRESS}
+      - QPEP_GATEWAY:127.0.0.1
     build:
       context: server/
       args:
@@ -28,8 +29,6 @@ services:
         - QPEP_REV=${QPEP_REV}
     extra_hosts:
       - "MQTT:${SERVER_ADDRESS}"
-      - "QPEP_GATEWAY:127.0.0.1"
-      - "QPEP_ADDRESS:${SERVER_ADDRESS}"
     ports:
       - target: 1443
         published: 1443

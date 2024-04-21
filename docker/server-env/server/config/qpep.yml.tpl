@@ -1,9 +1,9 @@
 
 # server
-gateway: QPEP_GATEWAY
+gateway: ${QPEP_GATEWAY}
 port: 443
 apiport: 444
-listenaddress: QPEP_ADDRESS # added via extra_hosts
+listenaddress: ${QPEP_ADDRESS}
 listenport: 1443
 
 # backend
