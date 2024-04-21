@@ -132,14 +132,6 @@ jobs:
           New-Item -Path . -Name "build" -ItemType "directory" -Force | Out-Null
           New-Item -Path . -Name "build/config" -ItemType "directory" -Force | Out-Null
           Copy-Item "./docker/client-env/*.pem" "./build"
-          $config = Get-Content -Path ./docker/client-env/qpep.yml.tpl
-          $config = $config.replace('<QPEP_GATEWAY>','${{ inputs.server_public_address }}')
-          $config = $config.replace('<QPEP_ADDRESS>','${{ inputs.client_listen_address }}')
-          $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
-          $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
-          $config = $config.replace('<QPEP_SLOWSTART>','${{ inputs.slowstart }}')
-          $config > ./build/config/qpep.yml
-          write-host $config
           Copy-Item "./windivert/x64/*" -Destination "./build"
 
       - name: Build Client (Backends)
@@ -198,6 +190,19 @@ jobs:
           path: ${{ github.workspace }}/build
           key: qpep-${{ github.head_ref || github.ref_name }}
           fail-on-cache-miss: true
+
+      - name: Prepare
+        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        shell: pwsh
+        run: |
+          $config = Get-Content -Path ./docker/client-env/qpep.yml.tpl
+          $config = $config.replace('<QPEP_GATEWAY>','${{ inputs.server_public_address }}')
+          $config = $config.replace('<QPEP_ADDRESS>','${{ inputs.client_listen_address }}')
+          $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
+          $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
+          $config = $config.replace('<QPEP_SLOWSTART>','${{ inputs.slowstart }}')
+          $config > ./build/config/qpep.yml
+          write-host $config
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -269,6 +274,7 @@ jobs:
           go run docker/speedtests/utils/reset_proxy_util.go
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: client_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
           path: |
@@ -411,11 +417,13 @@ jobs:
           docker compose down -v
 
       - name: Generate results
+        if: always()
         run: |
           cd docker/speedtests/
           go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms]" "perf-dw-speed"
 
       - uses: actions/upload-artifact@v3
+        if: always()
         with:
           name: server_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms
           path: |
