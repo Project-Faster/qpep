@@ -66,9 +66,8 @@ mkdir -p /opt/build/config \n\
 WORKDIR /root
 RUN printf '#!/bin/bash -xe \n\
 envsubst < /root/qpep/docker/server-env/server/config/qpep.yml.tpl > /opt/build/config/qpep.yml \n\
+cat /opt/build/config/qpep.yml \n\
 cp /root/qpep/docker/server-env/server/*.pem /opt/build/ \n\
-ping -c 3 QPEP_GATEWAY \n\
-ping -c 3 QPEP_ADDRESS \n\
 ping -c 3 MQTT \n\
 cd /opt/build \n\
 ./qpep -v \n\
