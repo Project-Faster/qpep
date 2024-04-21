@@ -276,7 +276,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: client_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
+          name: client_${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
           path: |
             ${{ github.workspace }}/docker/speedtests/output.csv
             ${{ github.workspace }}/docker/speedtests/speedtests.out
@@ -425,7 +425,7 @@ jobs:
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: server_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms
+          name: server_${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms
           path: |
             ${{ github.workspace }}/docker/server-data-env/output/data.csv
             ${{ github.workspace }}/docker/speedtests/data.png
