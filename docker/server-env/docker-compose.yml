@@ -14,18 +14,18 @@ version: "1.0"
 services:
   server:
     image: "project-faster/qpep-server"
-    environment:
-      - QPEP_BACKEND=${QPEP_BACKEND}
-      - QPEP_CCA=${QPEP_CCA}
-      - QPEP_SLOWSTART=${QPEP_SLOWSTART}
-      - QPEP_ADDRESS:${QPEP_ADDRESS}
-      - QPEP_GATEWAY:127.0.0.1
-      - GO_VERSION=${GO_VERSION}
-      - QPEP_REPO=${QPEP_REPO}
-      - QPEP_BRANCH=${QPEP_BRANCH}
-      - QPEP_REV=${QPEP_REV}
     build:
       context: server/
+      args:
+        - GO_VERSION=${GO_VERSION}
+        - QPEP_REPO=${QPEP_REPO}
+        - QPEP_BRANCH=${QPEP_BRANCH}
+        - QPEP_REV=${QPEP_REV}
+        - QPEP_BACKEND=${QPEP_BACKEND}
+        - QPEP_CCA=${QPEP_CCA}
+        - QPEP_SLOWSTART=${QPEP_SLOWSTART}
+        - QPEP_ADDRESS:${QPEP_ADDRESS}
+        - QPEP_GATEWAY:127.0.0.1
     extra_hosts:
       - "MQTT:${SERVER_ADDRESS}"
     ports:
