@@ -76,6 +76,7 @@ jobs:
       QPEP_REPO: https://github.com/${{github.repository}}.git
       QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
       QPEP_REV: ${{ github.sha }}
+      QPEP_GATEWAY: ${{ inputs.server_public_address }}
       QPEP_ADDRESS: ${{ inputs.client_listen_address }}
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
@@ -188,6 +189,7 @@ jobs:
       QPEP_REPO: https://github.com/${{github.repository}}.git
       QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
       QPEP_REV: ${{ github.sha }}
+      QPEP_GATEWAY: ${{ inputs.server_public_address }}
       QPEP_ADDRESS: ${{ inputs.client_listen_address }}
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
@@ -319,6 +321,7 @@ jobs:
       QPEP_REPO: https://github.com/${{github.repository}}.git
       QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
       QPEP_REV: ${{ github.sha }}
+      QPEP_GATEWAY: ${{ inputs.server_public_address }}
       QPEP_ADDRESS: ${{ inputs.client_listen_address }}
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
@@ -369,6 +372,7 @@ jobs:
       QPEP_REPO: https://github.com/${{github.repository}}.git
       QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
       QPEP_REV: ${{ github.sha }}
+      QPEP_GATEWAY: ${{ inputs.server_public_address }}
       QPEP_ADDRESS: ${{ inputs.client_listen_address }}
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
