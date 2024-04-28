@@ -64,12 +64,22 @@ on:
         default: false
         required: true
 
+env:
+  GO_VERSION: 1.20.14
+  CMAKE_VERSION: '3.22.x'
+  GH_TOKEN: ${{ github.token }}
+  CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+  QPEP_REPO: https://github.com/${{github.repository}}.git
+  QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
+  QPEP_REV: ${{ github.sha }}
+  QPEP_ADDRESS: ${{ inputs.client_listen_address }}
+  QPEP_BACKEND: ${{ inputs.backend }}
+  QPEP_CCA: ${{ inputs.cca }}
+  QPEP_SLOWSTART: ${{ inputs.slowstart }}
+
 jobs:
   build-client:
     runs-on: vm-client
-    env:
-      GH_TOKEN: ${{ github.token }}
-      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
       - name: Install the github cli
         uses: sersoft-gmbh/setup-gh-cli-action@v2
@@ -117,13 +127,13 @@ jobs:
         if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@v4
         with:
-          go-version: 1.20.14
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Set up CMake
         if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
         uses: jwlawson/actions-setup-cmake@v1.14
         with:
-          cmake-version: '3.22.x'
+          cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Prepare
         if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
@@ -185,7 +195,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ github.workspace }}/build
-          key: qpep-${{ github.head_ref || github.ref_name }}
+          key: ${{ env.CACHE_KEY }}
           fail-on-cache-miss: true
 
       - name: Prepare
@@ -204,7 +214,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.20.14
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Prepare tests reporting
         run: |
@@ -287,15 +297,6 @@ jobs:
 
   build-server:
     runs-on: vm-server
-    env:
-      GO_VERSION: 1.20.14
-      QPEP_ADDRESS: ${{ inputs.client_listen_address }}
-      QPEP_REPO: https://github.com/${{github.repository}}.git
-      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
-      QPEP_REV: HEAD
-      QPEP_BACKEND: ${{ inputs.backend }}
-      QPEP_CCA: ${{ inputs.cca }}
-      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     steps:
       - name: Pre-Cleanup
         run: |
@@ -308,7 +309,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20.14
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Cleanup all docker
         if: ${{ inputs.ignore_caches }}
@@ -335,10 +336,6 @@ jobs:
     needs: [ build-client, build-server ]
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
-      QPEP_ADDRESS: ${{ inputs.server_private_address }}
-      QPEP_BACKEND: ${{ inputs.backend }}
-      QPEP_CCA: ${{ inputs.cca }}
-      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     steps:
       - name: Pre-Cleanup
         run: |
@@ -351,7 +348,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20.14
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Run data server
         run: |

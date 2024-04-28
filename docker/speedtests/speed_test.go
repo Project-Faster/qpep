@@ -21,6 +21,7 @@ import (
 var targetURL = flag.String("target_url", "", "url to download")
 var connections = flag.Int("connections_num", 1, "simultaneous tcp connections to make to the server")
 var expectedSize = flag.Int("expect_mb", 10, "size in MBs of the target file")
+var debugProxy = flag.String("debug_proxy", "", "url to download")
 
 var testlog log.Logger
 
@@ -205,6 +206,9 @@ func getClientForAPI(localAddr net.Addr) (*http.Client, time.Duration) {
 		Timeout: 5 * time.Minute,
 		Transport: &http.Transport{
 			Proxy: func(*http.Request) (*url.URL, error) {
+				if *debugProxy != "" {
+					return url.Parse(*debugProxy)
+				}
 				shared.UsingProxy, shared.ProxyAddress = shared.GetSystemProxyEnabled()
 				if shared.UsingProxy {
 					return shared.ProxyAddress, nil

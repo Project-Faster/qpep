@@ -46,6 +46,16 @@ git submodule update \n\
 ' > /root/clone-qpep.sh
 
 RUN printf '#!/bin/bash -xe \n\
+echo [UPDATE to ${QPEP_REPO}@${QPEP_BRANCH}:${QPEP_REV}] \n\
+cd /root/qpep \n\
+git switch ${QPEP_BRANCH} \n\
+if [[ ! "${QPEP_REV}" -eq "HEAD" ]]; then \n\
+  git reset --hard ${QPEP_REV} \n\
+fi \n\
+git pull \n\
+' > /root/update-qpep.sh
+
+RUN printf '#!/bin/bash -xe \n\
 echo [BUILD BACKENDS] \n\
 export PATH=$GOROOT/bin:$GOPATH/bin:$PATH \n\
 echo [GEN BACKENDS] \n\
@@ -67,12 +77,15 @@ mkdir -p /opt/build/config \n\
 
 WORKDIR /root
 RUN printf '#!/bin/bash -xe \n\
+/root/update-qpep.sh \n\
+/root/backends-qpep.sh \n\
+/root/build-qpep.sh \n\
 envsubst < /root/qpep/docker/server-env/server/config/qpep.yml.tpl > /opt/build/config/qpep.yml \n\
 cat /opt/build/config/qpep.yml \n\
 cp /root/qpep/docker/server-env/server/*.pem /opt/build/ \n\
 ping -c 3 MQTT \n\
 cd /opt/build \n\
-./qpep -v \n\
+./qpep $1 \n\
 ' > /root/run-qpep.sh
 
 RUN sh -c 'dos2unix /root/*.sh'
