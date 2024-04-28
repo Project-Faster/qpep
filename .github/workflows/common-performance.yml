@@ -64,22 +64,22 @@ on:
         default: false
         required: true
 
-env:
-  GO_VERSION: 1.20.14
-  CMAKE_VERSION: '3.22.x'
-  GH_TOKEN: ${{ github.token }}
-  CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
-  QPEP_REPO: https://github.com/${{github.repository}}.git
-  QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
-  QPEP_REV: ${{ github.sha }}
-  QPEP_ADDRESS: ${{ inputs.client_listen_address }}
-  QPEP_BACKEND: ${{ inputs.backend }}
-  QPEP_CCA: ${{ inputs.cca }}
-  QPEP_SLOWSTART: ${{ inputs.slowstart }}
-
 jobs:
   build-client:
     runs-on: vm-client
+    env:
+      SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GH_TOKEN: ${{ github.token }}
+      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      QPEP_REPO: https://github.com/${{github.repository}}.git
+      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
+      QPEP_REV: ${{ github.sha }}
+      QPEP_ADDRESS: ${{ inputs.client_listen_address }}
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
+      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     steps:
       - name: Install the github cli
         uses: sersoft-gmbh/setup-gh-cli-action@v2
@@ -179,6 +179,19 @@ jobs:
   run-client:
     runs-on: vm-client
     needs: [build-client, build-server]
+    env:
+      SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GH_TOKEN: ${{ github.token }}
+      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      QPEP_REPO: https://github.com/${{github.repository}}.git
+      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
+      QPEP_REV: ${{ github.sha }}
+      QPEP_ADDRESS: ${{ inputs.client_listen_address }}
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
+      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     strategy:
       max-parallel: 1
       matrix:
@@ -297,6 +310,19 @@ jobs:
 
   build-server:
     runs-on: vm-server
+    env:
+      SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GH_TOKEN: ${{ github.token }}
+      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      QPEP_REPO: https://github.com/${{github.repository}}.git
+      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
+      QPEP_REV: ${{ github.sha }}
+      QPEP_ADDRESS: ${{ inputs.client_listen_address }}
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
+      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     steps:
       - name: Pre-Cleanup
         run: |
@@ -336,6 +362,17 @@ jobs:
     needs: [ build-client, build-server ]
     env:
       SERVER_ADDRESS: ${{ inputs.server_private_address }}
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GH_TOKEN: ${{ github.token }}
+      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      QPEP_REPO: https://github.com/${{github.repository}}.git
+      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
+      QPEP_REV: ${{ github.sha }}
+      QPEP_ADDRESS: ${{ inputs.client_listen_address }}
+      QPEP_BACKEND: ${{ inputs.backend }}
+      QPEP_CCA: ${{ inputs.cca }}
+      QPEP_SLOWSTART: ${{ inputs.slowstart }}
     steps:
       - name: Pre-Cleanup
         run: |
