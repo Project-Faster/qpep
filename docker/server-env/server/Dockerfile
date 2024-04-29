@@ -6,16 +6,15 @@ ENV CGO_ENABLED "1"
 ENV GOROOT "/opt/go"
 ENV GOPATH "/opt/gopath"
 ENV BUILDKIT_PROGRESS "plain"
-
-ARG QPEP_BACKEND="quic-go"
-ARG QPEP_CCA="reno"
-ARG QPEP_SLOWSTART="basic"
-ARG QPEP_ADDRESS="127.0.0.1"
-ARG QPEP_GATEWAY="127.0.0.1"
-ARG GO_VERSION="1.20.14"
-ARG QPEP_REPO="https://github.com/Project-Faster/qpep.git"
-ARG QPEP_BRANCH="main"
-ARG QPEP_REV="HEAD"
+ENV QPEP_BACKEND="quic-go"
+ENV QPEP_CCA="reno"
+ENV QPEP_SLOWSTART="basic"
+ENV QPEP_ADDRESS="127.0.0.1"
+ENV QPEP_GATEWAY="127.0.0.1"
+ENV GO_VERSION="1.20.14"
+ENV QPEP_REPO="https://github.com/Project-Faster/qpep.git"
+ENV QPEP_BRANCH="main"
+ENV QPEP_REV="HEAD"
 
 USER root
 
@@ -46,11 +45,11 @@ git submodule update \n\
 ' > /root/clone-qpep.sh
 
 RUN printf '#!/bin/bash -xe \n\
-echo [UPDATE to ${QPEP_REPO}@${QPEP_BRANCH}:${QPEP_REV}] \n\
+echo [UPDATE to $1@$2:$3] \n\
 cd /root/qpep \n\
-git switch ${QPEP_BRANCH} \n\
-if [[ ! "${QPEP_REV}" -eq "HEAD" ]]; then \n\
-  git reset --hard ${QPEP_REV} \n\
+git switch $2 \n\
+if [[ ! "$3" -eq "HEAD" ]]; then \n\
+  git reset --hard $3 \n\
 fi \n\
 git pull \n\
 ' > /root/update-qpep.sh
@@ -77,7 +76,7 @@ mkdir -p /opt/build/config \n\
 
 WORKDIR /root
 RUN printf '#!/bin/bash -xe \n\
-/root/update-qpep.sh \n\
+/root/update-qpep.sh $1 $2 $3 \n\
 /root/backends-qpep.sh \n\
 /root/build-qpep.sh \n\
 envsubst < /root/qpep/docker/server-env/server/config/qpep.yml.tpl > /opt/build/config/qpep.yml \n\
@@ -85,7 +84,7 @@ cat /opt/build/config/qpep.yml \n\
 cp /root/qpep/docker/server-env/server/*.pem /opt/build/ \n\
 ping -c 3 MQTT \n\
 cd /opt/build \n\
-./qpep $1 \n\
+./qpep \n\
 ' > /root/run-qpep.sh
 
 RUN sh -c 'dos2unix /root/*.sh'
