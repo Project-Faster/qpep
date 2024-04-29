@@ -172,6 +172,7 @@ jobs:
     runs-on: vm-client
     needs: [build-client, build-server]
     env:
+      GO_VERSION: 1.20.14
       GH_TOKEN: ${{ github.token }}
       CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     strategy:
