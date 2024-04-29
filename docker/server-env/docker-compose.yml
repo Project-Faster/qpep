@@ -35,4 +35,7 @@ services:
         mode: host
     network_mode: "host"
     entrypoint:
-      - /root/run-qpep.sh ${QPEP_REPO} ${QPEP_BRANCH} ${QPEP_REV}
+      - /root/run-qpep.sh
+      - ${QPEP_REPO}
+      - ${QPEP_BRANCH}
+      - ${QPEP_REV}
