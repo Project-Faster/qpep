@@ -40,7 +40,7 @@ git clone ${QPEP_REPO} || true     \n\
 cd /root/qpep \n\
 git switch ${QPEP_BRANCH} \n\
 if [[ ! "${QPEP_REV}" -eq "HEAD" ]]; then \n\
-  git reset --hard ${QPEP_REV} \n\
+  git checkout "${QPEP_REV}" \n\
 fi \n\
 git submodule init \n\
 git submodule update \n\
@@ -51,9 +51,8 @@ echo [UPDATE to $1@$2:$3] \n\
 cd /root/qpep \n\
 git switch $2 \n\
 if [[ ! "$3" -eq "HEAD" ]]; then \n\
-  git reset --hard $3 \n\
+  git checkout "$3" \n\
 fi \n\
-git pull \n\
 ' > /root/update-qpep.sh
 
 RUN printf '#!/bin/bash -xe \n\

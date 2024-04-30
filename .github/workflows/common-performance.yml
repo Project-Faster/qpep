@@ -420,6 +420,7 @@ jobs:
         run: |
           cd docker/server-env/
           docker logs server-env-server-1 &> test.log || true
+          cat test.log || true
           docker compose down -v
 
       - name: Stop Data Server Container
