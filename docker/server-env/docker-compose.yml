@@ -12,7 +12,7 @@
 
 version: "1.0"
 volumes:
-  - outputdata:
+  outputdata:
 services:
   server:
     image: "project-faster/qpep-server"
