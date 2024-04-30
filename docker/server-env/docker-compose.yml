@@ -11,6 +11,8 @@
 # QPEP_GATEWAY
 
 version: "1.0"
+volumes:
+  - outputdata:
 services:
   server:
     image: "project-faster/qpep-server"
@@ -34,6 +36,8 @@ services:
         protocol: udp
         mode: host
     network_mode: "host"
+    volumes:
+      - outputdata:/root
     entrypoint:
       - /root/run-qpep.sh
       - ${QPEP_REPO}
