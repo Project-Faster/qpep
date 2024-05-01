@@ -327,6 +327,17 @@ jobs:
       - name: Build Server
         run: |
           docker version
+          export GO_VERSION=${GO_VERSION}
+          export CMAKE_VERSION=${CMAKE_VERSION}
+          export GH_TOKEN=${GH_TOKEN}
+          export CACHE_KEY=${CACHE_KEY}
+          export QPEP_REPO=${QPEP_REPO}
+          export QPEP_BRANCH=${QPEP_BRANCH}
+          export QPEP_REV=${QPEP_REV}
+          export QPEP_CCA=${QPEP_CCA}
+          export QPEP_ADDRESS=${QPEP_ADDRESS}
+          export QPEP_BACKEND=${QPEP_BACKEND}
+          export QPEP_SLOWSTART=${QPEP_SLOWSTART}
           pushd docker/server-env/
           docker compose build
 
@@ -380,6 +391,18 @@ jobs:
       - name: Run Server
         run: |
           cd docker/server-env/
+          export GO_VERSION="${GO_VERSION}"
+          export CMAKE_VERSION="${CMAKE_VERSION}"
+          export GH_TOKEN="${GH_TOKEN}"
+          export CACHE_KEY="${CACHE_KEY}"
+          export QPEP_REPO="${QPEP_REPO}"
+          export QPEP_BRANCH="${QPEP_BRANCH}"
+          export QPEP_REV="${QPEP_REV}"
+          export QPEP_CCA="${QPEP_CCA}"
+          export QPEP_ADDRESS="${QPEP_ADDRESS}"
+          export QPEP_BACKEND="${QPEP_BACKEND}"
+          export QPEP_SLOWSTART="${QPEP_SLOWSTART}"
+          export SERVER_ADDRESS="${SERVER_ADDRESS}"
           docker compose up -d
 
       - name: Reset connection delay
