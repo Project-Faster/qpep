@@ -195,7 +195,6 @@ jobs:
           fail-on-cache-miss: true
 
       - name: Prepare
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
         shell: pwsh
         run: |
           $config = Get-Content -Path ./docker/client-env/qpep.yml.tpl
