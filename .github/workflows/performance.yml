@@ -99,12 +99,12 @@ jobs:
             cca: 'cubic'
     uses: './.github/workflows/common-performance.yml'
     with:
+      ignore_caches: ${{ inputs.ignore_caches }}
       server_public_address: ${{ inputs.server_public_address }}
       server_private_address: ${{ inputs.server_private_address }}
       client_listen_address: ${{ inputs.client_listen_address }}
       connection_delay_device: ${{ inputs.connection_delay_device }}
-      connection_delay_ms: ${{ inputs.connection_delay_ms }}
-      ignore_caches: ${{ inputs.ignore_caches }}
+      connection_delay_ms: ${{ matrix.connection_delay_ms }}
       backend: ${{ matrix.backend }}
       cca: ${{ matrix.cca }}
       slowstart: ${{ matrix.slowstart }}
