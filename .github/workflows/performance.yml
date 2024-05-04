@@ -32,11 +32,6 @@ on:
         type: string
         default: eth0
         required: true
-      ignore_caches:
-        description: 'resets caches to force new build'
-        type: boolean
-        default: false
-        required: true
       keep_aws_running:
         description: 'keeps aws vm running for subsequent runs'
         type: boolean
@@ -69,7 +64,7 @@ jobs:
 
   stop-aws-vm:
     runs-on: ubuntu-latest
-    needs: qpep-run
+    needs: performance-run
     if: ${{ always() && ! inputs.keep_aws_running }}
     steps:
       - name: Install AWS cli
@@ -83,7 +78,7 @@ jobs:
           aws ec2 stop-instances --instance-ids ${{ secrets.AWS_INSTANCE_ID }}
         shell: bash
 
-  qpep-run:
+  performance-run:
     needs: launch-aws-vm
     strategy:
       max-parallel: 1
@@ -99,7 +94,6 @@ jobs:
             cca: 'cubic'
     uses: './.github/workflows/common-performance.yml'
     with:
-      ignore_caches: ${{ inputs.ignore_caches }}
       server_public_address: ${{ inputs.server_public_address }}
       server_private_address: ${{ inputs.server_private_address }}
       client_listen_address: ${{ inputs.client_listen_address }}

@@ -58,11 +58,6 @@ on:
         type: string
         default: 'basic'
         required: false
-      ignore_caches:
-        description: 'resets caches to force new build'
-        type: boolean
-        default: false
-        required: true
 
 jobs:
   build-client:
@@ -87,7 +82,6 @@ jobs:
           gh cache delete ${{ env.CACHE_KEY }}
 
       - name: Restore cached build
-        if: ${{ ! inputs.ignore_caches }}
         id: cache-build
         uses: actions/cache/restore@v4
         with:
@@ -104,31 +98,31 @@ jobs:
           gh cache delete  --repo project-faster/qpep $old_id
 
       - name: Cleanup workspace
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         shell: pwsh
         run: |
           rm ${{ github.workspace }}\* -r -force
 
       - uses: actions/checkout@v4
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         with:
           clean: true
           submodules: true
 
       - name: Set up Go
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Set up CMake
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         uses: jwlawson/actions-setup-cmake@v1.14
         with:
           cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Prepare
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         shell: pwsh
         run: |
           New-Item -Path . -Name "build" -ItemType "directory" -Force | Out-Null
@@ -137,7 +131,7 @@ jobs:
           Copy-Item "./windivert/x64/*" -Destination "./build"
 
       - name: Build Client (Backends)
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         shell: cmd
         run: |
           set CGO_ENABLED=1
@@ -148,7 +142,7 @@ jobs:
           go generate
 
       - name: Build Client
-        if: ${{ inputs.ignore_caches || steps.cache-build.outputs.cache-hit != 'true' }}
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         shell: cmd
         run: |
           set CGO_ENABLED=1
@@ -303,7 +297,6 @@ jobs:
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
       QPEP_SLOWSTART: ${{ inputs.slowstart }}
-      # QPEP_ADDRESS: ${{ inputs.server_public_address }}
       QPEP_GATEWAY: 127.0.0.1
       QPEP_ADDRESS: 127.0.0.1
     steps:
@@ -321,7 +314,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cleanup all docker
-        if: ${{ inputs.ignore_caches }}
         run: |
           docker system prune -af || true
 
@@ -367,7 +359,6 @@ jobs:
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
       QPEP_SLOWSTART: ${{ inputs.slowstart }}
-      # QPEP_ADDRESS: ${{ inputs.server_public_address }}
       QPEP_GATEWAY: 127.0.0.1
       QPEP_ADDRESS: 127.0.0.1
     steps:
