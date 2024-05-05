@@ -21,7 +21,7 @@ on:
       server_wait_timeout:
         description: 'Server global timeout for tests'
         type: number
-        default: 150
+        default: 100
         required: false
       connection_delay_ms:
         description: 'connection delay in milliseconds set on the server'
@@ -73,13 +73,6 @@ jobs:
         with:
           version:
             stable
-
-      - name: Clear cache
-        if: ${{ inputs.ignore_caches }}
-        continue-on-error: true
-        run: |
-          gh version
-          gh cache delete ${{ env.CACHE_KEY }}
 
       - name: Restore cached build
         id: cache-build
@@ -315,7 +308,10 @@ jobs:
 
       - name: Cleanup all docker
         run: |
-          docker system prune -af || true
+          PERC=$(df -l -h / | tail -n1 | cut -d ' ' --fields=16 | sed -s 's/%//')
+          if [[ $PERC -gt 90 ]]; then
+            docker system prune -af || true
+          fi
 
       - name: Build Server
         run: |
