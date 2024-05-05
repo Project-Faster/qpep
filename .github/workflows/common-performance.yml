@@ -266,7 +266,7 @@ jobs:
       - name: Generate results
         if: always()
         run: |
-          New-Item -Path . -Name "build" -ItemType "${{ env.DEST_ARTIFACT }}" -Force | Out-Null
+          New-Item -Path . -Name "${{ env.DEST_ARTIFACT }}" -ItemType "directory" -Force | Out-Null
           Move-Item ${{ github.workspace }}/docker/speedtests/ ${{ env.DEST_ARTIFACT }}/
           Move-Item ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/
 
