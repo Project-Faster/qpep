@@ -266,9 +266,9 @@ jobs:
       - name: Generate results
         if: always()
         run: |
-          mkdir -p ${{ env.DEST_ARTIFACT }}
-          mv ${{ github.workspace }}/docker/speedtests/* ${{ env.DEST_ARTIFACT }}/
-          ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/
+          New-Item -Path . -Name "build" -ItemType "${{ env.DEST_ARTIFACT }}" -Force | Out-Null
+          Move-Item ${{ github.workspace }}/docker/speedtests/ ${{ env.DEST_ARTIFACT }}/
+          Move-Item ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/
 
       - uses: actions/upload-artifact@v4
         if: always()
