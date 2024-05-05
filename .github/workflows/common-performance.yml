@@ -456,6 +456,10 @@ jobs:
         run: |
           cd docker/speedtests/
           go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms Backend:${{ inputs.backend }} CC:${{ inputs.cca }}/${{ inputs.slowstart }}]" "perf-dw-speed"
+
+      - name: Prepare results
+        if: always()
+        run: |
           mkdir -p ${{ env.DEST_ARTIFACT }}
           mv ${{ github.workspace }}/docker/server-data-env/output/data.csv ${{ env.DEST_ARTIFACT }}/data.csv
           mv ${{ github.workspace }}/docker/speedtests/data.png ${{ env.DEST_ARTIFACT }}/data.png
