@@ -103,3 +103,46 @@ jobs:
       cca: ${{ matrix.cca }}
       slowstart: ${{ matrix.slowstart }}
     secrets: inherit
+
+  performance-results:
+    needs: performance-run
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ARTIFACT_KEY: results-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+    steps:
+      - name: Install the github cli
+        uses: sersoft-gmbh/setup-gh-cli-action@v2
+        with:
+          version:
+            stable
+
+      - name: Download results artifacts
+        run: |
+          CURRENT_RUN=$(gh run list --json databaseId -w PerformanceTests -L 1 -q .[].databaseId)
+          if [[ "${CURRENT_RUN}" -eq "" ]]; then
+              exit 1
+          fi
+          echo "CURRENT_RUN=${CURRENT_RUN}" >> $GITHUB_ENV
+          gh run download ${CURRENT_RUN} -p client_*
+          gh run download ${CURRENT_RUN} -p server_*
+
+      - name: Generate results artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: ${{ env.ARTIFACT_KEY }}
+          path: |
+            client_*
+            server_*
+
+      - name: Delete results artifacts
+        if: success()
+        run: |
+          if [[ "${CURRENT_RUN}" -eq "" ]]; then
+              exit 1
+          fi
+          ARTIFACTS=$(gh api https://api.github.com/repos/project-faster/qpep/actions/artifacts -q ".artifacts[]|select(.workflow_run.id==${CURRENT_RUN})|.id")
+          for $id in $ARTIFACTS do
+              gh api -X DELETE https://api.github.com/repos/project-faster/qpep/actions/artifacts/$id || true
+          done

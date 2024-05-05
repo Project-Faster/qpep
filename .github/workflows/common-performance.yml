@@ -162,6 +162,7 @@ jobs:
       GO_VERSION: 1.20.14
       GH_TOKEN: ${{ github.token }}
       CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      DEST_ARTIFACT: results_client/${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms/
     strategy:
       max-parallel: 1
       matrix:
@@ -249,7 +250,7 @@ jobs:
              -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
              -test.v -test.timeout 5m > speedtests.out
 
-          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms][TargetSize:${{ matrix.download_size }}M][Connections:${{ matrix.connections_number }}]"
+          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms TargetSize:${{ matrix.download_size }}MB Connections:${{ matrix.connections_number }} Backend:${{ inputs.backend }} CC:${{ inputs.cca }}/${{ inputs.slowstart }}]"
 
       - name: Stop Client
         if: always()
@@ -262,16 +263,19 @@ jobs:
         run: |
           go run docker/speedtests/utils/reset_proxy_util.go
 
+      - name: Generate results
+        if: always()
+        run: |
+          mkdir -p ${{ env.DEST_ARTIFACT }}
+          mv ${{ github.workspace }}/docker/speedtests/* ${{ env.DEST_ARTIFACT }}/
+          ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: client_${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms_${{ matrix.download_size }}MB_${{ matrix.connections_number }}conn
           path: |
-            ${{ github.workspace }}/docker/speedtests/output.csv
-            ${{ github.workspace }}/docker/speedtests/speedtests.out
-            ${{ github.workspace }}/docker/speedtests/speedtests.log
-            ${{ github.workspace }}/docker/speedtests/data.png
-            ${{ github.workspace }}/build/*.log
+            results_client/
 
       - name: Auto-cancel workflow on error
         if: failure()
@@ -310,6 +314,7 @@ jobs:
         run: |
           PERC=$(df -l -h / | tail -n1 | cut -d ' ' --fields=16 | sed -s 's/%//')
           if [[ $PERC -gt 90 ]]; then
+            echo "Pruning cached docker data"
             docker system prune -af || true
           fi
 
@@ -357,6 +362,7 @@ jobs:
       QPEP_SLOWSTART: ${{ inputs.slowstart }}
       QPEP_GATEWAY: 127.0.0.1
       QPEP_ADDRESS: 127.0.0.1
+      DEST_ARTIFACT: results_server/${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms/
     steps:
       - name: Pre-Cleanup
         run: |
@@ -447,23 +453,26 @@ jobs:
         if: always()
         run: |
           cd docker/speedtests/
-          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms]" "perf-dw-speed"
+          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms Backend:${{ inputs.backend }} CC:${{ inputs.cca }}/${{ inputs.slowstart }}]" "perf-dw-speed"
+          mkdir -p ${{ env.DEST_ARTIFACT }}
+          mv ${{ github.workspace }}/docker/server-data-env/output/data.csv ${{ env.DEST_ARTIFACT }}/data.csv
+          mv ${{ github.workspace }}/docker/speedtests/data.png ${{ env.DEST_ARTIFACT }}/data.png
+          ${{ github.workspace }}/docker/server-env/*.log ${{ env.DEST_ARTIFACT }}/
+          ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/
 
       - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: server_${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms
           path: |
-            ${{ github.workspace }}/docker/server-data-env/output/data.csv
-            ${{ github.workspace }}/docker/speedtests/data.png
-            ${{ github.workspace }}/build/*.log
-            ${{ github.workspace }}/docker/server-env/*.log
+            results_server/
 
       - name: Cleanup
         if: always()
         run: |
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
           sudo rm -rf docker/server-data-env/output/* || true
+          sudo rm -rf results_server/
 
       - name: Auto-cancel workflow on error
         if: failure()
