@@ -421,11 +421,10 @@ jobs:
             echo "Connections alive: $CONN_NUM"
             if (( CONN_NUM <= 0 )); then
               (( RETRIES -= 1 )) || true
-              echo "Remaining $RETRIES retries"
             else
               (( RETRIES=${{ inputs.server_wait_timeout }} )) || true
-              echo "Remaining $RETRIES retries"
             fi
+            echo "$(date +%F_%T.%N): Remaining $RETRIES retries"
             sleep 1
           done
           echo [Wait done]
