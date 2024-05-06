@@ -113,6 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
+      BASE_REPO: https://github.com/project-faster/qpep
       ARTIFACT_KEY: results-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
       - name: Install the github cli
@@ -123,13 +124,13 @@ jobs:
 
       - name: Download results artifacts
         run: |
-          CURRENT_RUN=$(gh run list --json databaseId -w PerformanceTests -L 1 -q .[].databaseId)
+          CURRENT_RUN=$(gh run list --repo ${{ env.BASE_REPO }} --json databaseId -w PerformanceTests -L 1 -q .[].databaseId)
           if [[ "${CURRENT_RUN}" -eq "" ]]; then
               exit 1
           fi
           echo "CURRENT_RUN=${CURRENT_RUN}" >> $GITHUB_ENV
-          gh run download ${CURRENT_RUN} -p client_*
-          gh run download ${CURRENT_RUN} -p server_*
+          gh run download ${CURRENT_RUN} --repo ${{ env.BASE_REPO }} -p client_*
+          gh run download ${CURRENT_RUN} --repo ${{ env.BASE_REPO }} -p server_*
 
       - name: Generate results artifact
         uses: actions/upload-artifact@v4
