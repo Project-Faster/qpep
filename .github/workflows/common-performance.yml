@@ -321,22 +321,20 @@ jobs:
       - name: Build Server
         run: |
           docker version
-          if [ -z "$(docker images -q "project-faster/qpep-server:latest" 2> /dev/null)" ]; then
-            export GO_VERSION=${GO_VERSION}
-            export CMAKE_VERSION=${CMAKE_VERSION}
-            export GH_TOKEN=${GH_TOKEN}
-            export CACHE_KEY=${CACHE_KEY}
-            export QPEP_REPO=${QPEP_REPO}
-            export QPEP_BRANCH=${QPEP_BRANCH}
-            export QPEP_REV=${QPEP_REV}
-            export QPEP_CCA=${QPEP_CCA}
-            export QPEP_ADDRESS=${QPEP_ADDRESS}
-            export QPEP_BACKEND=${QPEP_BACKEND}
-            export QPEP_SLOWSTART=${QPEP_SLOWSTART}
-            export QPEP_GATEWAY=${QPEP_GATEWAY}
-            pushd docker/server-env/
-            docker compose build
-          fi
+          export GO_VERSION=${GO_VERSION}
+          export CMAKE_VERSION=${CMAKE_VERSION}
+          export GH_TOKEN=${GH_TOKEN}
+          export CACHE_KEY=${CACHE_KEY}
+          export QPEP_REPO=${QPEP_REPO}
+          export QPEP_BRANCH=${QPEP_BRANCH}
+          export QPEP_REV=${QPEP_REV}
+          export QPEP_CCA=${QPEP_CCA}
+          export QPEP_ADDRESS=${QPEP_ADDRESS}
+          export QPEP_BACKEND=${QPEP_BACKEND}
+          export QPEP_SLOWSTART=${QPEP_SLOWSTART}
+          export QPEP_GATEWAY=${QPEP_GATEWAY}
+          pushd docker/server-env/
+          docker compose build
 
       - name: Build Data Server
         run: |
