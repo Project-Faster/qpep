@@ -461,10 +461,10 @@ jobs:
         if: always()
         run: |
           mkdir -p ${{ env.DEST_ARTIFACT }}
-          sudo cp ${{ github.workspace }}/docker/server-data-env/output/data.csv ${{ env.DEST_ARTIFACT }}/data.csv
-          sudo cp ${{ github.workspace }}/docker/speedtests/data.png ${{ env.DEST_ARTIFACT }}/data.png
-          sudo cp ${{ github.workspace }}/docker/server-env/*.log ${{ env.DEST_ARTIFACT }}/
-          sudo cp ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/
+          sudo cp ${{ github.workspace }}/docker/server-env/*.log ${{ env.DEST_ARTIFACT }}/ || true
+          sudo cp ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/ || true
+          sudo cp ${{ github.workspace }}/docker/server-data-env/output/data.csv ${{ env.DEST_ARTIFACT }}/data.csv || true
+          sudo cp ${{ github.workspace }}/docker/speedtests/data.png ${{ env.DEST_ARTIFACT }}/data.png || true
 
       - uses: actions/upload-artifact@v3
         if: always()
