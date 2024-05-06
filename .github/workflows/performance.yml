@@ -83,7 +83,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        backend: [ 'quic-go', 'quicly-go' ]
+        backend: [ 'quicly-go' ]
         cca: [ 'reno' ]
         slowstart: [ 'search' ]
         connection_delay_ms: [ 0, 500 ]
@@ -129,6 +129,7 @@ jobs:
               exit 1
           fi
           echo "CURRENT_RUN=${CURRENT_RUN}" >> $GITHUB_ENV
+          echo "Current run: ${CURRENT_RUN}"
           gh run download ${CURRENT_RUN} --repo ${{ env.BASE_REPO }} -p client_*
           gh run download ${CURRENT_RUN} --repo ${{ env.BASE_REPO }} -p server_*
 
@@ -144,6 +145,7 @@ jobs:
       - name: Delete results artifacts
         if: success()
         run: |
+          echo "Current run: ${CURRENT_RUN}"
           if [[ "${CURRENT_RUN}" -eq "" ]]; then
               exit 1
           fi

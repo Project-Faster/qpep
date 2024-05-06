@@ -148,7 +148,7 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 
 			var totalBytesInTimeDelta int64 = 0
 			var start = time.Now()
-			var buff = make([]byte, 4096)
+			var buff = make([]byte, 512*1024)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			go idlingTimeout(resp.Body, cancel, &flagActivity, &toRead, idleTimeout)
@@ -161,7 +161,7 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 				default:
 				}
 
-				rd := io.LimitReader(resp.Body, 4096)
+				rd := io.LimitReader(resp.Body, 512*1024)
 				read, err := rd.Read(buff)
 				if err != nil && err != io.EOF {
 					if nErr, ok := err.(net.Error); ok && nErr.Timeout() {
