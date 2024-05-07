@@ -122,4 +122,4 @@ jobs:
             ${{ github.token }}
         with:
           name: ${{ env.ARTIFACT_KEY }}
-          delelte-merged: true
+          delete-merged: true
