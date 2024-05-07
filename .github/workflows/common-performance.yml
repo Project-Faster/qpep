@@ -464,7 +464,7 @@ jobs:
           sudo cp ${{ github.workspace }}/docker/server-data-env/output/data.csv ${{ env.DEST_ARTIFACT }}/data.csv || true
           sudo cp ${{ github.workspace }}/docker/speedtests/data.png ${{ env.DEST_ARTIFACT }}/data.png || true
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: server_${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms

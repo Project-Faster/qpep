@@ -112,44 +112,28 @@ jobs:
     needs: performance-run
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ github.token }}
       BASE_REPO: https://github.com/project-faster/qpep
       ARTIFACT_KEY: results-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
-      - name: Install the github cli
-        uses: sersoft-gmbh/setup-gh-cli-action@v2
-        with:
-          version:
-            stable
-
       - name: Download results artifacts
-        run: |
-          CURRENT_RUN=$(gh run list --repo ${{ env.BASE_REPO }} --json databaseId -w PerformanceTests -L 1 -q .[].databaseId)
-          if [[ "${CURRENT_RUN}" -eq "" ]]; then
-              exit 1
-          fi
-          echo "CURRENT_RUN=${CURRENT_RUN}" >> $GITHUB_ENV
-          echo "Current run: ${CURRENT_RUN}"
-          gh run download ${CURRENT_RUN} --repo ${{ env.BASE_REPO }} -p client_*
-          gh run download ${CURRENT_RUN} --repo ${{ env.BASE_REPO }} -p server_*
+        env:
+          GITHUB_TOKEN:
+            ${{ github.token }}
+        uses: actions/download-artifact@v4
+        with:
+          path: full_results
+          merge_multiple: true
+          repository: ${{ env.BASE_REPO }}
+          pattern: |
+            client_*
+            server_*
 
       - name: Generate results artifact
         uses: actions/upload-artifact@v4
         if: success()
+        env:
+          GITHUB_TOKEN:
+            ${{ github.token }}
         with:
           name: ${{ env.ARTIFACT_KEY }}
-          path: |
-            client_*
-            server_*
-
-      - name: Delete results artifacts
-        if: success()
-        run: |
-          echo "Current run: ${CURRENT_RUN}"
-          if [[ "${CURRENT_RUN}" -eq "" ]]; then
-              exit 1
-          fi
-          ARTIFACTS=$(gh api https://api.github.com/repos/project-faster/qpep/actions/artifacts -q ".artifacts[]|select(.workflow_run.id==${CURRENT_RUN})|.id")
-          for $id in $ARTIFACTS do
-              gh api -X DELETE https://api.github.com/repos/project-faster/qpep/actions/artifacts/$id || true
-          done
+          path: full_results
