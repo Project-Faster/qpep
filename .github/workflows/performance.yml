@@ -122,7 +122,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: full_results
-          merge_multiple: true
+          merge-multiple: true
           repository: ${{ env.BASE_REPO }}
           pattern: |
             client_*
