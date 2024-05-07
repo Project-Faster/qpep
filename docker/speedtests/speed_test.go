@@ -182,7 +182,7 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 				flagActivity = time.Now().Unix()
 
 				testlog.Info().Msgf("#%d read: %d, total: %d, toRead: %d", id, read, resp.ContentLength, toRead)
-				if time.Since(start) > 1*time.Second {
+				if time.Since(start) > 100*time.Millisecond {
 					start = time.Now()
 					//testlog.Info().Msgf("#%d bytes to read: %d", id, toRead)
 					events = append(events, fmt.Sprintf("%s,%s,%d\n", start.Format(time.RFC3339Nano), eventTag, totalBytesInTimeDelta/1024))
