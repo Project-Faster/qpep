@@ -26,7 +26,7 @@ const (
 	// PROXY_TYPE_DWORD Registry key value type for integer values
 	PROXY_TYPE_DWORD = `REG_DWORD`
 
-	DEBUG_MASK_REDIRECT = false
+	DEBUG_MASK_REDIRECT = true
 )
 
 var (
