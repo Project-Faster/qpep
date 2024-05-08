@@ -21,7 +21,7 @@ on:
       server_wait_timeout:
         description: 'Server global timeout for tests'
         type: number
-        default: 100
+        default: 300
         required: false
       connection_delay_ms:
         description: 'connection delay in milliseconds set on the server'
