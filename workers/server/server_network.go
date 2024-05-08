@@ -453,10 +453,8 @@ func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst tim
 		logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
 	}
 
-	if er != nil {
-		//if er != io.EOF {
+	if er != nil && er != io.EOF {
 		err = er
-		//}
 	}
 	return written, read, err
 }

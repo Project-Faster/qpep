@@ -122,4 +122,5 @@ jobs:
             ${{ github.token }}
         with:
           name: ${{ env.ARTIFACT_KEY }}
+          separate-directories: true
           delete-merged: true

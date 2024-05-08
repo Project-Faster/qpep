@@ -266,6 +266,7 @@ jobs:
       - name: Generate results
         if: always()
         run: |
+          Remove-Item -Path . -Name "docker/speedtests/speedtests.test" -Force | Out-Null
           New-Item -Path . -Name "${{ env.DEST_ARTIFACT }}" -ItemType "directory" -Force | Out-Null
           Move-Item ${{ github.workspace }}/docker/speedtests/ ${{ env.DEST_ARTIFACT }}/
           Move-Item ${{ github.workspace }}/build/*.log ${{ env.DEST_ARTIFACT }}/
