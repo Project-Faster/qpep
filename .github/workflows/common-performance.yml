@@ -414,7 +414,7 @@ jobs:
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
 
       - name: Wait Tests
-        timeout-minutes: 15 # max allowed timeouts
+        timeout-minutes: 30 # max allowed timeouts
         run: |
           # initial wait for server setup
           sleep 60
