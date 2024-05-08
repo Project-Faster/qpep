@@ -223,7 +223,8 @@ jobs:
 
            do {
             try {
-              Write-Host "Echoing server..."
+              $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
+              Write-Host "$DT : Echoing server..."
               Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 1
               Write-Host "Job completed"
               $Stoploop = $true
