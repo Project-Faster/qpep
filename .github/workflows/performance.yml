@@ -116,7 +116,7 @@ jobs:
     steps:
       - name: Generate results artifact
         uses: actions/upload-artifact/merge@v4
-        if: success()
+        if: always()
         env:
           GITHUB_TOKEN:
             ${{ github.token }}
