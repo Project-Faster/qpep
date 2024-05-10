@@ -134,6 +134,7 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 			return
 
 		case <-time.After(1 * time.Second):
+			continue
 			if checkIsRunning {
 				continue
 			}
