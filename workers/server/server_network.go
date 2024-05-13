@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/backend"
+	"github.com/parvit/qpep/flags"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/workers"
 	"hash/crc64"
 	"io"
 	"net"
@@ -58,7 +58,9 @@ func listenQuicSession(address string, port int) {
 
 	var err error
 	quicListener, err = quicProvider.Listen(context.Background(), address, port, shared.QPepConfig.Certificate, shared.QPepConfig.CertKey,
-		shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo, shared.QPepConfig.Verbose)
+		shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo,
+		flags.Globals.Trace)
+
 	if err != nil {
 		logger.Error("Unrecoverable error while listening for QUIC connections: %s\n", err)
 		return
@@ -188,7 +190,6 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	trackedAddress := qpepHeader.SourceAddr.IP.String()
 	proxyAddress := tcpConn.LocalAddr().String()
 	startTime := time.Now()
-	lastActivityTime := time.Time{}
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
 
@@ -209,11 +210,9 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	var streamWait sync.WaitGroup
 	streamWait.Add(2)
 
-	go handleQuicToTcp(ctx, &streamWait, srcLimit, tcpConn, quicStream, proxyAddress, trackedAddress,
-		&qtActiveFlag, &tqActiveFlag, &lastActivityTime)
+	go handleQuicToTcp(ctx, &streamWait, srcLimit, tcpConn, quicStream, proxyAddress, trackedAddress, &qtActiveFlag, &tqActiveFlag)
 
-	go handleTcpToQuic(ctx, &streamWait, dstLimit, quicStream, tcpConn, trackedAddress,
-		&qtActiveFlag, &tqActiveFlag, &lastActivityTime)
+	go handleTcpToQuic(ctx, &streamWait, dstLimit, quicStream, tcpConn, trackedAddress, &qtActiveFlag, &tqActiveFlag)
 
 	//we exit (and close the TCP connection) once both streams are done copying or timeout
 	logger.Info("== Stream %d Wait ==", quicStream.ID())
@@ -226,10 +225,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	logger.Info(">> [%d] Closed Conn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
 }
 
-func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64, dst net.Conn, src backend.QuicBackendStream,
-	proxyAddress, trackedAddress string,
-	qtFlag, tqFlag *atomic.Bool,
-	lastActivity *time.Time) {
+func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64, dst net.Conn, src backend.QuicBackendStream, proxyAddress, trackedAddress string, qtFlag, tqFlag *atomic.Bool) {
 
 	tempBuffer := make([]byte, BUFFER_SIZE)
 	written := int64(0)
@@ -265,7 +261,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		default:
 		}
 
-		if src.IsClosed() || (!tqFlag.Load() && src.Sync()) {
+		if src.IsClosed() || !tqFlag.Load() {
 			logger.Error("[%v] LINKED TQ CLOSE (%v %v %v)", src.ID(), src.IsClosed(), !tqFlag.Load(), src.Sync())
 			return
 		}
@@ -285,15 +281,10 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		written += wr
 		read += rd
 
-		if wr > 0 {
-			*lastActivity = time.Now()
-		}
-		logger.Debug("[%d] Q->T: %v, %v, [%v/%v]", src.ID(), wr, err, time.Now().Sub(*lastActivity), workers.WK_IDLE_TIMEOUT)
-
-		if !lastActivity.IsZero() && time.Now().Sub(*lastActivity) > workers.WK_IDLE_TIMEOUT {
-			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+		if rd == 0 && err == nil {
 			return
 		}
+		logger.Debug("[%d] Q->T: %v, %v", src.ID(), wr, err)
 
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
@@ -305,10 +296,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	}
 }
 
-func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64, dst backend.QuicBackendStream, src net.Conn,
-	trackedAddress string,
-	qtFlag, tqFlag *atomic.Bool,
-	lastActivity *time.Time) {
+func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64, dst backend.QuicBackendStream, src net.Conn, trackedAddress string, qtFlag, tqFlag *atomic.Bool) {
 
 	tempBuffer := make([]byte, BUFFER_SIZE)
 	written := int64(0)
@@ -340,7 +328,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		default:
 		}
 
-		if dst.IsClosed() || (!qtFlag.Load() && dst.Sync()) {
+		if dst.IsClosed() || !qtFlag.Load() {
 			logger.Error("[%v] LINKED TQ CLOSE (%v %v %v)", dst.ID(), dst.IsClosed(), !qtFlag.Load(), dst.Sync())
 			return
 		}
@@ -360,15 +348,10 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		//	time.Sleep(wait)
 		//}
 
-		if wr > 0 {
-			*lastActivity = time.Now()
-		}
-		logger.Debug("[%d] T->Q: %v, %v, [%v/%v]", dst.ID(), wr, err, time.Now().Sub(*lastActivity), workers.WK_IDLE_TIMEOUT)
-
-		if !lastActivity.IsZero() && time.Now().Sub(*lastActivity) > workers.WK_IDLE_TIMEOUT {
-			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+		if rd == 0 && err == nil {
 			return
 		}
+		logger.Debug("[%d] T->Q: %v, %v", dst.ID(), wr, err)
 
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {

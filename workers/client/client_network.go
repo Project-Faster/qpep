@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/parvit/qpep/flags"
 	"hash/crc64"
 	"io"
 	"io/ioutil"
@@ -21,7 +22,6 @@ import (
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
-	"github.com/parvit/qpep/workers"
 	"golang.org/x/net/context"
 )
 
@@ -166,8 +166,8 @@ func handleTCPConn(tcpConn net.Conn) {
 	tqActiveFlag.Store(true)
 	qtActiveFlag.Store(true)
 
-	go handleTcpToQuic(ctx, &streamWait, quicStream, tcpConn, &qtActiveFlag, &tqActiveFlag, &lastActivityTime)
-	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream, &qtActiveFlag, &tqActiveFlag, &lastActivityTime)
+	go handleTcpToQuic(ctx, &streamWait, quicStream, tcpConn, &qtActiveFlag, &tqActiveFlag)
+	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream, &qtActiveFlag, &tqActiveFlag)
 
 	//we exit (and close the TCP connection) once both streams are done copying
 	logger.Info("== Stream %d Wait ==", quicStream.ID())
@@ -445,8 +445,7 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 }
 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
-func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn,
-	qtFlag, tqFlag *atomic.Bool, lastActivity *time.Time) {
+func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn, qtFlag, tqFlag *atomic.Bool) {
 
 	buf := make([]byte, BUFFER_SIZE)
 	written := int64(0)
@@ -477,7 +476,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		default:
 		}
 
-		if dst.IsClosed() || (!qtFlag.Load() && dst.Sync()) {
+		if dst.IsClosed() || !qtFlag.Load() {
 			logger.Error("[%v] LINKED TQ CLOSE", dst.ID())
 			return
 		}
@@ -486,16 +485,12 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		written += wr
 		read += rd
 
-		if wr > 0 {
-			*lastActivity = time.Now()
-		}
-
-		logger.Debug("[%d][%v] T->Q: %v, %v", dst.ID(), time.Now().Sub(*lastActivity), wr, err)
-
-		if !lastActivity.IsZero() && time.Now().Sub(*lastActivity) > workers.WK_IDLE_TIMEOUT {
-			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+		if rd == 0 && err == nil {
 			return
 		}
+
+		logger.Debug("[%d] T->Q: %v, %v", dst.ID(), wr, err)
+
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
@@ -508,9 +503,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 }
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
-func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QuicBackendStream,
-	qtFlag, tqFlag *atomic.Bool,
-	lastActivity *time.Time) {
+func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QuicBackendStream, qtFlag, tqFlag *atomic.Bool) {
 
 	buf := make([]byte, BUFFER_SIZE)
 	written := int64(0)
@@ -541,7 +534,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		default:
 		}
 
-		if src.IsClosed() || (!tqFlag.Load() && src.Sync()) {
+		if src.IsClosed() || !tqFlag.Load() {
 			logger.Error("[%v] LINKED QT CLOSE", src.ID())
 			return
 		}
@@ -550,16 +543,12 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		written += wr
 		read += rd
 
-		if wr > 0 {
-			*lastActivity = time.Now()
-		}
-
-		logger.Debug("[%d][%v] Q->T: %v, %v", src.ID(), time.Now().Sub(*lastActivity), wr, err)
-
-		if !lastActivity.IsZero() && time.Now().Sub(*lastActivity) > workers.WK_IDLE_TIMEOUT {
-			logger.Error("[%s] ACTIVITY TIMEOUT", pktPrefix)
+		if rd == 0 && err == nil {
 			return
 		}
+
+		logger.Debug("[%d] Q->T: %v, %v", src.ID(), wr, err)
+
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
@@ -632,7 +621,8 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 
 	logger.Info("== Dialing QUIC Session: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
 	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort,
-		shared.QPepConfig.Certificate, shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo, shared.QPepConfig.Verbose)
+		shared.QPepConfig.Certificate, shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo,
+		flags.Globals.Trace)
 
 	if err != nil {
 		logger.Error("Unable to Dial QUIC Session: %v\n", err)

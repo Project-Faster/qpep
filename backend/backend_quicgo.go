@@ -187,14 +187,17 @@ type qgoStreamAdapter struct {
 	quic.Stream
 
 	id *uint64
+
+	closedRead  bool
+	closedWrite bool
 }
 
 func (stream *qgoStreamAdapter) AbortRead(code uint64) {
-	stream.CancelRead(quic.StreamErrorCode(code))
+	stream.closedRead = true
 }
 
 func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
-	stream.CancelWrite(quic.StreamErrorCode(code))
+	stream.closedWrite = true
 }
 
 func (stream *qgoStreamAdapter) Sync() bool {
@@ -221,7 +224,7 @@ func (stream *qgoStreamAdapter) ID() uint64 {
 }
 
 func (stream *qgoStreamAdapter) IsClosed() bool {
-	return false
+	return false // stream.closedRead || stream.closedWrite
 }
 
 var _ QuicBackendStream = &qgoStreamAdapter{}
