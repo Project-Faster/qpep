@@ -158,8 +158,7 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
 	logger.Info("== Stream %d Start ==", quicStream.ID())
-
-	lastActivityTime := time.Time{}
+ 
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
 
