@@ -96,9 +96,8 @@ func listenQuicConn(quicSession backend.QuicBackendConnection) {
 	for {
 		stream, err := quicSession.AcceptStream(context.Background())
 		if err != nil {
-			if err.Error() != "NO_ERROR: No recent network activity" {
-				logger.Error("Unrecoverable error while accepting QUIC stream: %s\n", err)
-			}
+			logger.Error("Unrecoverable error while accepting QUIC stream: %s\n", err)
+			quicSession.Close(0, "")
 			return
 		}
 		go func(st backend.QuicBackendStream) {

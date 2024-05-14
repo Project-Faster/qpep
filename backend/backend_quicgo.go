@@ -106,6 +106,8 @@ type qgoConnectionAdapter struct {
 	context    context.Context
 	listener   quic.Listener
 	connection quic.Connection
+
+	streams []quic.Stream
 }
 
 func (c *qgoConnectionAdapter) LocalAddr() net.Addr {
@@ -128,9 +130,29 @@ func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
 	panic(shared.ErrInvalidBackendOperation)
 }
 
+func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
+	if c.listener != nil {
+		conn, err := c.listener.Accept(ctx)
+		if err != nil {
+			return nil, err
+		}
+		cNew := &qgoConnectionAdapter{
+			context:    ctx,
+			listener:   c.listener,
+			connection: conn,
+			streams:    make([]quic.Stream, 0, 32),
+		}
+		return cNew, nil
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
 func (c *qgoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream, err := c.connection.AcceptStream(ctx)
+		if stream != nil {
+			c.streams = append(c.streams, stream)
+		}
 		return &qgoStreamAdapter{
 			Stream: stream,
 		}, err
@@ -148,28 +170,18 @@ func (c *qgoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 	panic(shared.ErrInvalidBackendOperation)
 }
 
-func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
-	if c.listener != nil {
-		conn, err := c.listener.Accept(ctx)
-		if err != nil {
-			return nil, err
-		}
-		cNew := &qgoConnectionAdapter{
-			context:    ctx,
-			listener:   c.listener,
-			connection: conn,
-		}
-		return cNew, nil
-	}
-	panic(shared.ErrInvalidBackendOperation)
-}
-
 func (c *qgoConnectionAdapter) Close(code int, message string) error {
 	defer func() {
 		c.connection = nil
 		c.listener = nil
+		c.streams = nil
 	}()
 	if c.connection != nil {
+		for _, st := range c.streams {
+			st.CancelRead(quic.StreamErrorCode(0))
+			st.CancelWrite(quic.StreamErrorCode(0))
+			_ = st.Close()
+		}
 		return c.connection.CloseWithError(quic.ApplicationErrorCode(code), message)
 	}
 	if c.listener != nil {
@@ -194,10 +206,12 @@ type qgoStreamAdapter struct {
 }
 
 func (stream *qgoStreamAdapter) AbortRead(code uint64) {
+	stream.CancelRead(quic.StreamErrorCode(code))
 	stream.closedRead = true
 }
 
 func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
+	stream.CancelWrite(quic.StreamErrorCode(code))
 	stream.closedWrite = true
 }
 
