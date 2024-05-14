@@ -93,9 +93,10 @@ func qgoGetConfiguration() *quic.Config {
 	return &quic.Config{
 		MaxIncomingStreams:      1024,
 		DisablePathMTUDiscovery: true,
+		MaxIdleTimeout:          3 * time.Second,
 
 		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
-		//KeepAlivePeriod:      1 * time.Second,
+		KeepAlivePeriod:      0,
 
 		EnableDatagrams: false,
 	}
