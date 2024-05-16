@@ -44,8 +44,7 @@ type WriterTimeout interface {
 func listenQuicSession(address string, port int) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Info("PANIC: %v\n", err)
-			debug.PrintStack()
+			logger.Error("PANIC: %v\n", err, string(debug.Stack()))
 		}
 	}()
 	if quicProvider == nil {

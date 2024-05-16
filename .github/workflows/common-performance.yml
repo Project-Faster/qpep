@@ -388,24 +388,6 @@ jobs:
           popd
           docker compose up -d
 
-      - name: Run Server
-        run: |
-          cd docker/server-env/
-          export GO_VERSION="${GO_VERSION}"
-          export CMAKE_VERSION="${CMAKE_VERSION}"
-          export GH_TOKEN="${GH_TOKEN}"
-          export CACHE_KEY="${CACHE_KEY}"
-          export QPEP_REPO="${QPEP_REPO}"
-          export QPEP_BRANCH="${QPEP_BRANCH}"
-          export QPEP_REV="${QPEP_REV}"
-          export QPEP_CCA="${QPEP_CCA}"
-          export QPEP_ADDRESS="${QPEP_ADDRESS}"
-          export QPEP_BACKEND="${QPEP_BACKEND}"
-          export QPEP_SLOWSTART="${QPEP_SLOWSTART}"
-          export QPEP_GATEWAY=${QPEP_GATEWAY}
-          export SERVER_ADDRESS="${SERVER_ADDRESS}"
-          docker compose up -d
-
       - name: Reset connection delay
         run: |
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d
@@ -415,28 +397,49 @@ jobs:
         run: |
           sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
 
-      - name: Wait Tests
-        timeout-minutes: 30 # max allowed timeouts
-        run: |
-          # initial wait for server setup
-          sleep 60
-          
-          echo [Starting wait for tests execution...]
-          CONN_NUM=1
-          RETRIES=${{ inputs.server_wait_timeout }}
-          while ! (( RETRIES <= 0 ));
-          do
-            CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
-            echo "Connections alive: $CONN_NUM"
-            if (( CONN_NUM <= 0 )); then
-              (( RETRIES -= 1 )) || true
-            else
-              (( RETRIES=${{ inputs.server_wait_timeout }} )) || true
-            fi
-            echo "$(date +%F_%T.%N): Remaining $RETRIES retries"
-            sleep 1
-          done
-          echo [Wait done]
+      - name: Run Server Tests
+        uses:
+          nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 6
+          shell: bash
+          command: |
+            echo [Running Server]
+            cd docker/server-env/
+            export GO_VERSION="${GO_VERSION}"
+            export CMAKE_VERSION="${CMAKE_VERSION}"
+            export GH_TOKEN="${GH_TOKEN}"
+            export CACHE_KEY="${CACHE_KEY}"
+            export QPEP_REPO="${QPEP_REPO}"
+            export QPEP_BRANCH="${QPEP_BRANCH}"
+            export QPEP_REV="${QPEP_REV}"
+            export QPEP_CCA="${QPEP_CCA}"
+            export QPEP_ADDRESS="${QPEP_ADDRESS}"
+            export QPEP_BACKEND="${QPEP_BACKEND}"
+            export QPEP_SLOWSTART="${QPEP_SLOWSTART}"
+            export QPEP_GATEWAY=${QPEP_GATEWAY}
+            export SERVER_ADDRESS="${SERVER_ADDRESS}"
+            docker compose up -d
+            
+            # initial wait for server setup
+            sleep 60
+            
+            echo [Starting wait for tests execution...]
+            CONN_NUM=1
+            RETRIES=${{ inputs.server_wait_timeout }}
+            while true;
+            do
+              CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
+              echo "Connections alive: $CONN_NUM"
+              echo "$(date +%F_%T.%N): Retrying..."
+              sleep 1
+            done
+            echo [Wait done]
+            
+            echo [Stopping Server]
+            cd docker/server-env/
+            docker compose down -v
 
       - name: Stop Server Container
         if: always()

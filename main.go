@@ -18,8 +18,7 @@ func main() {
 
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("PANIC: %v", err)
-			debug.PrintStack()
+			logger.Error("PANIC: %v %v\n", err, string(debug.Stack()))
 		}
 		logger.CloseLogger()
 	}()
