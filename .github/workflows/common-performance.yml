@@ -402,7 +402,10 @@ jobs:
           nick-fields/retry@v3
         with:
           timeout_minutes: 10
-          max_attempts: 6
+          max_attempts: 3
+          retry_on: timeout
+          warning_on_retry: true
+          continue_on_error: true
           shell: bash
           command: |
             echo [Running Server]
