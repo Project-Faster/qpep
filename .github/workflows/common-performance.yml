@@ -21,7 +21,7 @@ on:
       server_wait_timeout:
         description: 'Server global timeout for tests'
         type: number
-        default: 300
+        default: 200
         required: false
       connection_delay_ms:
         description: 'connection delay in milliseconds set on the server'
@@ -410,6 +410,7 @@ jobs:
         with:
           timeout_minutes: 10
           max_attempts: 3
+          retry_on: timeout
           warning_on_retry: true
           continue_on_error: true
           shell: bash
@@ -436,12 +437,16 @@ jobs:
             
             echo [Starting wait for tests execution...]
             CONN_NUM=1
-            RETRIES=${{ inputs.server_wait_timeout }}
-            while true;
+            while ! (( RETRIES <= 0 ));
             do
               CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
               echo "Connections alive: $CONN_NUM"
-              echo "$(date +%F_%T.%N): Retrying..."
+              if (( CONN_NUM <= 0 )); then
+                (( RETRIES -= 1 )) || true
+              else
+                (( RETRIES=${{ inputs.server_wait_timeout }} )) || true
+              fi
+              echo "$(date +%F_%T.%N): Remaining $RETRIES retries"
               sleep 1
             done
             echo [Wait done]
