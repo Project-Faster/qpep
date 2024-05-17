@@ -430,6 +430,7 @@ jobs:
             
             echo [Starting wait for tests execution...]
             CONN_NUM=1
+            RETRIES=${{ inputs.server_wait_timeout }}
             while ! (( RETRIES <= 0 ));
             do
               CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
