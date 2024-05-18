@@ -1,7 +1,7 @@
 
 # client
 gateway: <QPEP_GATEWAY>
-port: 1443
+port: <QPEP_PORT>
 apiport: 444
 listenaddress: <QPEP_ADDRESS>
 listenport: 9443

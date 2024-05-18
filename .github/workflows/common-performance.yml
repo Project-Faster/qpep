@@ -18,6 +18,11 @@ on:
         type: string
         default: 192.168.1.21
         required: true
+      gateway_port:
+        description: 'port for the gateway'
+        type: number
+        default: 1443
+        required: false
       server_wait_timeout:
         description: 'Server global timeout for tests'
         type: number
@@ -66,7 +71,7 @@ jobs:
       GO_VERSION: 1.20.14
       CMAKE_VERSION: '3.22.x'
       GH_TOKEN: ${{ github.token }}
-      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      CACHE_KEY: qpep_client-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
       - name: Install the github cli
         uses: sersoft-gmbh/setup-gh-cli-action@v2
@@ -86,7 +91,7 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          $old_id = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep-"))|.id' )
+          $old_id = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep_client-"))|.id' )
           write-host "removing cache # $old_id"
           gh cache delete  --repo project-faster/qpep $old_id
 
@@ -161,7 +166,7 @@ jobs:
     env:
       GO_VERSION: 1.20.14
       GH_TOKEN: ${{ github.token }}
-      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      CACHE_KEY: qpep_client-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
       DEST_ARTIFACT: results_client/${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms/
     strategy:
       max-parallel: 1
@@ -189,6 +194,7 @@ jobs:
           $config = $config.replace('<QPEP_GATEWAY>','${{ inputs.server_public_address }}')
           $config = $config.replace('<QPEP_ADDRESS>','${{ inputs.client_listen_address }}')
           $config = $config.replace('<QPEP_BACKEND>','${{ inputs.backend }}')
+          $config = $config.replace('<QPEP_PORT>','${{ inputs.gateway_port }}')
           $config = $config.replace('<QPEP_CCA>','${{ inputs.cca }}')
           $config = $config.replace('<QPEP_SLOWSTART>','${{ inputs.slowstart }}')
           $config > ./build/config/qpep.yml
@@ -290,54 +296,88 @@ jobs:
       GO_VERSION: 1.20.14
       CMAKE_VERSION: '3.22.x'
       GH_TOKEN: ${{ github.token }}
-      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
-      QPEP_REPO: https://github.com/${{github.repository}}.git
-      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
-      QPEP_REV: ${{ github.sha }}
-      QPEP_BACKEND: ${{ inputs.backend }}
-      QPEP_CCA: ${{ inputs.cca }}
-      QPEP_SLOWSTART: ${{ inputs.slowstart }}
-      QPEP_GATEWAY: 127.0.0.1
-      QPEP_ADDRESS: 127.0.0.1
+      CACHE_KEY: qpep_server-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
       - name: Pre-Cleanup
         run: |
           sudo rm -rf docker/server-data-env/output/* || true
 
-      - uses: actions/checkout@v3
+      - name: Install the github cli
+        uses: sersoft-gmbh/setup-gh-cli-action@v2
+        with:
+          version:
+            stable
+
+      - name: Restore cached build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ env.CACHE_KEY }}
+
+      - name: Cleanup previous cached build
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $old_id = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep_server-"))|.id' )
+          write-host "removing cache # $old_id"
+          gh cache delete  --repo project-faster/qpep $old_id
+
+      - uses: actions/checkout@v4
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         with:
           clean: true
+          submodules: true
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Set up CMake
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
+
+      - name: Build server (Init submodules)
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        run: |
+          git submodule init
+          git submodule update
+
+      - name: Build server (Backends)
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        run: |
+          cd backend
+          go env
+          go generate
+
+      - name: Build server
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        run: |
+          mkdir -p build
+          mkdir -p build/config
+          go build -v -o build/qpep
+          rm -rf backends/quicly-go/gen_*
+
+      - name: Cache build
+        if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ env.CACHE_KEY }}
+
       - name: Cleanup all docker
         run: |
+          docker version
           PERC=$(df -l -h / | tail -n1 | cut -d ' ' --fields=16 | sed -s 's/%//')
           if [[ $PERC -gt 90 ]]; then
             echo "Pruning cached docker data"
             docker system prune -af || true
           fi
-
-      - name: Build Server
-        run: |
-          docker version
-          export GO_VERSION=${GO_VERSION}
-          export CMAKE_VERSION=${CMAKE_VERSION}
-          export GH_TOKEN=${GH_TOKEN}
-          export CACHE_KEY=${CACHE_KEY}
-          export QPEP_REPO=${QPEP_REPO}
-          export QPEP_BRANCH=${QPEP_BRANCH}
-          export QPEP_REV=${QPEP_REV}
-          export QPEP_CCA=${QPEP_CCA}
-          export QPEP_ADDRESS=${QPEP_ADDRESS}
-          export QPEP_BACKEND=${QPEP_BACKEND}
-          export QPEP_SLOWSTART=${QPEP_SLOWSTART}
-          export QPEP_GATEWAY=${QPEP_GATEWAY}
-          pushd docker/server-env/
-          docker compose build
 
       - name: Build Data Server
         run: |
@@ -356,29 +396,45 @@ jobs:
       GO_VERSION: 1.20.14
       CMAKE_VERSION: '3.22.x'
       GH_TOKEN: ${{ github.token }}
-      CACHE_KEY: qpep-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
-      QPEP_REPO: https://github.com/${{github.repository}}.git
-      QPEP_BRANCH: ${{ github.head_ref || github.ref_name }}
-      QPEP_REV: ${{ github.sha }}
+      CACHE_KEY: qpep_server-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      DEST_ARTIFACT: results_server/${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms/
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
       QPEP_SLOWSTART: ${{ inputs.slowstart }}
       QPEP_GATEWAY: 127.0.0.1
+      QPEP_PORT: ${{ inputs.gateway_port }}
       QPEP_ADDRESS: 127.0.0.1
-      DEST_ARTIFACT: results_server/${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms/
     steps:
       - name: Pre-Cleanup
         run: |
           sudo rm -rf docker/server-data-env/output/* || true
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           clean: true
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Restore build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/build
+          key: ${{ env.CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: Update configuration
+        run: |
+          envsubst < ${{ github.workspace }}/docker/server-env/server/config/qpep.yml.tpl > ${{ github.workspace }}/build/config/qpep.yml
+
+      - name: Run server
+        run: |
+          cd build/
+          ./qpep &> test.log &
+          echo $! > server.pid
 
       - name: Run data server
         run: |
@@ -390,12 +446,12 @@ jobs:
 
       - name: Reset connection delay
         run: |
-          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_device }}" -d
 
       - name: Set connection delay
         if: inputs.connection_delay_device > 0
         run: |
-          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_ms }}" "${{ inputs.connection_delay_device }}"
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_device }}" "${{ inputs.gateway_port }}" "${{ inputs.connection_delay_ms }}"
 
       - name: Run Server Tests
         uses:
@@ -408,25 +464,8 @@ jobs:
           continue_on_error: true
           shell: bash
           command: |
-            echo [Running Server]
-            cd docker/server-env/
-            export GO_VERSION="${GO_VERSION}"
-            export CMAKE_VERSION="${CMAKE_VERSION}"
-            export GH_TOKEN="${GH_TOKEN}"
-            export CACHE_KEY="${CACHE_KEY}"
-            export QPEP_REPO="${QPEP_REPO}"
-            export QPEP_BRANCH="${QPEP_BRANCH}"
-            export QPEP_REV="${QPEP_REV}"
-            export QPEP_CCA="${QPEP_CCA}"
-            export QPEP_ADDRESS="${QPEP_ADDRESS}"
-            export QPEP_BACKEND="${QPEP_BACKEND}"
-            export QPEP_SLOWSTART="${QPEP_SLOWSTART}"
-            export QPEP_GATEWAY=${QPEP_GATEWAY}
-            export SERVER_ADDRESS="${SERVER_ADDRESS}"
-            docker compose up -d
-            
             # initial wait for server setup
-            sleep 60
+            sleep 30
             
             echo [Starting wait for tests execution...]
             CONN_NUM=1
@@ -444,20 +483,14 @@ jobs:
               sleep 1
             done
             echo [Wait done]
-            
-            echo [Stopping Server]
-            cd docker/server-env/
-            docker compose down -v
 
-      - name: Stop Server Container
+      - name: Stop Server
         if: always()
         run: |
-          cd docker/server-env/
-          docker logs server-env-server-1 &> test.log || true
-          cat test.log || true
-          docker compose down -v
+          cd build/
+          kill -s SIGINT $(cat server.pid)
 
-      - name: Stop Data Server Container
+      - name: Stop Data Server
         if: always()
         run: |
           cd docker/server-data-env/
@@ -488,9 +521,9 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh -d || true
           sudo rm -rf docker/server-data-env/output/* || true
-          sudo rm -rf results_server/
+          sudo rm -rf results_server/ || true
+          sudo bash ${{ github.workspace }}/.github/workflows/set_delay_port.sh "${{ inputs.connection_delay_device }}" -d || true
 
       - name: Auto-cancel workflow on error
         if: failure()

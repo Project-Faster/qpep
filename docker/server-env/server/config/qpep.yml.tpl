@@ -4,7 +4,7 @@ gateway: ${QPEP_GATEWAY}
 port: 443
 apiport: 444
 listenaddress: ${QPEP_ADDRESS}
-listenport: 1443
+listenport: ${QPEP_PORT}
 
 # backend
 backend: ${QPEP_BACKEND}
