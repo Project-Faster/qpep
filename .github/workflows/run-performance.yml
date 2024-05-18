@@ -236,12 +236,13 @@ jobs:
       - name: Update configuration
         run: |
           envsubst < ${{ github.workspace }}/docker/server-env/server/config/qpep.yml.tpl > ${{ github.workspace }}/build/config/qpep.yml
+          cat ${{ github.workspace }}/build/config/qpep.yml
 
       - name: Run server
         run: |
+          sudo pkill -e -n -s SIGINT qpep
           cd build/
           sudo ./qpep &> test.log &
-          echo $! > server.pid
 
       - name: Run data server
         run: |
@@ -299,7 +300,7 @@ jobs:
         if: always()
         run: |
           cd build/
-          kill -s SIGINT $(cat server.pid)
+          sudo pkill -e -n -s SIGINT qpep
 
       - name: Stop Data Server
         if: always()
