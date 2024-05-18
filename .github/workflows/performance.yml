@@ -78,8 +78,13 @@ jobs:
           aws ec2 stop-instances --instance-ids ${{ secrets.AWS_INSTANCE_ID }}
         shell: bash
 
-  performance-run:
+  performance-build:
     needs: launch-aws-vm
+    uses: './.github/workflows/build-performance.yml'
+    secrets: inherit
+
+  performance-run:
+    needs: performance-build
     strategy:
       max-parallel: 1
       matrix:
@@ -94,7 +99,7 @@ jobs:
             slowstart: 'search'
           - backend: 'quic-go'
             cca: 'cubic'
-    uses: './.github/workflows/common-performance.yml'
+    uses: './.github/workflows/run-performance.yml'
     with:
       server_public_address: ${{ inputs.server_public_address }}
       server_private_address: ${{ inputs.server_private_address }}
