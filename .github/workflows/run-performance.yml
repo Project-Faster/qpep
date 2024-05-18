@@ -234,9 +234,11 @@ jobs:
       - name: Update configuration
         run: |
           envsubst < ${{ github.workspace }}/docker/server-env/server/config/qpep.yml.tpl > ${{ github.workspace }}/build/config/qpep.yml
+          echo "127.0.0.1  MQTT" > ${{ github.workspace }}/.hosts
 
       - name: Run server
         run: |
+          export HOSTALIASES=${{ github.workspace }}/.hosts
           cd build/
           ./qpep &> test.log &
           echo $! > server.pid
@@ -278,6 +280,9 @@ jobs:
             while ! (( RETRIES <= 0 ));
             do
               CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
+              if [[ "$CONN_NUM" == "" ]]; then
+                exit 1
+              fi
               echo "Connections alive: $CONN_NUM"
               if (( CONN_NUM <= 0 )); then
                 (( RETRIES -= 1 )) || true
