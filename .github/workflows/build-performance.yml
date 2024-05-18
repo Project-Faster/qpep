@@ -11,6 +11,7 @@ jobs:
       CMAKE_VERSION: '3.22.x'
       GH_TOKEN: ${{ github.token }}
       CACHE_KEY: qpep_client-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      CMAKE_BUILD_PARALLEL_LEVEL: 8
     steps:
       - name: Install the github cli
         uses: sersoft-gmbh/setup-gh-cli-action@v2
@@ -106,6 +107,7 @@ jobs:
       CMAKE_VERSION: '3.22.x'
       GH_TOKEN: ${{ github.token }}
       CACHE_KEY: qpep_server-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+      CMAKE_BUILD_PARALLEL_LEVEL: 8
     steps:
       - name: Pre-Cleanup
         run: |
@@ -170,6 +172,7 @@ jobs:
           mkdir -p build/config
           go build -v -o build/qpep
           rm -rf backends/quicly-go/gen_*
+          cp ./docker/client-env/*.pem ./build
 
       - name: Cache build
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
