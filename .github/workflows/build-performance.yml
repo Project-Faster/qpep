@@ -1,4 +1,4 @@
-name: Performance Common
+name: Performance Common (Build)
 
 on:
   workflow_call:
