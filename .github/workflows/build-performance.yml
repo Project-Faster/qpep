@@ -30,9 +30,9 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          $old_id = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep_client-"))|.id' )
-          write-host "removing cache # $old_id"
-          gh cache delete  --repo project-faster/qpep $old_id
+          $ARTID = @(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep_client-"))|.id' )
+          write-host "removing cache # $ARTID"
+          gh cache delete  --repo project-faster/qpep $ARTID
 
       - name: Cleanup workspace
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
@@ -128,9 +128,9 @@ jobs:
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
         continue-on-error: true
         run: |
-          old_id = $(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep_server-"))|.id' )
-          echo "removing cache # $old_id"
-          gh cache delete  --repo project-faster/qpep $old_id
+          ARTID=$(gh cache list --repo project-faster/qpep --json id,key -q '.[]|select(.key | startswith("qpep_server-"))|.id' )
+          echo "removing cache # $ARTID"
+          gh cache delete  --repo project-faster/qpep "$ARTID"
 
       - uses: actions/checkout@v4
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}

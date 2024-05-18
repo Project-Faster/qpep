@@ -207,9 +207,9 @@ jobs:
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
       QPEP_SLOWSTART: ${{ inputs.slowstart }}
-      QPEP_GATEWAY: 127.0.0.1
+      QPEP_GATEWAY: ${{ inputs.server_private_address }}
       QPEP_PORT: ${{ inputs.gateway_port }}
-      QPEP_ADDRESS: 127.0.0.1
+      QPEP_ADDRESS: ${{ inputs.server_private_address }}
       QPEP_BROKER: 127.0.0.1
     steps:
       - name: Pre-Cleanup
