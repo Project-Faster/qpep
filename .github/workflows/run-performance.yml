@@ -312,7 +312,7 @@ jobs:
         if: always()
         run: |
           cd docker/speedtests/
-          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms Backend:${{ inputs.backend }} CC:${{ inputs.cca }}/${{ inputs.slowstart }}]" "perf-dw-speed"
+          go run utils/plotter.go ${{ github.workspace }}/docker/server-data-env/output/data.csv "Server speed test [Delay:${{ inputs.connection_delay_ms }}ms Backend:${{ inputs.backend }} CC:${{ inputs.cca }}/${{ inputs.slowstart }}]" "perf-dw-speed" || true
 
       - name: Prepare results
         if: always()
