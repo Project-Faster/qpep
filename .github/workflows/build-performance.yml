@@ -172,7 +172,7 @@ jobs:
           mkdir -p build/config
           go build -v -o build/qpep
           rm -rf backends/quicly-go/gen_*
-          cp ./docker/server-env/*.pem ./build
+          cp ./docker/server-env/server/*.pem ./build
 
       - name: Cache build
         if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
