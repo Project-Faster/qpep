@@ -240,8 +240,8 @@ jobs:
 
       - name: Run server
         run: |
-          sudo pkill -e -n --signal SIGINT qpep
           cd build/
+          sudo pkill -e -n --signal SIGINT qpep || true
           sudo ./qpep &> test.log &
 
       - name: Run data server
