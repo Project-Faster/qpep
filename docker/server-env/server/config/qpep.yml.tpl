@@ -19,7 +19,7 @@ certificate_key: server_key.pem
 analytics:
   enabled: true
   topic: /qpep
-  address: MQTT # added via extra_hosts
+  address: ${QPEP_BROKER}
   port: 1883
   protocol: tcp
 

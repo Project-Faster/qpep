@@ -129,12 +129,13 @@ jobs:
         shell: pwsh
         run: |
           $Stoploop = $false
-          [ int ]$Retrycount = "120"
+          [ int ]$MaxRetries = "120"
+          [ int ]$Retrycount = $MaxRetries
 
            do {
             try {
               $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
-              Write-Host "$DT : Echoing server..."
+              Write-Host "$DT : Echoing server... (Remaining $Retrycount)"
               Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 1
               Write-Host "Job completed"
               $Stoploop = $true
@@ -145,7 +146,7 @@ jobs:
                 Start-Sleep -Seconds 2
               }
               else {
-                Write-Error "Could not get server after 20 retries." -ErrorAction Stop
+                Write-Error "Could not get server after $MaxRetries retries." -ErrorAction Stop
               }
             }
           }
@@ -209,6 +210,7 @@ jobs:
       QPEP_GATEWAY: 127.0.0.1
       QPEP_PORT: ${{ inputs.gateway_port }}
       QPEP_ADDRESS: 127.0.0.1
+      QPEP_BROKER: 127.0.0.1
     steps:
       - name: Pre-Cleanup
         run: |
@@ -234,13 +236,11 @@ jobs:
       - name: Update configuration
         run: |
           envsubst < ${{ github.workspace }}/docker/server-env/server/config/qpep.yml.tpl > ${{ github.workspace }}/build/config/qpep.yml
-          echo "127.0.0.1  MQTT" > ${{ github.workspace }}/.hosts
 
       - name: Run server
         run: |
-          export HOSTALIASES=${{ github.workspace }}/.hosts
           cd build/
-          ./qpep &> test.log &
+          sudo ./qpep &> test.log &
           echo $! > server.pid
 
       - name: Run data server
@@ -281,6 +281,7 @@ jobs:
             do
               CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
               if [[ "$CONN_NUM" == "" ]]; then
+                echo [FAIL]: Local server not available
                 exit 1
               fi
               echo "Connections alive: $CONN_NUM"
@@ -292,7 +293,7 @@ jobs:
               echo "$(date +%F_%T.%N): Remaining $RETRIES retries"
               sleep 1
             done
-            echo [Wait done]
+            echo [OK]
 
       - name: Stop Server
         if: always()
