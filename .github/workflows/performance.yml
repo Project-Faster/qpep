@@ -118,6 +118,7 @@ jobs:
   performance-results:
     needs: performance-run
     runs-on: ubuntu-latest
+    if: ${{ always() }}
     env:
       ARTIFACT_KEY: results-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
     steps:
