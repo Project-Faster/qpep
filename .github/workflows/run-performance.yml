@@ -53,6 +53,11 @@ on:
         type: string
         default: 'quic-go'
         required: false
+      backend_trace_active:
+        description: 'enable backend debug tracing'
+        type: boolean
+        default: false
+        required: true
       cca:
         description: 'CCA algorithm to use (if supported by the backend)'
         type: string
@@ -120,10 +125,18 @@ jobs:
           write-host $config
 
       - name: Run Client
+        if: inputs.backend_trace_active != true
         shell: cmd
         run: |
           cd build/
           cmd /c "START /b qpep.exe -c"
+
+      - name: Run Client (trace)
+        if: inputs.backend_trace_active == true
+        shell: cmd
+        run: |
+          cd build/
+          cmd /c "START /b qpep.exe -c -t"
 
       - name: Wait Server
         shell: pwsh
@@ -198,7 +211,6 @@ jobs:
   run-server:
     runs-on: vm-server
     env:
-      SERVER_ADDRESS: ${{ inputs.server_private_address }}
       GO_VERSION: 1.20.14
       CMAKE_VERSION: '3.22.x'
       GH_TOKEN: ${{ github.token }}
@@ -210,7 +222,7 @@ jobs:
       QPEP_GATEWAY: ${{ inputs.server_private_address }}
       QPEP_PORT: ${{ inputs.gateway_port }}
       QPEP_ADDRESS: ${{ inputs.server_private_address }}
-      QPEP_BROKER: 127.0.0.1
+      QPEP_BROKER: ${{ inputs.server_private_address }}
     steps:
       - name: Pre-Cleanup
         run: |
@@ -239,10 +251,18 @@ jobs:
           cat ${{ github.workspace }}/build/config/qpep.yml
 
       - name: Run server
+        if: inputs.backend_trace_active != true
         run: |
           cd build/
           sudo pkill -e -n --signal SIGINT qpep || true
           sudo ./qpep &> test.log &
+
+      - name: Run server (trace)
+        if: inputs.backend_trace_active == true
+        run: |
+          cd build/
+          sudo pkill -e -n --signal SIGINT qpep || true
+          sudo ./qpep -t &> test.log &
 
       - name: Run data server
         run: |
