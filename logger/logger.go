@@ -61,6 +61,7 @@ func SetupLogger(logName string, level string) {
 	log.TimeFieldFormat = time.StampMilli
 
 	_log = log.New(io.MultiWriter(_logFile, os.Stdout)).
+		Level(log.InfoLevel).
 		With().Logger()
 }
 

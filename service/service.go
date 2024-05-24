@@ -193,6 +193,7 @@ func ServiceMain() int {
 
 	if err != nil {
 		logger.Error("Error while starting QPep service: %v", err)
+		qpepService.exitValue = 1 // force error
 	}
 
 	logger.Info("Exit errorcode: %d\n", qpepService.exitValue)

@@ -2,7 +2,6 @@ module github.com/parvit/qpep
 
 go 1.18
 
-// do not commit
 replace github.com/Project-Faster/quicly-go => ./backend/quicly-go
 
 require (

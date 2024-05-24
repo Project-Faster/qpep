@@ -1,12 +1,13 @@
 package backend
 
 import (
+	_ "github.com/Project-Faster/quic-go"
 	"strings"
 )
 
 var bcRegister map[string]QuicBackend
 var bcList []string
-var bcDefaultBackend = "quic-go"
+var bcDefaultBackend = QUICGO_BACKEND
 
 func Register(key string, backend QuicBackend) {
 	if bcRegister == nil {
