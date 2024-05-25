@@ -6,22 +6,21 @@ import (
 	"github.com/parvit/qpep/shared"
 	"os"
 	"runtime/debug"
-	"runtime/trace"
 )
 
 func init() {
-	logger.SetupLogger("qpep-service.log")
+	logger.SetupLogger("qpep-service.log", "info")
 }
 
 func main() {
-	f, _ := os.Create("trace.out")
-	trace.Start(f)
+	//f, _ := os.Create("trace.out")
+	//trace.Start(f)
 
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("PANIC: %v", err)
-			debug.PrintStack()
+			logger.Error("PANIC: %v %v\n", err, string(debug.Stack()))
 		}
+		logger.CloseLogger()
 	}()
 
 	tsk := shared.StartRegion("ServiceMain")
@@ -29,11 +28,10 @@ func main() {
 	tsk.End()
 
 	logger.Info("=== EXIT - code(%d) ===", retcode)
-	logger.CloseLogger()
 
-	trace.Stop()
-	f.Sync()
-	f.Close()
+	//trace.Stop()
+	//f.Sync()
+	//f.Close()
 
 	os.Exit(retcode)
 }

@@ -1,13 +1,22 @@
 #!/bin/bash -x
 
-DEVICE=eth0
-PORT=443
+echo "[Network Delay using IFB]"
 
-if [[ ! "$2" == "" ]]; then
-  DEVICE="$2"
+USAGE_MSG="Usage: set_delay_port <device> <port> <delay (ms)>|set_delay_port -d"
+
+function fail
+{
+  msg=$1
+  echo "[FAIL]: ${msg}"
+  exit 1
+}
+
+DEVICE=$1
+if [[ "$1" == "" ]]; then
+  fail "$USAGE_MSG"
 fi
 
-if [[ "$1" == "-d" ]]; then
+if [[ "$2" == "-d" ]]; then
   tc qdisc del dev eth0 ingress
   tc qdisc del dev "${DEVICE}" ingress
   tc qdisc del dev ifb0 root
@@ -17,9 +26,15 @@ if [[ "$1" == "-d" ]]; then
   exit 0
 fi
 
-(( DELAY="$1" ))
+
+PORT=$2
+if [[ "$2" == "" ]]; then
+  fail "$USAGE_MSG"
+fi
+
+(( DELAY="$3" ))
 if (( DELAY <= 0 )); then
-   exit 1
+  fail "$USAGE_MSG"
 fi
 
 # Add a TC ingress queue to your external interface, by default you shouldn't have one
@@ -39,4 +54,5 @@ tc qdisc add dev ifb0 parent 1:1 handle 2: netem delay "${DELAY}ms" 50ms distrib
 # if we find a packet that matches our destination port, send it to the above queue
 tc filter add dev ifb0 protocol ip parent 1:0 prio 1 u32 match ip dport "${PORT}" 0xffff flowid 2:1
 
+echo "[OK]"
 exit 0

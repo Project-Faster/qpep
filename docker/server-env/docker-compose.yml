@@ -1,28 +1,49 @@
 # Performance server
 
 # set environment variables before running:
-# SERVER_ADDRESS
+# QPEP_BACKEND
+# QPEP_CCA
+# GO_VERSION
+# QPEP_REPO
+# QPEP_BRANCH
+# QPEP_REV
+# QPEP_ADDRESS
+# QPEP_GATEWAY
 
 version: "1.0"
+volumes:
+  outputdata:
 services:
   server:
-    image: "project-faster/qpep_server"
-    extra_hosts:
-      - "MQTT:${SERVER_ADDRESS}"
-      - "QPEP_GATEWAY:127.0.0.1"
-      - "QPEP_ADDRESS:${SERVER_ADDRESS}"
-    environment:
-      - "QPEP_BRANCH=issue-22-performance-testing"
-      - "QPEP_REPO=https://github.com/parvit/qpep.git"
-      - "QPEP_BACKEND:${SERVER_BACKEND}"
-      - "QPEP_CCA:${SERVER_CCA}"
+    image: "project-faster/qpep-server"
+    build:
+      context: server/
+      args:
+        - GO_VERSION
+        - QPEP_REPO
+        - QPEP_BRANCH
+        - QPEP_REV
+        - QPEP_BACKEND
+        - QPEP_CCA
+        - QPEP_SLOWSTART
+        - QPEP_ADDRESS
+        - QPEP_GATEWAY
     ports:
       - target: 1443
         published: 1443
         protocol: udp
         mode: host
     network_mode: "host"
+    extra_hosts:
+      - "MQTT:${SERVER_ADDRESS}"
     volumes:
-      - ./server:/build
+      - outputdata:/root
     entrypoint:
       - /root/run-qpep.sh
+      - ${QPEP_REPO}
+      - ${QPEP_BRANCH}
+      - ${QPEP_REV}
+      - ${QPEP_CCA}
+      - ${QPEP_ADDRESS}
+      - ${QPEP_BACKEND}
+      - ${QPEP_SLOWSTART}

@@ -37,7 +37,7 @@ func getClientForAPI(localAddr net.Addr) *http.Client {
 			},
 			DialContext:     dialer.DialContext,
 			MaxIdleConns:    1,
-			IdleConnTimeout: 10 * time.Second,
+			IdleConnTimeout: 3 * time.Second,
 			//TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
