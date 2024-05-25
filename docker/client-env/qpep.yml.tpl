@@ -1,7 +1,7 @@
 
 # client
 gateway: <QPEP_GATEWAY>
-port: 1443
+port: <QPEP_PORT>
 apiport: 444
 listenaddress: <QPEP_ADDRESS>
 listenport: 9443
@@ -9,6 +9,10 @@ listenport: 9443
 # backend
 backend: <QPEP_BACKEND>
 ccalgorithm: <QPEP_CCA>
+ccslowstart: <QPEP_SLOWSTART>
+
+# certificate
+certificate: server_cert.pem
 
 # default
 acks: 10

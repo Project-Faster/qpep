@@ -3,18 +3,30 @@
 package backend
 
 import (
+	"bytes"
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/Project-Faster/quic-go"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"io/ioutil"
 	"net"
+	"strings"
 	"time"
 )
 
 const (
-	QUICGO_BACKEND = "quic-go"
+	QUICGO_BACKEND     = "quic-go"
+	QUICGO_ALPN        = "qpep"
+	QUICGO_DEFAULT_CCA = "reno"
 )
 
 var qgoBackend QuicBackend = &quicGoBackend{}
@@ -27,15 +39,15 @@ type quicGoBackend struct {
 	connections []QuicBackendConnection
 }
 
-func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int) (QuicBackendConnection, error) {
+func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
 	quicConfig := qgoGetConfiguration()
 
 	var err error
 	var session quic.Connection
-	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"qpep"}}
-	gatewayPath := fmt.Sprintf("%s:%d", destination, port)
 
-	logger.Info("== Dialing QUIC Session: %s ==\n", gatewayPath)
+	tlsConf := loadTLSConfig(clientCertPath, "")
+	gatewayPath := fmt.Sprintf("%s:%d", remoteAddress, port)
+
 	session, err = quic.DialAddr(gatewayPath, tlsConf, quicConfig)
 	if err != nil {
 		logger.Error("Unable to Dial QUIC Session: %v\n", err)
@@ -47,15 +59,14 @@ func (q *quicGoBackend) Dial(ctx context.Context, destination string, port int) 
 		connection: session,
 	}
 
-	logger.Info("== QUIC Session Dial ==\n")
 	q.connections = append(q.connections, sessionAdapter)
 	return sessionAdapter, nil
 }
 
-func (q *quicGoBackend) Listen(ctx context.Context, address string, port int) (QuicBackendConnection, error) {
+func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
 	quicConfig := qgoGetConfiguration()
 
-	tlsConf := generateTLSConfig("server")
+	tlsConf := loadTLSConfig(serverCertPath, serverKeyPath)
 
 	conn, err := quic.ListenAddr(fmt.Sprintf("%s:%d", address, port), tlsConf, quicConfig)
 	if err != nil {
@@ -82,11 +93,12 @@ func qgoGetConfiguration() *quic.Config {
 	return &quic.Config{
 		MaxIncomingStreams:      1024,
 		DisablePathMTUDiscovery: true,
+		MaxIdleTimeout:          3 * time.Second,
 
 		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
-		//KeepAlivePeriod:      1 * time.Second,
+		KeepAlivePeriod:      0,
 
-		EnableDatagrams: true,
+		EnableDatagrams: false,
 	}
 }
 
@@ -94,6 +106,8 @@ type qgoConnectionAdapter struct {
 	context    context.Context
 	listener   quic.Listener
 	connection quic.Connection
+
+	streams []quic.Stream
 }
 
 func (c *qgoConnectionAdapter) LocalAddr() net.Addr {
@@ -116,9 +130,29 @@ func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
 	panic(shared.ErrInvalidBackendOperation)
 }
 
+func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
+	if c.listener != nil {
+		conn, err := c.listener.Accept(ctx)
+		if err != nil {
+			return nil, err
+		}
+		cNew := &qgoConnectionAdapter{
+			context:    ctx,
+			listener:   c.listener,
+			connection: conn,
+			streams:    make([]quic.Stream, 0, 32),
+		}
+		return cNew, nil
+	}
+	panic(shared.ErrInvalidBackendOperation)
+}
+
 func (c *qgoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream, err := c.connection.AcceptStream(ctx)
+		if stream != nil {
+			c.streams = append(c.streams, stream)
+		}
 		return &qgoStreamAdapter{
 			Stream: stream,
 		}, err
@@ -136,24 +170,18 @@ func (c *qgoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 	panic(shared.ErrInvalidBackendOperation)
 }
 
-func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
-	if c.listener != nil {
-		conn, err := c.listener.Accept(ctx)
-		if err != nil {
-			return nil, err
-		}
-		cNew := &qgoConnectionAdapter{
-			context:    ctx,
-			listener:   c.listener,
-			connection: conn,
-		}
-		return cNew, nil
-	}
-	panic(shared.ErrInvalidBackendOperation)
-}
-
 func (c *qgoConnectionAdapter) Close(code int, message string) error {
+	defer func() {
+		c.connection = nil
+		c.listener = nil
+		c.streams = nil
+	}()
 	if c.connection != nil {
+		for _, st := range c.streams {
+			st.CancelRead(quic.StreamErrorCode(0))
+			st.CancelWrite(quic.StreamErrorCode(0))
+			_ = st.Close()
+		}
 		return c.connection.CloseWithError(quic.ApplicationErrorCode(code), message)
 	}
 	if c.listener != nil {
@@ -162,20 +190,33 @@ func (c *qgoConnectionAdapter) Close(code int, message string) error {
 	panic(shared.ErrInvalidBackendOperation)
 }
 
+func (c *qgoConnectionAdapter) IsClosed() bool {
+	return c.connection == nil && c.listener == nil
+}
+
 var _ QuicBackendConnection = &qgoConnectionAdapter{}
 
 type qgoStreamAdapter struct {
 	quic.Stream
 
 	id *uint64
+
+	closedRead  bool
+	closedWrite bool
 }
 
 func (stream *qgoStreamAdapter) AbortRead(code uint64) {
 	stream.CancelRead(quic.StreamErrorCode(code))
+	stream.closedRead = true
 }
 
 func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
 	stream.CancelWrite(quic.StreamErrorCode(code))
+	stream.closedWrite = true
+}
+
+func (stream *qgoStreamAdapter) Sync() bool {
+	return stream.IsClosed()
 }
 
 func (stream *qgoStreamAdapter) ID() uint64 {
@@ -197,4 +238,132 @@ func (stream *qgoStreamAdapter) ID() uint64 {
 	return 0
 }
 
+func (stream *qgoStreamAdapter) IsClosed() bool {
+	return false // stream.closedRead || stream.closedWrite
+}
+
 var _ QuicBackendStream = &qgoStreamAdapter{}
+
+// --- Certificate support --- //
+
+func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
+	dataCert, err1 := ioutil.ReadFile(certPEM)
+	dataKey, err2 := ioutil.ReadFile(keyPEM)
+
+	if err1 != nil {
+		logger.Error("Could not find certificate file %s", certPEM)
+		return nil
+	}
+
+	var cert tls.Certificate
+	var skippedBlockTypes []string
+	for {
+		var certDERBlock *pem.Block
+		certDERBlock, dataCert = pem.Decode(dataCert)
+		if certDERBlock == nil {
+			break
+		}
+		if certDERBlock.Type == "CERTIFICATE" {
+			cert.Certificate = append(cert.Certificate, certDERBlock.Bytes)
+		} else {
+			skippedBlockTypes = append(skippedBlockTypes, certDERBlock.Type)
+		}
+	}
+
+	if len(cert.Certificate) == 0 {
+		logger.Error("Certificate file %s does not contain valid certificates", certPEM)
+		return nil
+	}
+
+	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		logger.Error("Certificate parsing in file %s failed: %v", certPEM, err)
+		return nil
+	}
+
+	if err2 == nil {
+		// support not providing private key file
+
+		skippedBlockTypes = skippedBlockTypes[:0]
+		var keyDERBlock *pem.Block
+		for {
+			keyDERBlock, dataKey = pem.Decode(dataKey)
+			if keyDERBlock == nil {
+				logger.Error("Certificate key parsing in file %s failed", dataKey)
+				return nil
+			}
+			if keyDERBlock.Type == "PRIVATE KEY" || strings.HasSuffix(keyDERBlock.Type, " PRIVATE KEY") {
+				logger.Error("Certificate PEM key parsing in file %s failed", dataKey)
+				break
+			}
+			skippedBlockTypes = append(skippedBlockTypes, keyDERBlock.Type)
+		}
+
+		cert.PrivateKey, err = parsePrivateKey(keyDERBlock.Bytes)
+		if err != nil {
+			logger.Error("Error loading private key from file %s: %v", dataKey, err)
+			return nil
+		}
+
+		switch pub := x509Cert.PublicKey.(type) {
+		case *rsa.PublicKey:
+			priv, ok := cert.PrivateKey.(*rsa.PrivateKey)
+			if !ok {
+				logger.Error("Error loading private key from file %s: Not a valid RSA key", dataKey)
+				return nil
+			}
+			if pub.N.Cmp(priv.N) != 0 {
+				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
+				return nil
+			}
+		case *ecdsa.PublicKey:
+			priv, ok := cert.PrivateKey.(*ecdsa.PrivateKey)
+			if !ok {
+				logger.Error("Error loading private key from file %s: Not a valid ECDSA key", dataKey, err)
+				return nil
+			}
+			if pub.X.Cmp(priv.X) != 0 || pub.Y.Cmp(priv.Y) != 0 {
+				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
+				return nil
+			}
+		case ed25519.PublicKey:
+			priv, ok := cert.PrivateKey.(ed25519.PrivateKey)
+			if !ok {
+				logger.Error("Error loading private key from file %s: Not a valida ED25519 key", dataKey, err)
+				return nil
+			}
+			if !bytes.Equal(priv.Public().(ed25519.PublicKey), pub) {
+				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
+				return nil
+			}
+		default:
+			logger.Error("Error loading private key from file %s: unsupported key type %v", dataKey, pub)
+			return nil
+		}
+	}
+
+	return &tls.Config{
+		Certificates:       []tls.Certificate{cert},
+		NextProtos:         []string{QUICGO_ALPN},
+		InsecureSkipVerify: true,
+	}
+}
+
+func parsePrivateKey(der []byte) (crypto.PrivateKey, error) {
+	if key, err := x509.ParsePKCS1PrivateKey(der); err == nil {
+		return key, nil
+	}
+	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
+		switch key := key.(type) {
+		case *rsa.PrivateKey, *ecdsa.PrivateKey, ed25519.PrivateKey:
+			return key, nil
+		default:
+			return nil, errors.New("tls: found unknown private key type in PKCS#8 wrapping")
+		}
+	}
+	if key, err := x509.ParseECPrivateKey(der); err == nil {
+		return key, nil
+	}
+
+	return nil, errors.New("tls: failed to parse private key")
+}

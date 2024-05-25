@@ -32,8 +32,8 @@ on:
         type: string
         default: eth0
         required: true
-      ignore_caches:
-        description: 'resets caches to force new build'
+      backend_trace_active:
+        description: 'enable backend debug tracing'
         type: boolean
         default: false
         required: true
@@ -69,7 +69,7 @@ jobs:
 
   stop-aws-vm:
     runs-on: ubuntu-latest
-    needs: qpep-run
+    needs: performance-run
     if: ${{ always() && ! inputs.keep_aws_running }}
     steps:
       - name: Install AWS cli
@@ -83,24 +83,52 @@ jobs:
           aws ec2 stop-instances --instance-ids ${{ secrets.AWS_INSTANCE_ID }}
         shell: bash
 
-  qpep-run:
+  performance-build:
     needs: launch-aws-vm
+    uses: './.github/workflows/build-performance.yml'
+    secrets: inherit
+
+  performance-run:
+    needs: performance-build
     strategy:
       max-parallel: 1
       matrix:
         backend: [ 'quic-go', 'quicly-go' ]
-        cca: [ 'reno', 'search' ]
+        cca: [ 'reno', 'cubic' ]
+        slowstart: [ 'basic', 'search' ]
         connection_delay_ms: [ 0, 500 ]
         exclude:
           - backend: 'quic-go'
-            cca: 'search'
-    uses: './.github/workflows/common-performance.yml'
+            slowstart: 'search'
+          - backend: 'quic-go'
+            cca: 'cubic'
+    uses: './.github/workflows/run-performance.yml'
     with:
       server_public_address: ${{ inputs.server_public_address }}
       server_private_address: ${{ inputs.server_private_address }}
       client_listen_address: ${{ inputs.client_listen_address }}
       connection_delay_device: ${{ inputs.connection_delay_device }}
-      ignore_caches: ${{ inputs.ignore_caches }}
+      connection_delay_ms: ${{ matrix.connection_delay_ms }}
+      backend_trace_active: ${{ inputs.backend_trace_active }}
       backend: ${{ matrix.backend }}
       cca: ${{ matrix.cca }}
+      slowstart: ${{ matrix.slowstart }}
     secrets: inherit
+
+  performance-results:
+    needs: performance-run
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    env:
+      ARTIFACT_KEY: results-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
+    steps:
+      - name: Generate results artifact
+        uses: actions/upload-artifact/merge@v4
+        if: always()
+        env:
+          GITHUB_TOKEN:
+            ${{ github.token }}
+        with:
+          name: ${{ env.ARTIFACT_KEY }}
+          separate-directories: true
+          delete-merged: true

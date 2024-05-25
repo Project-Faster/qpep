@@ -1,20 +1,25 @@
 
 # server
-gateway: QPEP_GATEWAY
+gateway: ${QPEP_GATEWAY}
 port: 443
 apiport: 444
-listenaddress: QPEP_ADDRESS # added via extra_hosts
-listenport: 1443
+listenaddress: ${QPEP_ADDRESS}
+listenport: ${QPEP_PORT}
 
 # backend
 backend: ${QPEP_BACKEND}
 ccalgorithm: ${QPEP_CCA}
+ccslowstart: ${QPEP_SLOWSTART}
+
+# certificate
+certificate: server_cert.pem
+certificate_key: server_key.pem
 
 # broker settings
 analytics:
   enabled: true
   topic: /qpep
-  address: MQTT # added via extra_hosts
+  address: ${QPEP_BROKER}
   port: 1883
   protocol: tcp
 

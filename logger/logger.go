@@ -5,7 +5,6 @@ By default, it logs to standard out and when SetupLogger is called it outputs to
 and on windows it also outputs to OutputDebugString facility if level is debug.
 
 The level is set using the global log level of package zerolog.
-
 */
 package logger
 
@@ -48,12 +47,17 @@ func getLoggerFile(logName string) *os.File {
 }
 
 // SetupLogger Sets up a new logger destroying the previous one to a file with name "qpep_<logName>.log"
-func SetupLogger(logName string) {
+func SetupLogger(logName string, level string) {
 	CloseLogger()
 
 	_logFile = getLoggerFile(logName)
 
-	log.SetGlobalLevel(log.InfoLevel)
+	logLevel, err := log.ParseLevel(level)
+	if err != nil {
+		logLevel = log.InfoLevel
+	}
+
+	log.SetGlobalLevel(logLevel)
 	log.TimeFieldFormat = time.StampMilli
 
 	_log = log.New(io.MultiWriter(_logFile, os.Stdout)).
