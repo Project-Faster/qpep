@@ -55,16 +55,16 @@ type qpepServiceStarter struct {
 	realService *QPepService
 }
 
-func (p *qpepServiceStarter) Start(_ kservice.Service) error {
+func (p *qpepServiceStarter) Start(_ service.Service) error {
 	return p.realService.Start()
 }
-func (p *qpepServiceStarter) Stop(_ kservice.Service) error {
+func (p *qpepServiceStarter) Stop(_ service.Service) error {
 	return p.realService.Stop()
 }
 
 // QPepService struct models the service and its internal state to the operating system
 type QPepService struct {
-	kservice.Service
+	service.Service
 
 	// context Termination context
 	context context.Context
@@ -76,7 +76,7 @@ type QPepService struct {
 	exitValue int
 }
 
-var _ kservice.Service = &QPepService{}
+var _ service.Service = &QPepService{}
 
 // ServiceMain method wraps the starting logic of the qpep service
 func ServiceMain() int {
@@ -113,13 +113,13 @@ func ServiceMain() int {
 	if flags.Globals.Client {
 		serviceName = clientService
 	}
-	svcConfig := &kservice.Config{
+	svcConfig := &service.Config{
 		Name:        serviceName,
 		DisplayName: strings.ToTitle(serviceName),
 		Description: "QPep - high-latency network accelerator",
 
 		Executable: PLATFORM_EXE_NAME,
-		Option:     make(kservice.KeyValue),
+		Option:     make(service.KeyValue),
 
 		WorkingDirectory: workingDir,
 
@@ -145,7 +145,7 @@ func ServiceMain() int {
 	starter := &qpepServiceStarter{
 		realService: qpepService,
 	}
-	serviceInst, err := kservice.New(starter, svcConfig)
+	serviceInst, err := service.New(starter, svcConfig)
 	if err != nil {
 		logger.Panic(err.Error())
 	}
@@ -156,9 +156,9 @@ func ServiceMain() int {
 		// Service control / status run
 		if svcCommand == "status" {
 			return getStatusCode(serviceInst)
-			}
+		}
 
-		err = kservice.Control(serviceInst, svcCommand)
+		err = service.Control(serviceInst, svcCommand)
 		if err != nil {
 			logger.Error("%v\n", err.Error())
 			logger.Info("Possible actions: %q", service.ControlAction)
@@ -190,12 +190,12 @@ func ServiceMain() int {
 	// detect forced interactive mode because service was not installed
 	status := getStatusCode(serviceInst)
 
-	if status == WIN32_UNKNOWN_CODE || kservice.ChosenSystem().Interactive() {
+	if status == WIN32_UNKNOWN_CODE || service.ChosenSystem().Interactive() {
 		logger.Info("Executes as Interactive mode\n")
 		err = qpepService.Main()
 	} else {
 		logger.Info("Executes as Service mode\n")
-	err = serviceInst.Run()
+		err = serviceInst.Run()
 	}
 
 	if err != nil {
@@ -207,22 +207,22 @@ func ServiceMain() int {
 	return qpepService.exitValue
 }
 
-func getStatusCode(svc kservice.Service) int {
+func getStatusCode(svc service.Service) int {
 	status, err := svc.Status()
 	if err != nil {
-		status = kservice.StatusUnknown
+		status = service.StatusUnknown
 	}
 
 	switch status {
-	case kservice.StatusRunning:
+	case service.StatusRunning:
 		return WIN32_RUNNING_CODE
 
-	case kservice.StatusStopped:
+	case service.StatusStopped:
 		return WIN32_STOPPED_CODE
 
 	default:
 		fallthrough
-	case kservice.StatusUnknown:
+	case service.StatusUnknown:
 		return WIN32_UNKNOWN_CODE
 	}
 }
@@ -327,8 +327,8 @@ TERMINATIONLOOP:
 	return nil
 }
 
-func (p *QPepService) Logger(errs chan<- error) (kservice.Logger, error) {
-	return kservice.ConsoleLogger, nil
+func (p *QPepService) Logger(errs chan<- error) (service.Logger, error) {
+	return service.ConsoleLogger, nil
 }
 
 // runAsClient method wraps the logic to setup the system as client mode

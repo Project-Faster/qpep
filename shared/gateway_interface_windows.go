@@ -49,7 +49,7 @@ func RunCommand(name string, cmd ...string) ([]byte, error, int) {
 }
 
 func getRouteListeningAddresses() []string {
-	return defaultListeningAddress
+	return []string{defaultListeningAddress}
 }
 
 // getRouteGatewayInterfaces method extracts routing information using the "netsh" utility and returns specifically:

@@ -27,7 +27,7 @@ func RunCommand(name string, cmd ...string) ([]byte, error, int) {
 }
 
 func getRouteListeningAddresses(gateway string) []string {
-	return defaultListeningAddress
+	return []string{defaultListeningAddress}
 }
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
