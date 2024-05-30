@@ -14,9 +14,9 @@ jobs:
       GO_VERSION: 1.20.14
       CMAKE_VERSION: '3.22.x'
       GOARCH: amd64
-      GOOS: linux
+      GOOS: darwin
       CGO_ENABLED: 1
-      GOBIN: ${{ github.workspace }}/.go_bin
+      GOPATH: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
@@ -41,19 +41,19 @@ jobs:
       - name: Prepare
         run: |
           go clean -cache -x
-          mkdir -p $GOBIN
+          mkdir -p $GOPATH/bin
 
       - name: Build Backends
         run: |
-          export PATH=$GOBIN:$PATH
+          export PATH=$GOPATH/bin:$PATH
           cd backend/
           go generate
 
       - name: Debug
         if: always()
         run: |
-          export PATH=$GOBIN:$PATH
-          find $GOBIN
+          export PATH=$GOPATH/bin:$PATH
+          find $GOPATH
 
       - name: Build Executable
         run: |
@@ -80,7 +80,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      GOBIN: ${{ github.workspace }}/.go_bin
+      GOBIN: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
@@ -105,11 +105,11 @@ jobs:
     - name: Prepare
       run: |
         go clean -cache -x
-        mkdir -p $GOBIN
+        mkdir -p $GOPATH/bin
 
     - name: Build Backends
       run: |
-        export PATH=$GOBIN:$PATH
+        export PATH=$GOPATH/bin:$PATH
         cd backend/
         go generate
 
@@ -138,7 +138,7 @@ jobs:
       GOARCH: amd64
       GOOS: windows
       CGO_ENABLED: 1
-      GOBIN: ${{ github.workspace }}\.go_bin
+      GOBIN: ${{ github.workspace }}\.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
@@ -182,14 +182,14 @@ jobs:
         MKDIR build\64bits
         MKDIR build\32bits
         go clean -cache -x
-        mkdir %GOBIN%
+        mkdir %GOBIN%\bin
         COPY /Y windivert\x64\* build\64bits
         COPY /Y windivert\LICENSE build\LICENSE.windivert
         COPY /Y LICENSE build\LICENSE
 
     - name: Build Backends
       run: |
-        set PATH=%GOBIN%;%PATH%
+        set PATH=%GOBIN%\bin;%PATH%
         cd backend/
         go generate
 
