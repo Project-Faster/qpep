@@ -48,6 +48,12 @@ jobs:
           cd backend/
           go generate
 
+      - name: Debug
+        if: always()
+        run: |
+          export PATH=$GOPATH/bin:$PATH
+          find $GOPATH/bin
+
       - name: Build Executable
         run: |
           go build -v -o build/qpep
