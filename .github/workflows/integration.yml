@@ -16,7 +16,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      GOBIN: ${{ github.workspace }}/.go
+      GOBIN: ${{ github.workspace }}/.go_bin
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
@@ -45,15 +45,15 @@ jobs:
 
       - name: Build Backends
         run: |
-          export PATH=$GOBIN/bin:$PATH
+          export PATH=$GOBIN:$PATH
           cd backend/
           go generate
 
       - name: Debug
         if: always()
         run: |
-          export PATH=$GOBIN/bin:$PATH
-          find $GOBIN/bin
+          export PATH=$GOBIN:$PATH
+          find $GOBIN
 
       - name: Build Executable
         run: |
@@ -80,8 +80,8 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      GOBIN: ${{ github.workspace }}/.go
-      CMAKE_BUILD_PARALLEL_LEVEL: 8
+      GOBIN: ${{ github.workspace }}/.go_bin
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
         shell: bash
@@ -109,7 +109,7 @@ jobs:
 
     - name: Build Backends
       run: |
-        export PATH=$GOBIN/bin:$PATH
+        export PATH=$GOBIN:$PATH
         cd backend/
         go generate
 
@@ -138,8 +138,8 @@ jobs:
       GOARCH: amd64
       GOOS: windows
       CGO_ENABLED: 1
-      GOBIN: ${{ github.workspace }}\.go
-      CMAKE_BUILD_PARALLEL_LEVEL: 8
+      GOBIN: ${{ github.workspace }}\.go_bin
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
         shell: cmd
@@ -189,7 +189,7 @@ jobs:
 
     - name: Build Backends
       run: |
-        set PATH=%GOBIN%/bin;%PATH%
+        set PATH=%GOBIN%;%PATH%
         cd backend/
         go generate
 
