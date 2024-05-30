@@ -8,7 +8,7 @@ on:
 run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] rev.${{ github.sha }}
 
 jobs:
-  build-macos:
+  build-mac-os:
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -16,7 +16,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      GOPATH: ${{ github.workspace }}/.go
+      GOBIN: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
@@ -44,15 +44,15 @@ jobs:
 
       - name: Build Backends
         run: |
-          export PATH=$GOPATH/bin:$PATH
+          export PATH=$GOBIN/bin:$PATH
           cd backend/
           go generate
 
       - name: Debug
         if: always()
         run: |
-          export PATH=$GOPATH/bin:$PATH
-          find $GOPATH/bin
+          export PATH=$GOBIN/bin:$PATH
+          find $GOBIN/bin
 
       - name: Build Executable
         run: |
@@ -62,7 +62,7 @@ jobs:
         run: |
           pushd qpep-tray
           export CGO_ENABLED=0
-          go build -ldflags -H=windowsgui -o ..\build\qpep-tray
+          go build -ldflags -H=windowsgui -o ../build/qpep-tray
           popd
 
       - uses: actions/upload-artifact@v4
@@ -79,7 +79,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      GOPATH: ${{ github.workspace }}/.go
+      GOBIN: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 8
     defaults:
       run:
@@ -107,7 +107,7 @@ jobs:
 
     - name: Build Backends
       run: |
-        export PATH=$GOPATH/bin:$PATH
+        export PATH=$GOBIN/bin:$PATH
         cd backend/
         go generate
 
@@ -136,7 +136,7 @@ jobs:
       GOARCH: amd64
       GOOS: windows
       CGO_ENABLED: 1
-      GOPATH: ${{ github.workspace }}/.go
+      GOBIN: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 8
     defaults:
       run:
@@ -186,7 +186,7 @@ jobs:
 
     - name: Build Backends
       run: |
-        set PATH=%GOPATH%/bin;%PATH%
+        set PATH=%GOBIN%/bin;%PATH%
         cd backend/
         go generate
 
