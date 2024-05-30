@@ -41,6 +41,7 @@ jobs:
       - name: Prepare
         run: |
           go clean -cache -x
+          mkdir -p $GOBIN
 
       - name: Build Backends
         run: |
@@ -104,6 +105,7 @@ jobs:
     - name: Prepare
       run: |
         go clean -cache -x
+        mkdir -p $GOBIN
 
     - name: Build Backends
       run: |
@@ -136,7 +138,7 @@ jobs:
       GOARCH: amd64
       GOOS: windows
       CGO_ENABLED: 1
-      GOBIN: ${{ github.workspace }}/.go
+      GOBIN: ${{ github.workspace }}\.go
       CMAKE_BUILD_PARALLEL_LEVEL: 8
     defaults:
       run:
@@ -179,10 +181,11 @@ jobs:
         MKDIR build
         MKDIR build\64bits
         MKDIR build\32bits
+        go clean -cache -x
+        mkdir %GOBIN%
+        COPY /Y windivert\x64\* build\64bits
         COPY /Y windivert\LICENSE build\LICENSE.windivert
         COPY /Y LICENSE build\LICENSE
-        go clean -cache -x
-        COPY /Y windivert\x64\* build\64bits
 
     - name: Build Backends
       run: |
