@@ -5,7 +5,7 @@ on:
   push:
     branches: [ "main", "testing-*", "issue*" ]
 
-run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }} rev. ${{ github.sha }}]
+run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] rev.${{ github.sha }}
 
 jobs:
   build-macos:
@@ -16,6 +16,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
+      GOPATH: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
@@ -43,6 +44,7 @@ jobs:
 
       - name: Build Backends
         run: |
+          export PATH=$GOPATH/bin:$PATH
           cd backend/
           go generate
 
@@ -50,9 +52,16 @@ jobs:
         run: |
           go build -v -o build/qpep
 
+      - name: Build QPep Tray 64bits
+        run: |
+          pushd qpep-tray
+          export CGO_ENABLED=0
+          go build -ldflags -H=windowsgui -o ..\build\qpep-tray
+          popd
+
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_linux_b${{ github.run_id }}
+          name: qpep_macos_b${{ github.run_id }}
           path: build/
 
   build-linux:
@@ -64,6 +73,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
+      GOPATH: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 8
     defaults:
       run:
@@ -91,12 +101,20 @@ jobs:
 
     - name: Build Backends
       run: |
+        export PATH=$GOPATH/bin:$PATH
         cd backend/
         go generate
 
     - name: Build Executable
       run: |
         go build -v -o build/qpep
+
+    - name: Build QPep Tray 64bits
+      run: |
+        pushd qpep-tray
+        export CGO_ENABLED=0
+        go build -ldflags -H=windowsgui -o ..\build\qpep-tray
+        popd
 
     - uses: actions/upload-artifact@v4
       with:
@@ -112,7 +130,7 @@ jobs:
       GOARCH: amd64
       GOOS: windows
       CGO_ENABLED: 1
-      QPEP_CI_ENV: 1
+      GOPATH: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 8
     defaults:
       run:
@@ -162,6 +180,7 @@ jobs:
 
     - name: Build Backends
       run: |
+        set PATH=%GOPATH%/bin;%PATH%
         cd backend/
         go generate
 
