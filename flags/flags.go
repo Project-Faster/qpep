@@ -20,6 +20,7 @@ type GlobalFlags struct {
 	Client bool `long:"client" short:"c" description:"Client mode instead of Server mode"`
 	// Verbose (flag:verbose / v) if present indicates to output more log messages for debug purposes
 	Verbose bool `long:"verbose" short:"v" description:"Outputs more log messages"`
+	Trace   bool `long:"trace" short:"t" description:"Outputs trace log messages"`
 
 	TraceCPU  bool `long:"cpu" description:"Trace cpu usage at 10 seconds intervals"`
 	TraceHeap bool `long:"heap" description:"Dumps heap usage at 10 seconds intervals"`

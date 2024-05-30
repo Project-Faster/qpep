@@ -26,6 +26,8 @@ const (
 	PROXY_TYPE_SZ = `REG_SZ`
 	// PROXY_TYPE_DWORD Registry key value type for integer values
 	PROXY_TYPE_DWORD = `REG_DWORD`
+
+	DEBUG_MASK_REDIRECT = false
 )
 
 var (
@@ -176,14 +178,16 @@ func SetSystemProxy(active bool) {
 	preloadRegistryKeysForUsers()
 
 	if !active {
-		for _, userKey := range usersRegistryKeys {
-			logger.Info("Clearing system proxy settings\n")
-			_, _, _ = RunCommand("reg", "add", userKey,
-				"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
-				"", "/f")
+		if !DEBUG_MASK_REDIRECT {
+			for _, userKey := range usersRegistryKeys {
+				logger.Info("Clearing system proxy settings\n")
+				_, _, _ = RunCommand("reg", "add", userKey,
+					"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
+					"", "/f")
 
-			_, _, _ = RunCommand("reg", "add", userKey,
-				"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d", "0", "/f")
+				_, _, _ = RunCommand("reg", "add", userKey,
+					"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d", "0", "/f")
+			}
 		}
 
 		UsingProxy = false
@@ -192,17 +196,19 @@ func SetSystemProxy(active bool) {
 	}
 
 	logger.Info("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
-	for _, userKey := range usersRegistryKeys {
-		_, _, _ = RunCommand("reg", "add", userKey,
-			"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
-			fmt.Sprintf("%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort), "/f")
+	if !DEBUG_MASK_REDIRECT {
+		for _, userKey := range usersRegistryKeys {
+			_, _, _ = RunCommand("reg", "add", userKey,
+				"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
+				fmt.Sprintf("%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort), "/f")
 
-		_, _, _ = RunCommand("reg", "add", userKey,
-			"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d",
-			"1", "/f")
+			_, _, _ = RunCommand("reg", "add", userKey,
+				"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d",
+				"1", "/f")
+		}
+
+		Flush()
 	}
-
-	Flush()
 
 	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort))
 	if err != nil {

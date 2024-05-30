@@ -10,8 +10,8 @@ services:
       context: ./logstash
       dockerfile: Dockerfile
     extra_hosts:
-      - "MQTT:${SERVER_ADDRESS}"
-      - "LOGSTASH:${SERVER_ADDRESS}"
+      - "MQTT:${QPEP_BROKER}"
+      - "LOGSTASH:${QPEP_BROKER}"
     ports:
       - target: 5044
         published: 5044
@@ -29,8 +29,8 @@ services:
       context: ./mosquitto
       dockerfile: Dockerfile
     extra_hosts:
-      - "MQTT:${SERVER_ADDRESS}"
-      - "LOGSTASH:${SERVER_ADDRESS}"
+      - "MQTT:${QPEP_BROKER}"
+      - "LOGSTASH:${QPEP_BROKER}"
     ports:
       - target: 1883
         published: 1883

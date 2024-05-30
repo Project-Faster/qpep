@@ -15,8 +15,8 @@ import (
 )
 
 type QuicBackend interface {
-	Dial(ctx context.Context, remoteAddress string, port int) (QuicBackendConnection, error)
-	Listen(ctx context.Context, address string, port int) (QuicBackendConnection, error)
+	Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error)
+	Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error)
 	Close() error
 }
 
@@ -29,6 +29,8 @@ type QuicBackendConnection interface {
 	AcceptStream(context.Context) (QuicBackendStream, error)
 	AcceptConnection(context.Context) (QuicBackendConnection, error)
 	Close(code int, message string) error
+
+	IsClosed() bool
 }
 
 type QuicBackendStream interface {
@@ -38,15 +40,18 @@ type QuicBackendStream interface {
 
 	ID() uint64
 
+	Sync() bool
 	AbortRead(code uint64)
 	AbortWrite(code uint64)
 
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
+
+	IsClosed() bool
 }
 
 // generateTLSConfig creates a new x509 key/certificate pair and dumps it to the disk
-func generateTLSConfig(fileprefix string) *tls.Config {
+func generateTLSConfig(certfile, keyfile string) tls.Certificate {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(err)
@@ -59,15 +64,12 @@ func generateTLSConfig(fileprefix string) *tls.Config {
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 
-	ioutil.WriteFile(fileprefix+"_key.pem", keyPEM, 0777)
-	ioutil.WriteFile(fileprefix+"_cert.pem", certPEM, 0777)
+	ioutil.WriteFile(certfile, keyPEM, 0777)
+	ioutil.WriteFile(keyfile, certPEM, 0777)
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		panic(err)
 	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
-		NextProtos:   []string{"qpep"},
-	}
+	return tlsCert
 }
