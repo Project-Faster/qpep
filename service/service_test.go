@@ -8,8 +8,6 @@ import (
 	"github.com/Project-Faster/qpep/workers/client"
 	"github.com/Project-Faster/qpep/workers/server"
 	service "github.com/parvit/kardianos-service"
-	"github.com/parvit/qpep/workers/client"
-	"github.com/parvit/qpep/workers/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"

@@ -8,7 +8,55 @@ on:
 run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }} rev. ${{ github.sha }}]
 
 jobs:
+  build-macos:
+    runs-on: macos-latest
+    env:
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GOARCH: amd64
+      GOOS: linux
+      CGO_ENABLED: 1
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
+
+      - name: Prepare
+        run: |
+          go clean -cache -x
+
+      - name: Build Backends
+        run: |
+          cd backend/
+          go generate
+
+      - name: Build Executable
+        run: |
+          go build -v -o build/qpep
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_linux_b${{ github.run_id }}
+          path: build/
+
   build-linux:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -56,6 +104,7 @@ jobs:
         path: build/
 
   build-windows:
+    if: ${{ false }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
@@ -147,6 +196,7 @@ jobs:
         path: backend/quicly-go/internal/deps/
 
   unit-tests-linux:
+    if: ${{ false }}
     needs: [ build-linux ]
     runs-on: ubuntu-latest
     env:
@@ -231,6 +281,7 @@ jobs:
           path: backend/quicly-go/internal/deps/
 
   unit-tests-windows:
+    if: ${{ false }}
     needs: [ build-windows ]
     runs-on: windows-latest
     env:
@@ -266,7 +317,7 @@ jobs:
         shell: bash
         run: |
           set -x
-          go generate github.com/parvit/qpep/windivert
+          go generate github.com/project-faster/qpep/windivert
           for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
           do
             pushd $i

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/parvit/qpep/flags"
 	"hash/crc64"
 	"io"
 	"io/ioutil"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Project-Faster/qpep/backend"
+	"github.com/Project-Faster/qpep/flags"
 	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/windivert"
@@ -158,7 +158,7 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
 	logger.Info("== Stream %d Start ==", quicStream.ID())
- 
+
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
 
