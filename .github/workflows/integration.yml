@@ -45,17 +45,9 @@ jobs:
 
       - name: Build Backends
         run: |
-          export PATH=$GOPATH/bin:$PATH
-          echo $PATH
-          find $GOPATH/bin
+          export PATH=$GOPATH/bin:$GOPATH/bin/${GOARCH}_${GOOS}:$PATH
           cd backend/
           go generate
-
-      - name: Build Backends
-        if: always()
-        run: |
-          export PATH=$GOPATH/bin:$PATH
-          find $GOPATH/bin
 
       - name: Build Executable
         run: |
