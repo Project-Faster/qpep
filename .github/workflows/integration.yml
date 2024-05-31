@@ -38,11 +38,18 @@ jobs:
         with:
           cmake-version: ${{ env.CMAKE_VERSION }}
 
+      - name: Setup GCC
+        uses: Dup4/actions-setup-gcc@v1
+        with:
+          version: 11.1.0
+          cc: true
+          env: true
+
       - name: Prepare
         run: |
           go clean -cache -x
           mkdir -p $GOPATH/bin
-
+          
       - name: Build Backends
         run: |
           export PATH=$GOPATH/bin:$GOPATH/bin/${GOOS}_${GOARCH}:$PATH
