@@ -13,8 +13,9 @@ PARSER:
   Defines:
     UNIX: 1
   IncludePaths: [
-    "/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/"
-    "<basedir>/internal/deps/include/" ]
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/",
+    "<basedir>/internal/deps/include/"
+  ]
   SourcesPaths: [
     "quicly_wrapper.h",
   ]
