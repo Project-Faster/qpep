@@ -2,6 +2,10 @@
 #ifndef QUICLY_WRAPPER
 #define QUICLY_WRAPPER
 
+#ifdef __MACH__
+#include <sys/_types/_size_t.h>
+#endif
+
 #include "stddef.h"
 #include "stdio.h"
 #include "stdarg.h"
