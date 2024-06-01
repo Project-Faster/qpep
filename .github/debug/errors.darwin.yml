@@ -5,15 +5,15 @@ GENERATOR:
   Includes: [ "quicly_wrapper.h" ]
   FlagGroups:
     - { name: CPPFLAGS, flags: [
-      "-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/",
       "-I<basedir>/internal/deps/include/"
     ] }
 
 PARSER:
   Defines:
-    UNIX: 1
+    DARWIN: 1
+    __APPLE__: 1
+    __MACH__: 1
   IncludePaths: [
-    "/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/",
     "<basedir>/internal/deps/include/"
   ]
   SourcesPaths: [
