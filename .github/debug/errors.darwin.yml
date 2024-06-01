@@ -1,0 +1,28 @@
+GENERATOR:
+  PackageName: errors
+  PackageDescription: "quicly-errors"
+  PackageLicense: "None"
+  Includes: [ "quicly_wrapper.h" ]
+  FlagGroups:
+    - { name: CPPFLAGS, flags: [
+      "-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/",
+      "-I<basedir>/internal/deps/include/"
+    ] }
+
+PARSER:
+  Defines:
+    UNIX: 1
+  IncludePaths: [
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/"
+    "<basedir>/internal/deps/include/" ]
+  SourcesPaths: [
+    "quicly_wrapper.h",
+  ]
+
+TRANSLATOR:
+  ConstRules:
+    defines: eval
+  Rules:
+    global:
+      - { action: accept, from: "^QUICLY_" }
+      - { transform: export }
