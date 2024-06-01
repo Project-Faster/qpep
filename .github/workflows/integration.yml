@@ -52,6 +52,8 @@ jobs:
           
       - name: Build Backends
         run: |
+          find /Library/Developer/CommandLineTools/SDKs | grep _size_t.h
+          find /Library/Developer/CommandLineTools/SDKs | grep _liblibc/_size_t.h
           cat /Library/Developer/CommandLineTools/SDKs/MacOSX14.sdk/usr/include/malloc/_malloc.h || true
           gcc -E -dI ${{ github.workspace }}/backend/quicly-go/internal/deps/include/quicly_wrapper.h || true
           cp -f ${{ github.workspace }}/.github/debug/quicly_wrapper.h ${{ github.workspace }}/backend/quicly-go/internal/deps/include/quicly_wrapper.h
