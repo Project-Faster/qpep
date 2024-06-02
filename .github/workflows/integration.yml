@@ -49,8 +49,7 @@ jobs:
         run: |
           go clean -cache -x
           mkdir -p $GOPATH/bin
-          export CPP=${CXX}
-          ${CPP} -x c++ -v -E /dev/null
+          find / | grep _size_t.h
 
       - name: Build Backends
         run: |
