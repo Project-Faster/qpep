@@ -24,8 +24,9 @@ if [[ ! "$?" -eq "0" ]]; then
   cd deps/c-for-go
 
   mkdir deps
-  cp -rf ../../../../../.github/debug/cc_local deps/
-  cp -f ../../../../../.github/debug/go.mod .
+  pwd
+  cp -rf ../../../../.github/debug/cc_local deps/
+  cp -f ../../../../.github/debug/go.mod .
 
   go install -v
   assert_errorcode
