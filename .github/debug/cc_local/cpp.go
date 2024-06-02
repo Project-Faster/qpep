@@ -2553,6 +2553,7 @@ func (c *cpp) primaryExpression(s *cppTokens, eval bool) interface{} {
 		s.shift()
 		switch t.SrcStr() {
 		case "__has_include", "__has_include__":
+			log.Printf("hasInclude token\n")
 			t0 := t
 			var arg string
 			if t := s.token(); t.Ch != '(' {
@@ -2587,6 +2588,7 @@ func (c *cpp) primaryExpression(s *cppTokens, eval bool) interface{} {
 					}
 				}
 			}
+			log.Printf("hasInclude arg: %s\n", arg)
 			switch t = s.token(); t.Ch {
 			case ')':
 				s.shift()
@@ -2600,6 +2602,7 @@ func (c *cpp) primaryExpression(s *cppTokens, eval bool) interface{} {
 				return int64(0)
 			}
 		}
+		log.Printf("hasInclude ident\n")
 
 		if s.rune() == '(' {
 			for {
