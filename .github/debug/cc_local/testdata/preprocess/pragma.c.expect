@@ -1,0 +1,11 @@
+ int i;
+__pragma foo1
+
+int j;
+
+ int a; 
+__pragma foo3
+__pragma foo2
+ int b; int c;
+__pragma foo5
+__pragma foo4

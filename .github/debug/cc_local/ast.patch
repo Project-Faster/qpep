@@ -1,0 +1,26 @@
+diff --git a/v4/ast.go b/v4/ast.go
+index fb2072e..c40e4e9 100644
+--- a/v4/ast.go
++++ b/v4/ast.go
+@@ -2200,7 +2200,7 @@ type ExpressionList struct {
+ 	typer
+ 	valuer
+ 	AssignmentExpression ExpressionNode
+-	ExpressionList       ExpressionNode
++	ExpressionList       *ExpressionList
+ 	Token                Token
+ }
+ 
+@@ -2236,8 +2236,10 @@ func (n *ExpressionStatement) Position() (r token.Position) {
+ 		return r
+ 	}
+ 
+-	if p := n.ExpressionList.Position(); p.IsValid() {
+-		return p
++	if n.ExpressionList != nil {
++		if p := n.ExpressionList.Position(); p.IsValid() {
++			return p
++		}
+ 	}
+ 
+ 	return n.Token.Position()
