@@ -2,7 +2,7 @@
 #ifndef QUICLY_WRAPPER
 #define QUICLY_WRAPPER
 
-#if defined(__APPLE__) && defined(__MACH__)
+#ifdef __APPLE__
 #include <sys/_types/_size_t.h>
 #endif
 
