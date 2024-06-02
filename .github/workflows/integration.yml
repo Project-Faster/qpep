@@ -13,7 +13,7 @@ jobs:
     env:
       GO_VERSION: 1.20.14
       CMAKE_VERSION: '3.22.x'
-      GOARCH: amd64
+      GOARCH: arm64
       GOOS: darwin
       CGO_ENABLED: 1
       GOPATH: ${{ github.workspace }}/.go
