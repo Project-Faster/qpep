@@ -49,7 +49,6 @@ jobs:
         run: |
           go clean -cache -x
           mkdir -p $GOPATH/bin
-          find / | grep _size_t.h
 
       - name: Build Backends
         run: |
