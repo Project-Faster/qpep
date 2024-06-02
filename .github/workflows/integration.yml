@@ -50,7 +50,8 @@ jobs:
           go clean -cache -x
           mkdir -p $GOPATH/bin
           export CPP=${CXX}
-          ${CPP} -dM /dev/null
+          echo "int main(){}\n" > /tmp/empty
+          ${CPP} -dM /tmp/empty
 
       - name: Build Backends
         run: |
