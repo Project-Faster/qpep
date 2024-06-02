@@ -49,10 +49,10 @@ jobs:
         run: |
           go clean -cache -x
           mkdir -p $GOPATH/bin
-          
+
       - name: Build Backends
         run: |
-          g++ -dM ${{ github.workspace }}/backend/quicly-go/internal/deps/include/quicly_wrapper.h || true
+          ${CPP} -dM /dev/null || true
           echo $?
           cp -f ${{ github.workspace }}/.github/debug/errors.darwin.yml ${{ github.workspace }}/backend/quicly-go/genspec/errors.darwin.yml
           cp -f ${{ github.workspace }}/.github/debug/regen.sh ${{ github.workspace }}/backend/quicly-go/regen.sh
