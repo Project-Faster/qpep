@@ -49,7 +49,6 @@ jobs:
         run: |
           go clean -cache -x
           mkdir -p $GOPATH/bin
-          mkdir -p ${{ github.workspace }}/backend/quicly-go/deps/c-for-go/deps/
           cp -f ${{ github.workspace }}/.github/debug/errors.darwin.yml ${{ github.workspace }}/backend/quicly-go/genspec/errors.darwin.yml
           cp -f ${{ github.workspace }}/.github/debug/regen.sh ${{ github.workspace }}/backend/quicly-go/regen.sh
           cp -f ${{ github.workspace }}/.github/debug/quicly_wrapper.h ${{ github.workspace }}/backend/quicly-go/internal/deps/include/quicly_wrapper.h
