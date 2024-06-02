@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -xe
 
 echo "**************************************"
 echo "*****  QUICLY-GO BINDINGS REGEN  *****"
@@ -22,6 +22,11 @@ c-for-go -h
 if [[ ! "$?" -eq "0" ]]; then
   echo [Build C-FOR-GO]
   cd deps/c-for-go
+
+  mkdir deps
+  cp -rf ../../../../../.github/debug/cc_local deps/
+  cp -f ../../../../../.github/debug/go.mod .
+
   go install -v
   assert_errorcode
 fi
