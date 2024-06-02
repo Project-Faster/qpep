@@ -2602,7 +2602,7 @@ func (c *cpp) primaryExpression(s *cppTokens, eval bool) interface{} {
 				return int64(0)
 			}
 		}
-		log.Printf("hasInclude ident\n")
+		log.Printf("hasInclude ident: %s\n", t.SrcStr())
 
 		if s.rune() == '(' {
 			for {
