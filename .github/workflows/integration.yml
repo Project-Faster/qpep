@@ -2,16 +2,10 @@ name: CodeIntegration
 
 on:
   workflow_dispatch:
-    inputs:
-      do_tests:
-        description: 'do tests'
-        type: boolean
-        default: false
-        required: true
   push:
     branches: [ "main", "testing-*", "issue*" ]
 
-run-name: Code integration [${{ github.inputs.x86_version }}][${{ github.inputs.do_tests }}] - ${{ github.head_ref }}.${{ github.sha }}
+run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }} rev. ${{ github.sha }}]
 
 jobs:
   build-linux:
@@ -22,6 +16,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
+      CMAKE_BUILD_PARALLEL_LEVEL: 8
     defaults:
       run:
         shell: bash
@@ -59,6 +54,97 @@ jobs:
       with:
         name: qpep_linux_b${{ github.run_id }}
         path: build/
+
+  build-windows:
+    runs-on: windows-latest
+    env:
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GOARCH: amd64
+      GOOS: windows
+      CGO_ENABLED: 1
+      QPEP_CI_ENV: 1
+      CMAKE_BUILD_PARALLEL_LEVEL: 8
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        clean: true
+        submodules: true
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Install Wix
+      uses: actions/checkout@v2
+      with:
+        repository: fbarresi/wix
+        path: wix
+
+    - name: Install MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Set up MinGW
+      uses: egor-tensin/setup-mingw@v2
+      with:
+        platform: x64
+        static: false
+        version: 11.1.0
+
+    - name: Set up CMake
+      uses: jwlawson/actions-setup-cmake@v1.14
+      with:
+        cmake-version: ${{ env.CMAKE_VERSION }}
+
+    - name: Prepare
+      run: |
+        MKDIR build
+        MKDIR build\64bits
+        MKDIR build\32bits
+        COPY /Y windivert\LICENSE build\LICENSE.windivert
+        COPY /Y LICENSE build\LICENSE
+        go clean -cache -x
+        COPY /Y windivert\x64\* build\64bits
+
+    - name: Build Backends
+      run: |
+        cd backend/
+        go generate
+
+    - name: Build QPep
+      run: |
+         go build -o build\64bits\qpep.exe
+
+    - name: Build QPep Tray 64bits
+      run: |
+         pushd qpep-tray
+         export CGO_ENABLED=0
+         go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
+         popd
+
+    - name: Build QPep Installer
+      run: |
+        sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > installer/installer.wxs
+        sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
+        sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
+        set PATH=${{ github.workspace }}\wix\tools;%PATH%
+        msbuild installer\installer.sln
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: qpep_windows_b${{ github.run_id }}
+        path: build/installer.msi
+
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: windows_generated_code
+        path: backend/quicly-go/internal/deps/
 
   unit-tests-linux:
     needs: [ build-linux ]
@@ -114,6 +200,7 @@ jobs:
           junit_files: "unit_tests_*.xml"
 
       - name: Publish Coverage Results
+        if: always()
         run: |
           for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
           do
@@ -126,89 +213,33 @@ jobs:
         continue-on-error: true
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: linux_tests_output
           path: "${{ github.workspace }}/**/unit_tests.out"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: linux_coverage_report
           path: report_*.html
 
-  build-windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: cmd
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        clean: true
-        submodules: true
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
-
-    - uses: actions/checkout@v2
-    - name: Install Wix
-      uses: actions/checkout@v2
-      with:
-        repository: fbarresi/wix
-        path: wix
-
-    - name: Install MSBuild
-      uses: microsoft/setup-msbuild@v1.1
-
-    - name: Set up CMake
-      uses: jwlawson/actions-setup-cmake@v1.14
-      with:
-        cmake-version: ${{ env.CMAKE_VERSION }}
-
-    - name: Prepare
-      run: |
-           MKDIR build
-           MKDIR build\64bits
-           MKDIR build\32bits
-           COPY /Y windivert\LICENSE build\LICENSE.windivert
-           COPY /Y LICENSE build\LICENSE
-           go clean -cache -x
-           COPY /Y windivert\x64\* build\64bits
-
-    - name: Build Backends
-      run: |
-        cd backend/
-        go generate
-
-    - name: Build QPep
-      run: |
-         go build -o build\64bits\qpep.exe
-
-    - name: Build QPep Tray 64bits
-      run: |
-           pushd qpep-tray
-           export CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
-           popd
-
-    - name: Build QPep Installer
-      run: |
-        sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > installer/installer.wxs
-        sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
-        sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
-        set PATH=${{ github.workspace }}\wix\tools;%PATH%
-        msbuild installer\installer.sln
-
-    - uses: actions/upload-artifact@v4
-      with:
-        name: qpep_windows_b${{ github.run_id }}
-        path: build/installer.msi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux_generated_code
+          path: backend/quicly-go/internal/deps/
 
   unit-tests-windows:
     needs: [ build-windows ]
     runs-on: windows-latest
+    env:
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GOARCH: amd64
+      GOOS: windows
+      CGO_ENABLED: 1
+      QPEP_CI_ENV: 1
     defaults:
       run:
         shell: cmd
@@ -235,10 +266,6 @@ jobs:
         shell: bash
         run: |
           set -x
-          export GOARCH=amd64
-          export GOOS=windows
-          export CGO_ENABLED=0
-          export QPEP_CI_ENV=1
           go generate github.com/parvit/qpep/windivert
           for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
           do
@@ -259,6 +286,7 @@ jobs:
 
       - name: Test Results
         shell: bash
+        if: always()
         run: |
           set -x
           for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
@@ -272,11 +300,13 @@ jobs:
         continue-on-error: true
 
       - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows_coverage_output
+          path: unit_tests_*.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: windows_coverage_report
           path: report_*.html
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows_coverage_report
-          path: unit_tests_*.xml

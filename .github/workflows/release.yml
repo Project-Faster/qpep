@@ -4,23 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       test_release:
-            description: 'Draft Release'
-            required: true
-            type: boolean
-            default: true
-      x86_version:
-            description: 'Create x86 version'
-            type: boolean
-            default: false
+        description: 'Draft Release'
+        required: true
+        type: boolean
+        default: true
       do_tests:
         description: 'Execute tests'
         type: boolean
         default: true
       version_tag:
-            description: 'Version tag'
-            type: 'string'
-            required: true
-            default: '0.0.1'
+        description: 'Version tag'
+        type: 'string'
+        required: true
+        default: '0.0.1'
+
+run-name: Release (version ${{ inputs.version_tag }}, draft ${{ inputs.test_release }}) [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}]
 
 jobs:
   check-release:
@@ -47,146 +45,127 @@ jobs:
   build-linux:
     needs: check-release
     runs-on: ubuntu-latest
+    env:
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GOARCH: amd64
+      GOOS: linux
+      CGO_ENABLED: 1
     defaults:
-      run: 
+      run:
         shell: bash
-        
+
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.20.14
-        
-    - name: Prepare
-      run: mkdir build
-        
-    - if: ${{ github.event.inputs.do_tests == true }}
-      name: Test
-      run: |
-        set GOARCH=amd64
-        set GOOS=linux
-        set CGO_ENABLED=0
-        go test -v ./...
-      continue-on-error: true
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Build x64
-      run: |
-        set GOARCH=amd64
-        set GOOS=linux
-        set CGO_ENABLED=1
-        go clean -cache
-        go build -v -o build/qpep
-      
-    - uses: actions/upload-artifact@v3
-      with:
-        name: qpep_linux_b${{ github.run_id }}
-        path: build/qpep
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
+
+      - name: Prepare
+        run: |
+          go clean -cache -x
+
+      - name: Build Backends
+        run: |
+          cd backend/
+          go generate
+
+      - name: Build Executable
+        run: |
+          go build -v -o build/qpep
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_linux_b${{ github.run_id }}
+          path: build/
 
   build-windows:
     needs: check-release
     runs-on: windows-latest
+    env:
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GOARCH: amd64
+      GOOS: windows
+      CGO_ENABLED: 1
+      QPEP_CI_ENV: 1
     defaults:
-      run: 
+      run:
         shell: cmd
-    
+
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.20.14
-        
-    - if: ${{ github.event.inputs.do_tests == true }}
-      name: Test
-      run: |
-        set GOARCH=amd64
-        set GOOS=windows
-        set CGO_ENABLED=1
-        go test -v ./...
-      continue-on-error: true
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
 
-    - uses: actions/checkout@v2
-    - name: Install Wix
-      uses: actions/checkout@v2
-      with:
-        repository: fbarresi/wix
-        path: wix
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Install MSBuild
-      uses: microsoft/setup-msbuild@v1.1
-      
-    - name: Prepare
-      run: |
-           MKDIR build
-           MKDIR build\64bits
-           MKDIR build\32bits
-           COPY /Y windivert\LICENSE build\LICENSE.windivert
-           COPY /Y LICENSE build\LICENSE
-           set GOARCH=amd64
-           go clean -cache
-           set GOARCH=386
-           go clean -cache
-           COPY /Y windivert\x64\* build\64bits
+      - name: Install Wix
+        uses: actions/checkout@v2
+        with:
+          repository: fbarresi/wix
+          path: wix
 
-    - name: Update version resource
-      run: |
-          git clone https://github.com/josephspurrier/goversioninfo
-          cd goversioninfo && go build -o /usr/local/bin/goversioninfo
-          go generate github.com/parvit/qpep/version
+      - name: Install MSBuild
+        uses: microsoft/setup-msbuild@v1.1
 
-    - name: Build QPep x64
-      run: |
-           set GOARCH=amd64
-           set CGO_ENABLED=1
-           go build -o build\64bits\qpep.exe
-           
-    - name: Build QPep Tray x64
-      run: |
-           pushd qpep-tray
-           set GOARCH=amd64
-           set GOOS=windows
-           set CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
-           popd
-           
-    - if: ${{ github.event.inputs.x86_version == true }}
-      name: Set up MinGW
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x86
-        
-    - if: ${{ github.event.inputs.x86_version == true }}
-      name: Build QPep x86
-      run: |
-           set GOARCH=386
-           set GOOS=windows
-           set CGO_ENABLED=1
-           go build -o build\64bits\qpep.exe
-           
-    - if: ${{ github.event.inputs.x86_version == true }}
-      name: Build QPep Tray x86
-      run: |
-           pushd qpep-tray
-           set GOARCH=386
-           set GOOS=windows
-           set CGO_ENABLED=0
-           go build -ldflags -H=windowsgui -o ..\build\32bits\qpep-tray.exe
-           popd
-      
-    - name: Build QPep Installer
-      run: |
-           sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > installer/installer.wxs
-           sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > version/versioninfo.json
-           sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"v${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > version/versioninfo.json
-           set PATH=${{ github.workspace }}\wix\tools;%PATH%
-           msbuild installer\installer.sln
-   
-    - uses: actions/upload-artifact@v3
-      with:
-        name: qpep_windows_b${{ github.run_id }}
-        path: build/installer.msi
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
+
+      - name: Prepare
+        run: |
+          MKDIR build
+          MKDIR build\64bits
+          MKDIR build\32bits
+          COPY /Y windivert\LICENSE build\LICENSE.windivert
+          COPY /Y LICENSE build\LICENSE
+          go clean -cache -x
+          COPY /Y windivert\x64\* build\64bits
+
+      - name: Build Backends
+        run: |
+          cd backend/
+          go generate
+
+      - name: Build QPep
+        run: |
+          go build -o build\64bits\qpep.exe
+
+      - name: Build QPep Tray
+        run: |
+          pushd qpep-tray
+          export CGO_ENABLED=0
+          go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
+          popd
+
+      - name: Build QPep Installer
+        run: |
+          sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > installer/installer.wxs
+          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > version/versioninfo.json
+          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"v${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > version/versioninfo.json
+          set PATH=${{ github.workspace }}\wix\tools;%PATH%
+          msbuild installer\installer.sln
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_windows_b${{ github.run_id }}
+          path: build/installer.msi
 
   create-release-tag:
     needs: [build-windows, build-linux]
