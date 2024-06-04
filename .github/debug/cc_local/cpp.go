@@ -1693,6 +1693,8 @@ func (c *cpp) include(ln controlLine) {
 	switch raw := c.includeArg(s); {
 	case strings.HasPrefix(raw, `"`) && strings.HasSuffix(raw, `"`):
 		nm := raw[1 : len(raw)-1]
+		log.Printf(">> include - %s\n", raw)
+		defer log.Printf("<< include - %s\n", raw)
 		for _, v := range c.cfg.IncludePaths {
 			if v == "" {
 				v, _ = filepath.Split(ln[2].Position().Filename)
@@ -1708,6 +1710,8 @@ func (c *cpp) include(ln controlLine) {
 		c.closed = true
 	case strings.HasPrefix(raw, "<") && strings.HasSuffix(raw, ">"):
 		nm := raw[1 : len(raw)-1]
+		log.Printf(">> include - %s\n", raw)
+		defer log.Printf("<< include - %s\n", raw)
 		for _, v := range c.cfg.SysIncludePaths {
 			pth := filepath.Join(v, nm)
 			if g, err := c.group(Source{pth, nil, c.cfg.FS}); err == nil {
