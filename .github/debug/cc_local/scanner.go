@@ -158,7 +158,7 @@ type Token struct { // 32 bytes on a 64 bit machine.
 
 // newToken returns a newly created Token. The pos field is set equal to src.
 func newToken(s *scannerSource, ch rune, sep, src, len uint32) (r Token) {
-	return Token{
+	t := Token{
 		s:   s,
 		Ch:  ch,
 		off: src + uint32(s.fsOff),
@@ -166,6 +166,8 @@ func newToken(s *scannerSource, ch rune, sep, src, len uint32) (r Token) {
 		src: src,
 		len: len,
 	}
+	log.Printf("new token: %s\n", t.SrcStr())
+	return t
 }
 
 // String implements fmt.Stringer.
