@@ -16,7 +16,7 @@ on:
         description: 'Version tag'
         type: 'string'
         required: true
-        default: '0.0.1'
+        default: '0.4.0'
 
 run-name: Release (version ${{ inputs.version_tag }}, draft ${{ inputs.test_release }}) [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}]
 
@@ -73,6 +73,7 @@ jobs:
 
       - name: Prepare
         run: |
+          go install github.com/jstemmer/go-junit-report@v1.0.0
           go clean -cache -x
 
       - name: Build Backends
@@ -88,6 +89,27 @@ jobs:
         with:
           name: qpep_linux_b${{ github.run_id }}
           path: build/
+
+      - name: Test
+        if: ${{ inputs.test_release }}
+        run: |
+          set -x
+          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+          do
+            pushd $i
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
+            cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: ${{ inputs.test_release }}
+        with:
+          check_name: "Unit Tests - Linux Platform"
+          junit_files: "unit_tests_*.xml"
 
   build-windows:
     needs: check-release
@@ -138,12 +160,13 @@ jobs:
 
       - name: Prepare
         run: |
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go clean -cache -x
           MKDIR build
           MKDIR build\64bits
           MKDIR build\32bits
           COPY /Y windivert\LICENSE build\LICENSE.windivert
           COPY /Y LICENSE build\LICENSE
-          go clean -cache -x
           COPY /Y windivert\x64\* build\64bits
 
       - name: Build Backends
@@ -174,6 +197,29 @@ jobs:
         with:
           name: qpep_windows_b${{ github.run_id }}
           path: build/installer.msi
+
+      - name: Test
+        if: ${{ inputs.test_release }}
+        shell: bash
+        run: |
+          set -x
+          go generate github.com/parvit/qpep/windivert
+          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+          do
+            pushd $i
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
+            cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action/composite@v2
+        if: ${{ inputs.test_release }}
+        with:
+          check_name: "Unit Tests - Windows Platform"
+          junit_files: "unit_tests_*.xml"
 
   create-release-tag:
     needs: [build-windows, build-linux]
