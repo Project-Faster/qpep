@@ -99,6 +99,7 @@ jobs:
       GOOS: windows
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
         shell: cmd
@@ -122,6 +123,13 @@ jobs:
 
       - name: Install MSBuild
         uses: microsoft/setup-msbuild@v1.1
+
+      - name: Set up MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+          static: false
+          version: 11.1.0
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1.14
