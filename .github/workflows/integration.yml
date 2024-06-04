@@ -59,7 +59,7 @@ jobs:
           export CPP=${CXX}
           export PATH=$GOPATH/bin:$GOPATH/bin/${GOOS}_${GOARCH}:$PATH
           cd backend/
-          go generate
+          go generate &> ./back.log
 
       - name: Build Executable
         run: |
@@ -76,6 +76,12 @@ jobs:
         with:
           name: qpep_macos_b${{ github.run_id }}
           path: build/
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qpep_macos_temp
+          path: backend/back.log
 
   build-linux:
     if: ${{ false }}
