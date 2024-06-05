@@ -5,7 +5,9 @@ GENERATOR:
   Includes: [ "quicly_wrapper.h" ]
   FlagGroups:
     - { name: CPPFLAGS, flags: [
-      "-I/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/",
+      "-DDARWIN",
+      "-D__APPLE__",
+      "-D__MACH__",
       "-I<basedir>/internal/deps/include/"
     ] }
 
@@ -14,8 +16,8 @@ PARSER:
     DARWIN: 1
     __APPLE__: 1
     __MACH__: 1
+    __has_include: __has_include__
   IncludePaths: [
-    "/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/",
     "<basedir>/internal/deps/include/"
   ]
   SourcesPaths: [
