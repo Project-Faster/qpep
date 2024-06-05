@@ -1303,6 +1303,7 @@ func (c *cpp) parseDefined(ts tokenSequence) (r tokenSequence) {
 	}
 
 	nm := t.SrcStr()
+	log.Printf("defined: %v\n", nm)
 	oneTok := Token{s: t.s, Ch: rune(PPNUMBER)}
 	oneTok.Set(nil, one)
 	zeroTok := Token{s: t.s, Ch: rune(PPNUMBER)}
@@ -1590,7 +1591,11 @@ func (c *cpp) elifGroup(eg elifGroup) bool {
 		return false
 	}
 
-	return c.isNonZero(c.eval(ln[2:]))
+	log.Printf(">> elif\n")
+	r := c.isNonZero(c.eval(ln[2:]))
+	log.Printf("<< elif: %v\n", r)
+
+	return r
 }
 
 // includeNext executes an #include_next control-line: https://gcc.gnu.org/onlinedocs/cpp/Wrapper-Headers.html
@@ -1728,9 +1733,8 @@ func (c *cpp) include(ln controlLine) {
 	}
 }
 
-func (c *cpp) hasInclude(t Token, raw string) (result bool) {
+func (c *cpp) hasInclude(t Token, raw string) bool {
 	log.Printf("hasInclude - %s\n", raw)
-	defer log.Printf("hasInclude - %s: %v\n", raw, result)
 	switch {
 	case strings.HasPrefix(raw, `"`) && strings.HasSuffix(raw, `"`):
 		nm := raw[1 : len(raw)-1]
@@ -1740,6 +1744,7 @@ func (c *cpp) hasInclude(t Token, raw string) (result bool) {
 			}
 			pth := filepath.Join(v, nm)
 			if c.hasFile(t, pth) {
+				log.Printf("hasInclude - %s: %v\n", raw, true)
 				return true
 			}
 		}
@@ -1749,12 +1754,14 @@ func (c *cpp) hasInclude(t Token, raw string) (result bool) {
 			pth := filepath.Join(v, nm)
 			log.Printf("hasInclude - %s @ %s\n", raw, pth)
 			if c.hasFile(t, pth) {
+				log.Printf("hasInclude - %s: %v\n", raw, true)
 				return true
 			}
 		}
 	default:
 		c.eh("%v: invalid argument", t.Position())
 	}
+	log.Printf("hasInclude - %s: %v\n", raw, false)
 	return false
 }
 
@@ -1828,8 +1835,10 @@ func (c *cpp) ifGroup(ig *ifGroup) bool {
 			c.eh("%v: expected expression", ln[1].Position())
 			return false
 		}
-
-		return c.isNonZero(c.eval(ln[2:]))
+		log.Printf(">> if\n")
+		r := c.isNonZero(c.eval(ln[2:]))
+		log.Printf("<< if: %v\n", r)
+		return r
 	default:
 		panic(todo("", toksDump(ln)))
 	}
