@@ -46,6 +46,8 @@ var (
 		"__STDC__":                 {},
 		"__TIME__":                 {},
 		"defined":                  {},
+		"__has_include":            {},
+		"__has_include__":          {},
 	}
 )
 
@@ -1269,6 +1271,10 @@ func (c *cpp) macro(t Token, nm string) *Macro {
 	case "__STDC__":
 		return nil
 	case "__STDC_VERSION__":
+		return nil
+	case "__has_include":
+		return nil
+	case "__has_include__":
 		return nil
 	default:
 		panic(todo("%v: %q", t.Position(), nm))
