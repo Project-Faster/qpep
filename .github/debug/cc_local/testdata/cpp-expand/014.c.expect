@@ -1,2 +1,0 @@
-__pragma STDC FENV_ACCESS OFF
-__pragma STDC FP_CONTRACT ON

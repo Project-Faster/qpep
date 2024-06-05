@@ -1,9 +1,0 @@
-
-
-
-
-struct knote;
- struct klist { struct knote *slh_first; } ;
-__pragma clang diagnostic pop
-__pragma clang diagnostic ignored "-Wnullability-completeness"
-__pragma clang diagnostic push
