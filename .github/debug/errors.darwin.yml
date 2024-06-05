@@ -16,7 +16,6 @@ PARSER:
     DARWIN: 1
     __APPLE__: 1
     __MACH__: 1
-    __has_include: __has_include__
   IncludePaths: [
     "<basedir>/internal/deps/include/"
   ]
