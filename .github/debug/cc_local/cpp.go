@@ -1439,7 +1439,7 @@ func (c *cpp) nextLine() (r textLine) {
 		// trc("STACK %v", a)
 		switch x := c.tos.(type) {
 		case nil:
-			// trc("<nil>, len(c.sources): %v", len(c.sources))
+			trc("<nil>, len(c.sources): %v", len(c.sources))
 			if len(c.sources) == 0 {
 				return textLine{Token(c.eof)}
 			}
@@ -1454,7 +1454,7 @@ func (c *cpp) nextLine() (r textLine) {
 
 			c.push(g)
 		case group:
-			// trc("group len %v", len(x))
+			trc("group len %v", len(x))
 			if len(x) == 0 {
 				c.pop()
 				break
@@ -1463,7 +1463,7 @@ func (c *cpp) nextLine() (r textLine) {
 			c.tos = x[1:]
 			c.push(x[0])
 		case controlLine:
-			// trc("%v: controlLine %v", x[0].Position(), toksDump(x))
+			trc("%v: controlLine %v", x[0].Position(), toksDump(x))
 			c.pop()
 			if len(x) == 2 {
 				// eg. ["#" "\n"].2
@@ -1533,12 +1533,12 @@ func (c *cpp) nextLine() (r textLine) {
 				panic(todo("%v: %q", x[0].Position(), x[1].Src()))
 			}
 		case textLine:
-			// trc("%v: textLine %v", x[0].Position(), toksDump(x))
+			trc("%v: textLine %v", x[0].Position(), toksDump(x))
 			c.pop()
 			return x
 		case eofLine:
 			c.eof = x
-			// trc("%v: eofLine, len(c.stack): %v", (*Token)(&x).Position(), len(c.stack))
+			trc("%v: eofLine, len(c.stack): %v", (*Token)(&x).Position(), len(c.stack))
 			if len(c.stack) == 0 {
 				trc("EOF")
 				return textLine{Token(x)}
@@ -1548,7 +1548,7 @@ func (c *cpp) nextLine() (r textLine) {
 		case *ifSection:
 			switch {
 			case x.ifGroup != nil:
-				// trc("%v: ifSection/if %v", x.ifGroup.line[0].Position, toksDump(x.ifGroup.line))
+				trc("%v: ifSection/if %v", x.ifGroup.line[0].Position, toksDump(x.ifGroup.line))
 				switch {
 				case c.ifGroup(x.ifGroup):
 					c.tos = x.ifGroup.group
@@ -1562,7 +1562,7 @@ func (c *cpp) nextLine() (r textLine) {
 					c.pop()
 				}
 			case len(x.elifGroups) != 0:
-				// trc("%v: ifSection/elif %v", x.elifGroups[0].line[0].Position, toksDump(x.elifGroups[0].line))
+				trc("%v: ifSection/elif %v", x.elifGroups[0].line[0].Position, toksDump(x.elifGroups[0].line))
 				if eg := x.elifGroups[0]; c.elifGroup(eg) {
 					c.tos = eg.group
 					break
