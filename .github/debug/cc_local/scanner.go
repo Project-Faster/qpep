@@ -166,7 +166,6 @@ func newToken(s *scannerSource, ch rune, sep, src, len uint32) (r Token) {
 		src: src,
 		len: len,
 	}
-	log.Printf("new token: %s\n", t.SrcStr())
 	return t
 }
 
@@ -893,7 +892,11 @@ func (s *scanner) identifier() Token {
 		case unicode.IsLetter(c) || c == '_' || unicode.IsDigit(c) || c == '$':
 			s.shift()
 		default:
-			return s.newToken(rune(IDENTIFIER))
+			t := s.newToken(rune(IDENTIFIER))
+			if t.SrcStr() == "__has_include" {
+				log.Printf("%v\n", t.String())
+			}
+			return t
 		}
 	}
 }
