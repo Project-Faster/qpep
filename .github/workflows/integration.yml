@@ -55,7 +55,7 @@ jobs:
           export CPP=${CXX}
           export PATH=$GOPATH/bin:$GOPATH/bin/${GOOS}_${GOARCH}:$PATH
           cd backend/
-          go generate &> ./back.log
+          go generate
 
       - name: Build Executable
         run: |
@@ -64,8 +64,7 @@ jobs:
       - name: Build QPep Tray 64bits
         run: |
           pushd qpep-tray
-          export CGO_ENABLED=0
-          go build -ldflags -H=windowsgui -o ../build/qpep-tray
+          go build -o ../build/qpep-tray
           popd
 
       - uses: actions/upload-artifact@v4
@@ -73,14 +72,7 @@ jobs:
           name: qpep_macos_b${{ github.run_id }}
           path: build/
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: qpep_macos_temp
-          path: backend/back.log
-
   build-linux:
-    if: ${{ false }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -138,7 +130,6 @@ jobs:
         path: build/
 
   build-windows:
-    if: ${{ false }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
