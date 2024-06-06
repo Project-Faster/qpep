@@ -109,7 +109,8 @@ jobs:
 
     - name: Build Backends
       run: |
-        export PATH=$GOPATH/bin:$PATH
+        export CPP=${CXX}
+        export PATH=$GOPATH/bin:$GOPATH/bin/${GOOS}_${GOARCH}:$PATH
         cd backend/
         go generate
 
@@ -177,6 +178,8 @@ jobs:
 
     - name: Prepare
       run: |
+        set CPP=%CXX%
+        set PATH=%GOPATH%\bin;%GOPATH%\bin/%GOOS%_%GOARCH%;%PATH%
         MKDIR build
         MKDIR build\64bits
         MKDIR build\32bits
