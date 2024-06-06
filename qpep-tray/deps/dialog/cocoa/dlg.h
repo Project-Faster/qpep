@@ -1,5 +1,5 @@
 
-##ifndef DLG_H
+#ifndef DLG_H
 #define DLG_H
 
 #ifndef __has_extension
