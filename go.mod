@@ -4,6 +4,10 @@ go 1.20
 
 replace github.com/Project-Faster/quicly-go => ./backend/quicly-go
 
+replace github.com/sqweek/dialog => ./qpep-tray/deps/dialog
+
+replace github.com/sqweek/dialog/cocoa => ./qpep-tray/deps/dialog/cocoa
+
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getlantern/systray v1.2.1
