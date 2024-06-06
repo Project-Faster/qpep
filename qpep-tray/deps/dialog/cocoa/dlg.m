@@ -1,4 +1,9 @@
 
+// fix gcc 11+ macos 14+
+#ifndef __has_extension
+#define __has_extension(x) 0
+#endif
+
 #import <Cocoa/Cocoa.h>
 #include "dlg.h"
 
