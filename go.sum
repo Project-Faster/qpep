@@ -102,8 +102,8 @@ github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/project-faster/systray v1.3.0 h1:XADu/iE0foY2xeYSqDi1X0krq6JLc7CxdyiZTERZH9s=
-github.com/project-faster/systray v1.3.0/go.mod h1:Bv4Bn5c79K7vmV21sogt+am4rDUDN8NWDZoiJ0CgfvI=
+github.com/project-faster/systray v1.3.1 h1:R9YcpBLNJB8MP/ehyqv4oksoKN2FwSBRECXHr1Ogkxw=
+github.com/project-faster/systray v1.3.1/go.mod h1:Bv4Bn5c79K7vmV21sogt+am4rDUDN8NWDZoiJ0CgfvI=
 github.com/quic-go/qtls-go1-18 v0.2.0 h1:5ViXqBZ90wpUcZS0ge79rf029yx0dYB0McyPJwqqj7U=
 github.com/quic-go/qtls-go1-18 v0.2.0/go.mod h1:moGulGHK7o6O8lSPSZNoOwcLvJKJ85vVNc7oJFD65bc=
 github.com/quic-go/qtls-go1-19 v0.2.0 h1:Cvn2WdhyViFUHoOqK52i51k4nDX8EwIh5VJiVM4nttk=

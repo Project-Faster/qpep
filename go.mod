@@ -13,7 +13,7 @@ require (
 	github.com/jackpal/gateway v1.0.7
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/parvit/kardianos-service v0.0.0-20231028113046-0b8d3c1cf1c4
-	github.com/project-faster/systray v1.3.0
+	github.com/project-faster/systray v1.3.1
 	github.com/rs/cors v1.8.2
 	github.com/rs/zerolog v1.29.1
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
