@@ -38,17 +38,16 @@ jobs:
         with:
           cmake-version: ${{ env.CMAKE_VERSION }}
 
-#      - name: Setup GCC
-#        uses: Dup4/actions-setup-gcc@v1
-#        with:
-#          version: 11
-#          cc: true
-#          env: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Prepare
         run: |
           go clean -cache -x
           mkdir -p $GOPATH/bin
+          pip install dmgbuild
 
       - name: Build Backends
         run: |
@@ -64,8 +63,12 @@ jobs:
       - name: Build QPep Tray 64bits
         run: |
           pushd qpep-tray
-          go build -o ../build/qpep-tray
+          go build -v -o ../build/qpep-tray
           popd
+
+      - name: Build MacOS installer
+        run: |
+          dmgbuild --version
 
       - uses: actions/upload-artifact@v4
         with:
@@ -73,7 +76,6 @@ jobs:
           path: build/
 
   build-linux:
-    if: ${{ false }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -81,6 +83,7 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
+      GOPATH: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 8
     defaults:
       run:
@@ -109,17 +112,18 @@ jobs:
     - name: Build Backends
       run: |
         cd backend/
+        export PATH=$GOPATH/bin:$PATH
         go generate
 
     - name: Build Executable
       run: |
         go build -v -o build/qpep
 
-    - name: Build QPep Tray 64bits
+    - name: Build QPep Tray
       run: |
         pushd qpep-tray
         export CGO_ENABLED=0
-        go build -o ..\build\qpep-tray
+        go build -v -o ..\build\qpep-tray
         popd
 
     - uses: actions/upload-artifact@v4
@@ -128,7 +132,6 @@ jobs:
         path: build/
 
   build-windows:
-    if: ${{ false }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
@@ -137,6 +140,7 @@ jobs:
       GOOS: windows
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
+      GOPATH: ${{ github.workspace }}\.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     defaults:
       run:
@@ -176,6 +180,7 @@ jobs:
 
     - name: Prepare
       run: |
+        MKDIR %GOPATH%\bin
         MKDIR build
         MKDIR build\64bits
         MKDIR build\32bits
@@ -187,13 +192,14 @@ jobs:
     - name: Build Backends
       run: |
         cd backend/
+        set PATH=%GOPATH%\bin;%PATH%
         go generate
 
     - name: Build QPep
       run: |
          go build -o build\64bits\qpep.exe
 
-    - name: Build QPep Tray 64bits
+    - name: Build QPep Tray
       run: |
          pushd qpep-tray
          export CGO_ENABLED=0
