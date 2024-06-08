@@ -126,7 +126,7 @@ jobs:
       run: |
         pushd qpep-tray
         export CGO_ENABLED=0
-        go build -x ubuntu -v -o ..\build\qpep-tray
+        go build -tags ubuntu -v -o ..\build\qpep-tray
         popd
 
     - uses: actions/upload-artifact@v4
