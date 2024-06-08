@@ -125,7 +125,6 @@ jobs:
     - name: Build QPep Tray
       run: |
         pushd qpep-tray
-        export CGO_ENABLED=0
         go build -tags ubuntu -v -o ..\build\qpep-tray
         popd
 
