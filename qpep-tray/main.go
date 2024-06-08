@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"github.com/Project-Faster/qpep/shared"
-	"github.com/getlantern/systray"
+	"github.com/project-faster/systray"
 )
 
 func main() {

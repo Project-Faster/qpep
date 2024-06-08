@@ -15,7 +15,7 @@ import (
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/version"
 
-	"github.com/getlantern/systray"
+	"github.com/project-faster/systray"
 )
 
 const (
