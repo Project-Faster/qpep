@@ -67,6 +67,7 @@ jobs:
           popd
 
       - name: Build MacOS installer
+        if: ${{ false }}
         run: |
           dmgbuild --version
 
