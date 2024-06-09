@@ -3,7 +3,7 @@ package notify
 import (
 	"fmt"
 	"github.com/Project-Faster/qpep/qpep-tray/toast"
-	"github.com/sqweek/dialog"
+	"github.com/project-faster/dialog"
 	"log"
 )
 

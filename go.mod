@@ -4,10 +4,6 @@ go 1.20
 
 replace github.com/Project-Faster/quicly-go => ./backend/quicly-go
 
-replace github.com/sqweek/dialog => ./qpep-tray/deps/dialog
-
-replace github.com/sqweek/dialog/cocoa => ./qpep-tray/deps/dialog/cocoa
-
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/jackpal/gateway v1.0.7
@@ -31,8 +27,8 @@ require (
 	github.com/martinlindhe/notify v0.0.0-20181008203735-20632c9a275a
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 	github.com/nyaosorg/go-windows-dbg v0.0.0-20210914123807-2acba179a4e5
+	github.com/project-faster/dialog v1.0.0
 	github.com/segmentio/fasthash v1.0.3
-	github.com/sqweek/dialog v0.0.0-20220809060634-e981b270ebbf
 	github.com/stretchr/testify v1.8.2
 	gonum.org/v1/plot v0.12.0
 )
