@@ -68,7 +68,7 @@ jobs:
 
       - name: Build MacOS installer
         run: |
-          ./installer_osx.sh
+          bash ./installer_osx.sh
 
       - uses: actions/upload-artifact@v4
         with:
