@@ -67,14 +67,13 @@ jobs:
           popd
 
       - name: Build MacOS installer
-        if: ${{ false }}
         run: |
-          dmgbuild --version
+          ./installer-osx.sh
 
       - uses: actions/upload-artifact@v4
         with:
           name: qpep_macos_b${{ github.run_id }}
-          path: build/
+          path: installer-osx/qpep.dmg
 
   build-linux:
     runs-on: ubuntu-latest
@@ -221,12 +220,6 @@ jobs:
         name: qpep_windows_b${{ github.run_id }}
         path: build/installer.msi
 
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: windows_generated_code
-        path: backend/quicly-go/internal/deps/
-
   unit-tests-linux:
     if: ${{ false }}
     needs: [ build-linux ]
@@ -305,12 +298,6 @@ jobs:
         with:
           name: linux_coverage_report
           path: report_*.html
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux_generated_code
-          path: backend/quicly-go/internal/deps/
 
   unit-tests-windows:
     if: ${{ false }}

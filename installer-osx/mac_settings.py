@@ -1,7 +1,7 @@
 import os.path
 import plistlib
 
-application = defines.get("app", "/opt/qpep/qpep")
+application = defines.get("app", "QPep.app/")
 appname = os.path.basename(application)
 
 format = defines.get("format", "UDBZ")
@@ -11,13 +11,14 @@ size = defines.get("size", None)  # noqa: F821
 
 # Files to include
 files = [application]
+hide = [ 'QPep.app/Contents/MacOS/config/', 'QPep.app/Contents/MacOS/qpep' ]
 
 # Symlinks to create
 symlinks = {"Applications": "/Applications"}
 
-icon = 'qpep.icns'
+icon = 'QPep.app/Contents/Resources/QPep.icns'
 
-icon_locations = { appname: (140,120), "Applications": (500,120) }
+icon_locations = { tray: (140,120), "Applications": (500,120) }
 
 background = "builtin-arrow"
 
