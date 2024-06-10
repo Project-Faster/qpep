@@ -18,7 +18,7 @@ symlinks = {"Applications": "/Applications"}
 
 icon = 'QPep.app/Contents/Resources/QPep.icns'
 
-icon_locations = { tray: (140,120), "Applications": (500,120) }
+icon_locations = { "QPep": (140,120), "Applications": (500,120) }
 
 background = "builtin-arrow"
 

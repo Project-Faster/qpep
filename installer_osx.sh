@@ -33,6 +33,7 @@ echo [Cleanup]
 cd installer-osx
 rm -rf *.dmg
 rm -rf QPep.app/Contents/MacOS/*
+echo "OK"
 
 echo [Copy artifacts]
 if [[ ! -d "../build" ]]; then
@@ -50,7 +51,9 @@ fi
 
 mv ../build/qpep QPep.app/Contents/MacOS/
 mv ../build/qpep-tray QPep.app/Contents/MacOS/
+echo "OK"
 
+echo [Generate Installer]
 dmgbuild -s mac_settings.py "QPep" qpep.dmg
 echo "********************************"
 echo "**** RESULT: SUCCESS        ****"
