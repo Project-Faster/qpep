@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"time"
 
@@ -31,10 +32,12 @@ var (
 func Init(pathDir string) {
 	ExeDir, _ = filepath.Abs(filepath.Dir(pathDir))
 
-	notify.MainIconData = filepath.Join(ExeDir, "main.png")
-	// extract the icon for notifications
-	if err := ioutil.WriteFile(notify.MainIconData, icons.MainIconConnected, 0666); err != nil {
-		log.Println("ERR: Could not extract notification icon")
+	if runtime.GOOS != "darwin" {
+		notify.MainIconData = filepath.Join(ExeDir, "main.png")
+		// extract the icon for notifications
+		if err := ioutil.WriteFile(notify.MainIconData, icons.MainIconConnected, 0666); err != nil {
+			log.Println("ERR: Could not extract notification icon")
+		}
 	}
 }
 

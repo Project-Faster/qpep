@@ -1,0 +1,30 @@
+
+# server
+gateway: 127.0.0.1
+port: 1443
+apiport: 444
+listenaddress: 192.168.1.24 # added via extra_hosts
+listenport: 8443
+
+# backend
+# backend: quicly-go
+backend: quic-go
+
+# certificate
+certificate: server_cert.pem
+certificate_key: server_key.pem
+ccalgorithm: cubic
+ccslowstart: search
+
+# default
+acks: 10
+ackdelay: 25
+congestion: 4
+decimate: 4
+decimatetime: 100
+maxretries: 100
+multistream: true
+verbose: false
+preferproxy: true
+varackdelay: 0
+threads: 4
