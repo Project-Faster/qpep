@@ -595,7 +595,16 @@ func fakeQuicListener(ctx context.Context, cancel context.CancelFunc, t *testing
 		}
 	}()
 	tlsConfig := generateTLSConfig()
-	quicClientConfig := shared.GetQuicConfiguration()
+	quicClientConfig := &quic.Config{
+		MaxIncomingStreams:      1024,
+		DisablePathMTUDiscovery: true,
+		MaxIdleTimeout:          3 * time.Second,
+
+		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
+		KeepAlivePeriod:      0,
+
+		EnableDatagrams: false,
+	}
 
 	listener, _ := quic.ListenAddr(
 		fmt.Sprintf("%s:%d", shared.QPepConfig.GatewayHost, shared.QPepConfig.GatewayPort),

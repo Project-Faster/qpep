@@ -41,11 +41,12 @@ type WriterTimeout interface {
 }
 
 // listenQuicSession handles accepting the sessions and the launches goroutines to actually serve them
-func listenQuicSession(address string, port int) {
+func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address string, port int) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("PANIC: %v\n", err, string(debug.Stack()))
+			logger.Error("PANIC: %v\n%v\n", err, string(debug.Stack()))
 		}
+		cancel()
 	}()
 	if quicProvider == nil {
 		var ok bool
@@ -56,7 +57,7 @@ func listenQuicSession(address string, port int) {
 	}
 
 	var err error
-	quicListener, err = quicProvider.Listen(context.Background(), address, port, shared.QPepConfig.Certificate, shared.QPepConfig.CertKey,
+	quicListener, err = quicProvider.Listen(ctx, address, port, shared.QPepConfig.Certificate, shared.QPepConfig.CertKey,
 		shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo,
 		flags.Globals.Trace)
 
@@ -66,7 +67,14 @@ func listenQuicSession(address string, port int) {
 	}
 
 	for {
-		quicSession, err := quicListener.AcceptConnection(context.Background())
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			break
+		}
+
+		quicSession, err := quicListener.AcceptConnection(ctx)
 		if err != nil {
 			logger.Error("Unrecoverable error while accepting QUIC session: %s\n", err)
 			return
@@ -265,19 +273,18 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		}
 
 		i++
-		//if speedLimit == 0 {
+		var now = time.Now()
 		wr, rd, err := copyBuffer(dst, src, tempBuffer, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
 		pktcounter++
-		//} else {
-		//	var now = time.Now()
-		//	wr, err = io.Copy(dst, io.LimitReader(src, speedLimit))
-		//
-		//	var wait = time.Until(now.Add(1 * time.Second))
-		//	time.Sleep(wait)
-		//}
 
 		written += wr
 		read += rd
+
+		// obey speed limit if set
+		if speedLimit > 0 {
+			var wait = time.Until(now.Add(1 * time.Second))
+			time.Sleep(wait)
+		}
 
 		if rd == 0 && err == nil {
 			return
@@ -297,6 +304,9 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64, dst backend.QuicBackendStream, src net.Conn, trackedAddress string, qtFlag, tqFlag *atomic.Bool) {
 
 	tempBuffer := make([]byte, BUFFER_SIZE)
+	if speedLimit > 0 {
+		tempBuffer = make([]byte, speedLimit)
+	}
 	written := int64(0)
 	read := int64(0)
 
@@ -332,19 +342,18 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		}
 
 		i++
-		//if speedLimit == 0 {
+		var now = time.Now()
 		wr, rd, err := copyBuffer(dst, src, tempBuffer, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
 		written += wr
 		read += rd
 
 		pktcounter++
-		//} else {
-		//	var now = time.Now()
-		//	wr, err = io.CopyBuffer(dst, io.LimitReader(src, speedLimit), tempBuffer)
-		//
-		//	var wait = time.Until(now.Add(1 * time.Second))
-		//	time.Sleep(wait)
-		//}
+
+		// obey speed limit if set
+		if speedLimit > 0 {
+			var wait = time.Until(now.Add(1 * time.Second))
+			time.Sleep(wait)
+		}
 
 		if rd == 0 && err == nil {
 			return

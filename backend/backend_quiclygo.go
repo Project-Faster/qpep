@@ -63,7 +63,7 @@ func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, cc
 
 	if len(certKeyPath) > 0 {
 		if _, err := os.Stat(certPath); err != nil {
-			generateTLSConfig(certPath, certKeyPath)
+			GenerateTLSConfig(certPath, certKeyPath)
 		}
 	}
 

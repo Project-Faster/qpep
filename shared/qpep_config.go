@@ -40,7 +40,7 @@ backend: quic-go
 ccalgorithm: reno
 ccslowstart: search
 certificate: server_cert.pem
-certificate_key:
+certificate_key: server_key.pem
 decimate: 4
 decimatetime: 100
 maxretries: 10
@@ -214,6 +214,11 @@ func (q *QPepConfigType) override(r rawConfigType) {
 
 	r.updateIntField(&q.MaxConnectionRetries, "maxretries")
 	r.updateStringField(&q.GatewayHost, "gateway")
+	r.updateStringField(&q.Backend, "backend")
+	r.updateStringField(&q.CCAlgorithm, "ccalgorithm")
+	r.updateStringField(&q.CCSlowstartAlgo, "ccslowstart")
+	r.updateStringField(&q.Certificate, "certificate")
+	r.updateStringField(&q.CertKey, "certificate_key")
 	r.updateIntField(&q.GatewayPort, "port")
 	r.updateIntField(&q.GatewayAPIPort, "apiport")
 	r.updateStringField(&q.ListenHost, "listenaddress")

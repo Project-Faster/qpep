@@ -187,7 +187,7 @@ func (c *qgoConnectionAdapter) Close(code int, message string) error {
 	if c.listener != nil {
 		return c.listener.Close()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	return nil
 }
 
 func (c *qgoConnectionAdapter) IsClosed() bool {
@@ -313,27 +313,27 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 				return nil
 			}
 			if pub.N.Cmp(priv.N) != 0 {
-				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
+				logger.Error("Error loading private key from file %s: internal error", dataKey)
 				return nil
 			}
 		case *ecdsa.PublicKey:
 			priv, ok := cert.PrivateKey.(*ecdsa.PrivateKey)
 			if !ok {
-				logger.Error("Error loading private key from file %s: Not a valid ECDSA key", dataKey, err)
+				logger.Error("Error loading private key from file %s: Not a valid ECDSA key", dataKey)
 				return nil
 			}
 			if pub.X.Cmp(priv.X) != 0 || pub.Y.Cmp(priv.Y) != 0 {
-				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
+				logger.Error("Error loading private key from file %s: internal error", dataKey)
 				return nil
 			}
 		case ed25519.PublicKey:
 			priv, ok := cert.PrivateKey.(ed25519.PrivateKey)
 			if !ok {
-				logger.Error("Error loading private key from file %s: Not a valida ED25519 key", dataKey, err)
+				logger.Error("Error loading private key from file %s: Not a valida ED25519 key", dataKey)
 				return nil
 			}
 			if !bytes.Equal(priv.Public().(ed25519.PublicKey), pub) {
-				logger.Error("Error loading private key from file %s: internal error", dataKey, err)
+				logger.Error("Error loading private key from file %s: internal error", dataKey)
 				return nil
 			}
 		default:

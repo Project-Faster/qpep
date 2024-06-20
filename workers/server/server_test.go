@@ -5,17 +5,19 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/Project-Faster/quic-go"
 	"github.com/julienschmidt/httprouter"
 	"github.com/parvit/qpep/api"
+	"github.com/parvit/qpep/backend"
+	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/rs/cors"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -28,6 +30,7 @@ import (
 )
 
 var testlog log.Logger
+var fakeBackend backend.QuicBackend = &testBackend{}
 
 func TestServerSuite(t *testing.T) {
 	_logFile, err := os.OpenFile("./speedtests.log", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
@@ -49,6 +52,10 @@ type ServerSuite struct {
 }
 
 func (s *ServerSuite) BeforeTest(_, testName string) {
+	backend.GenerateTLSConfig("cert.pem", "key.pem")
+
+	shared.QPepConfig.Certificate = "cert.pem"
+	shared.QPepConfig.CertKey = "key.pem"
 	shared.QPepConfig.ListenHost = "127.0.0.1"
 	shared.QPepConfig.ListenPort = 9090
 	shared.QPepConfig.GatewayAPIPort = 9443
@@ -104,7 +111,7 @@ func (s *ServerSuite) TestPerformanceWatcher() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		performanceWatcher(ctx)
+		performanceWatcher(ctx, cancel)
 	}()
 
 	for i := 0; i < 3; i++ {
@@ -143,32 +150,15 @@ func (s *ServerSuite) TestPerformanceWatcher_Panic() {
 	}()
 
 	assert.NotPanics(s.T(), func() {
-		performanceWatcher(context.Background())
+		ctx, cancel := context.WithCancel(context.Background())
+		performanceWatcher(ctx, cancel)
 	})
 }
 
-func (s *ServerSuite) TestGenerateTLSConfig() {
-	config := generateTLSConfig()
-	assert.NotNil(s.T(), config)
-
-	assert.NotNil(s.T(), config.Certificates)
-	assert.NotNil(s.T(), config.Certificates[0])
-
-	assert.Equal(s.T(), "qpep", config.NextProtos[0])
-
-	data, err := ioutil.ReadFile("server_cert.pem")
-	assert.Nil(s.T(), err)
-
-	cert, _ := pem.Decode(data)
-	assert.NotNil(s.T(), cert)
-
-	_, err = os.Stat("server_key.pem")
-	assert.Nil(s.T(), err)
-}
-
 func (s *ServerSuite) TestListenQuicSession_Panic() {
-	quicListener = &testListener{}
-	listenQuicSession()
+	quicProvider = fakeBackend
+	ctx, cancel := context.WithCancel(context.Background())
+	listenQuicSession(ctx, cancel, "127.0.0.1", 9443)
 }
 
 func (s *ServerSuite) TestListenQuicConn_Panic() {
@@ -179,11 +169,14 @@ func (s *ServerSuite) TestHandleQuicStream_Panic() {
 	handleQuicStream(&testStream{})
 }
 
-func (s *ServerSuite) TestRunServer() {
+func (s *ServerSuite) runServerTest() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var finished = false
+	var wg = &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		RunServer(ctx, cancel)
 		finished = true
 	}()
@@ -192,29 +185,35 @@ func (s *ServerSuite) TestRunServer() {
 	cancel()
 	<-time.After(1 * time.Second)
 
+	wg.Wait()
+
 	assert.True(s.T(), finished)
 }
 
-func (s *ServerSuite) TestRunServer_BadConfig() {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *ServerSuite) TestRunServer() {
+	s.runServerTest()
+}
 
+func (s *ServerSuite) TestRunServer_BadConfig() {
 	shared.QPepConfig.ListenHost = "ABCD"
 
-	RunServer(ctx, cancel)
+	s.runServerTest()
 }
 
 func (s *ServerSuite) TestRunServer_BadListener() {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	monkey.Patch(quic.ListenAddr, func(string, *tls.Config, *quic.Config) (quic.Listener, error) {
 		return nil, errors.New("test-error")
 	})
 
-	RunServer(ctx, cancel)
+	s.runServerTest()
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection() {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	monkey.Patch(shared.GetDefaultLanListeningAddress, func(current, gateway string) (string, []int64) {
+		return "127.0.0.1", nil
+	})
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -232,7 +231,7 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -247,7 +246,7 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n\r\n\n")
 	_, _ = stream.Write(sendData)
 
 	receiveData := make([]byte, 1024)
@@ -258,21 +257,22 @@ Content-Type: application\/json
 Vary: Origin
 Date: .+ GMT
 Content-Length: \d+
+Connection: close
 
-{"address":"[^"]+","port":0,"serverversion":"[^"]+","total_connections":\d+}`
+{"address":"[^"]+","port":\d+,"serverversion":"[^"]+","total_connections":\d+}`
 
 	matchStr := strings.ReplaceAll(string(receiveData[:recv]), "\r", "")
 
-	re := regexp.MustCompile(expectedRecv)
-	assert.True(s.T(), re.MatchString(matchStr))
-
-	stream.CancelWrite(0)
-	stream.CancelRead(0)
+	stream.AbortWrite(0)
+	stream.AbortRead(0)
 	stream.Close()
 
 	cancel()
 
 	wg.Wait()
+
+	re := regexp.MustCompile(expectedRecv)
+	assert.True(s.T(), re.MatchString(matchStr))
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
@@ -290,7 +290,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	stream.Write([]byte{0, 0})
@@ -300,8 +300,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
 
 	assert.Equal(s.T(), 0, recv)
 
-	stream.CancelWrite(0)
-	stream.CancelRead(0)
+	stream.AbortWrite(0)
+	stream.AbortRead(0)
 	stream.Close()
 
 	cancel()
@@ -328,7 +328,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -348,8 +348,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 
 	assert.Equal(s.T(), 0, recv)
 
-	stream.CancelWrite(0)
-	stream.CancelRead(0)
+	stream.AbortWrite(0)
+	stream.AbortRead(0)
 	stream.Close()
 
 	cancel()
@@ -398,7 +398,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -413,7 +413,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n\r\n\n")
 	_, _ = stream.Write(sendData)
 
 	receiveData := make([]byte, 1024)
@@ -423,8 +423,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 
 	assert.Len(s.T(), matchStr, 0)
 
-	stream.CancelWrite(0)
-	stream.CancelRead(0)
+	stream.AbortWrite(0)
+	stream.AbortRead(0)
 	stream.Close()
 
 	cancel()
@@ -473,7 +473,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -488,7 +488,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n\r\n\n")
 	_, _ = stream.Write(sendData)
 
 	receiveData := make([]byte, 1024)
@@ -498,8 +498,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 
 	assert.Len(s.T(), matchStr, 0)
 
-	stream.CancelWrite(0)
-	stream.CancelRead(0)
+	stream.AbortWrite(0)
+	stream.AbortRead(0)
 	stream.Close()
 
 	cancel()
@@ -571,7 +571,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -587,7 +587,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	var startSend = time.Now()
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("POST /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n" +
+	sendData := []byte("POST /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n" +
 		strings.Repeat("N", 1024*1024) +
 		"\r\n\n")
 
@@ -607,8 +607,8 @@ Connection: close
 
 400 Bad Request`, matchStr)
 
-	stream.CancelWrite(0)
-	stream.CancelRead(0)
+	stream.AbortWrite(0)
+	stream.AbortRead(0)
 	stream.Close()
 
 	cancel()
@@ -689,7 +689,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -705,7 +705,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	var startSend = time.Now()
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("GET /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+	sendData := []byte("GET /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n\r\n\n")
 
 	stream.Write(sendData)
 
@@ -719,8 +719,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 		if total > expectSent {
 			sendEnd = time.Now()
 
-			stream.CancelRead(0)
-			stream.CancelWrite(0)
+			stream.AbortRead(0)
+			stream.AbortWrite(0)
 			stream.Close()
 			break
 		}
@@ -804,7 +804,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -819,11 +819,11 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("GET /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nUser-Agent: windows\r\n\r\n\n")
+	sendData := []byte("GET /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n\r\n\n")
 
 	stream.Write(sendData)
 
-	out, err := ioutil.ReadAll(stream)
+	out, err := io.ReadAll(stream)
 	assert.Nil(s.T(), err)
 
 	cancel()
@@ -900,7 +900,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStreamSync(ctx)
+	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -920,7 +920,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	stream.Write(sendData)
 
 	out, err := ioutil.ReadAll(stream)
-	assert.Nil(s.T(), err)
+	assert.NotNil(s.T(), err)
 
 	cancel()
 
@@ -934,50 +934,93 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 }
 
 // --- utilities --- //
-func openQuicSession_test(address string, port int) (quic.Connection, error) {
-	config := &quic.Config{DisablePathMTUDiscovery: true}
-	tlsConf := &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"qpep"}}
-	gatewayPath := fmt.Sprintf("%s:%d", address, port) // "192.168.1.89:9090"
+func openQuicSession_test(address string, port int) (backend.QuicBackendConnection, error) {
+	var ok bool
+	quicProvider, ok = backend.Get(shared.QPepConfig.Backend)
+	if !ok {
+		panic(shared.ErrInvalidBackendSelected)
+	}
 
-	testlog.Info().Msgf("Dialing QUIC Session: %s\n", gatewayPath)
-	return quic.DialAddr(gatewayPath, tlsConf, config)
+	conn, err := quicProvider.Dial(context.Background(), address, port, "cert.pem",
+		"reno", "basic", false)
+
+	if err != nil {
+		logger.Error("Unrecoverable error while listening for QUIC connections: %s\n", err)
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+type testBackend struct{}
+
+func (t testBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string,
+	ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (backend.QuicBackendConnection, error) {
+	panic("test-error")
+}
+
+func (t testBackend) Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string,
+	ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (backend.QuicBackendConnection, error) {
+	panic("test-error")
+}
+
+func (t testBackend) Close() error {
+	panic("test-error")
 }
 
 type testListener struct{}
 
-func (t *testListener) Accept(ctx context.Context) (quic.Connection, error) {
+func (t *testListener) LocalAddr() net.Addr {
 	panic("test-error")
 }
-func (t *testListener) Addr() net.Addr {
+
+func (t *testListener) RemoteAddr() net.Addr {
+	panic("test-error")
+}
+
+func (t *testListener) OpenStream(ctx context.Context) (backend.QuicBackendStream, error) {
+	panic("test-error")
+}
+
+func (t *testListener) AcceptStream(ctx context.Context) (backend.QuicBackendStream, error) {
+	panic("test-error")
+}
+
+func (t *testListener) AcceptConnection(ctx context.Context) (backend.QuicBackendConnection, error) {
+	panic("test-error")
+}
+
+func (t *testListener) Close(code int, message string) error {
 	return nil
 }
-func (t *testListener) Close() error {
+
+func (t *testListener) IsClosed() bool {
+	panic("test-error")
+}
+
+func (t *testListener) Addr() net.Addr {
 	return nil
 }
 
 type testSession struct{}
 
-func (t testSession) AcceptStream(ctx context.Context) (quic.Stream, error) {
+func (t testSession) OpenStream(ctx context.Context) (backend.QuicBackendStream, error) {
 	panic("test-error")
 }
 
-func (t testSession) AcceptUniStream(ctx context.Context) (quic.ReceiveStream, error) {
+func (t testSession) AcceptStream(ctx context.Context) (backend.QuicBackendStream, error) {
 	panic("test-error")
 }
 
-func (t testSession) OpenStream() (quic.Stream, error) {
+func (t testSession) AcceptConnection(ctx context.Context) (backend.QuicBackendConnection, error) {
 	panic("test-error")
 }
 
-func (t testSession) OpenStreamSync(ctx context.Context) (quic.Stream, error) {
+func (t testSession) Close(code int, message string) error {
 	panic("test-error")
 }
 
-func (t testSession) OpenUniStream() (quic.SendStream, error) {
-	panic("test-error")
-}
-
-func (t testSession) OpenUniStreamSync(ctx context.Context) (quic.SendStream, error) {
+func (t testSession) IsClosed() bool {
 	panic("test-error")
 }
 
@@ -989,39 +1032,31 @@ func (t testSession) RemoteAddr() net.Addr {
 	panic("test-error")
 }
 
-func (t testSession) CloseWithError(code quic.ApplicationErrorCode, s string) error {
-	panic("test-error")
-}
-
-func (t testSession) Context() context.Context {
-	panic("test-error")
-}
-
-func (t testSession) ConnectionState() quic.ConnectionState {
-	panic("test-error")
-}
-
-func (t testSession) SendMessage(bytes []byte) error {
-	panic("test-error")
-}
-
-func (t testSession) ReceiveMessage() ([]byte, error) {
-	panic("test-error")
-}
-
-var _ quic.Connection = &testSession{}
+var _ backend.QuicBackendConnection = &testSession{}
 
 type testStream struct{}
 
-func (t testStream) StreamID() quic.StreamID {
+func (t testStream) ID() uint64 {
+	panic("test-error")
+}
+
+func (t testStream) Sync() bool {
+	panic("test-error")
+}
+
+func (t testStream) AbortRead(code uint64) {
+	panic("test-error")
+}
+
+func (t testStream) AbortWrite(code uint64) {
+	panic("test-error")
+}
+
+func (t testStream) IsClosed() bool {
 	panic("test-error")
 }
 
 func (t testStream) Read(p []byte) (n int, err error) {
-	panic("test-error")
-}
-
-func (t testStream) CancelRead(code quic.StreamErrorCode) {
 	panic("test-error")
 }
 
@@ -1037,20 +1072,8 @@ func (t testStream) Close() error {
 	panic("test-error")
 }
 
-func (t testStream) CancelWrite(code quic.StreamErrorCode) {
-	panic("test-error")
-}
-
-func (t testStream) Context() context.Context {
-	panic("test-error")
-}
-
 func (t testStream) SetWriteDeadline(tm time.Time) error {
 	panic("test-error")
 }
 
-func (t testStream) SetDeadline(tm time.Time) error {
-	panic("test-error")
-}
-
-var _ quic.Stream = &testStream{}
+var _ backend.QuicBackendStream = &testStream{}

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/parvit/qpep/api"
@@ -58,32 +59,39 @@ func RunServer(ctx context.Context, cancel context.CancelFunc) {
 
 	logger.Info("Opening QPEP Server on: %s:%d\n", ServerConfiguration.ListenHost, ServerConfiguration.ListenPort)
 
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
 	// launches listener
-	go listenQuicSession(ServerConfiguration.ListenHost, ServerConfiguration.ListenPort)
+	go func() {
+		defer func() {
+			wg.Done()
+		}()
+		//defer wg.Done()
+		listenQuicSession(ctx, cancel, ServerConfiguration.ListenHost, ServerConfiguration.ListenPort)
+	}()
 
-	ctxPerfWatcher, perfWatcherCancel := context.WithCancel(context.Background())
-	go performanceWatcher(ctxPerfWatcher)
+	go func() {
+		defer func() {
+			wg.Done()
+		}()
+		//defer wg.Done()
+		performanceWatcher(ctx, cancel)
+	}()
 
-	// termination loop
-	for {
-		select {
-		case <-ctx.Done():
-			perfWatcherCancel()
-			return
-		case <-time.After(10 * time.Millisecond):
-			continue
-		}
-	}
+	// termination wait
+	wg.Wait()
 }
 
 // performanceWatcher method is a goroutine that checks the current speed of every host every second and
 // updates the values for the current speed and total number of bytes uploaded / downloaded
-func performanceWatcher(ctx context.Context) {
+func performanceWatcher(ctx context.Context, cancel context.CancelFunc) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Info("PANIC: %v\n", err)
 			debug.PrintStack()
 		}
+		cancel()
 	}()
 
 	for {
