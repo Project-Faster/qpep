@@ -57,7 +57,9 @@ jobs:
 
     - name: Prepare Tests
       run: |
-        mkdir build
+        mkdir -p unit/
+        mkdir -p cover/
+        mkdir -p report/
         go install github.com/jstemmer/go-junit-report@v1.0.0
         go install github.com/axw/gocov/gocov@v1.1.0
         go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
@@ -66,12 +68,12 @@ jobs:
     - name: Test
       run: |
         set -x
-        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
           pushd $i
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
-          cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=${{ github.workspace }}/cover/$(basename $PWD).out &> unit_tests.out || true
+          cat unit_tests.out | go-junit-report > ${{ github.workspace }}/unit/$(basename $PWD).xml
           popd
         done
       continue-on-error: true
@@ -86,12 +88,12 @@ jobs:
     - name: Publish Coverage Results
       if: always()
       run: |
-        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
           pushd $i
           echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-          gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
-          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
+          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
           popd
         done
       continue-on-error: true
@@ -205,34 +207,35 @@ jobs:
       run: |
         set -x
         go generate github.com/parvit/qpep/windivert
-        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
           pushd $i
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
-          cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=${{ github.workspace }}/cover/$(basename $PWD).out &> unit_tests.out || true
+          cat unit_tests.out | go-junit-report > ${{ github.workspace }}/unit/$(basename $PWD).xml
           popd
         done
       continue-on-error: true
 
     - name: Publish Unit Test Results
-      uses: EnricoMi/publish-unit-test-result-action/composite@v2
+      uses: EnricoMi/publish-unit-test-result-action/windows@v2
       if: always()
       with:
         check_name: "Unit Tests - Windows Platform"
-        junit_files: "unit_tests_*.xml"
+        junit_files: "unit/*.xml"
 
-    - name: Test Results
+    - name: Publish Coverage Results
       shell: bash
       if: always()
       run: |
         set -x
-        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
           pushd $i
           echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-          gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
-          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
+          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          echo >> $GITHUB_STEP_SUMMARY
+          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
           popd
         done
       continue-on-error: true
@@ -241,10 +244,10 @@ jobs:
       if: always()
       with:
         name: windows_coverage_output
-        path: unit_tests_*.xml
+        path: unit/*.xml
 
     - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: windows_coverage_report
-        path: report_*.html
+        path: report/*.html
