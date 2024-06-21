@@ -55,6 +55,59 @@ jobs:
         name: qpep_linux_b${{ github.run_id }}
         path: build/
 
+    - name: Prepare Tests
+      run: |
+        mkdir build
+        go install github.com/jstemmer/go-junit-report@v1.0.0
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+        go install github.com/AlekSi/gocov-xml@v1.1.0
+
+    - name: Test
+      run: |
+        set -x
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
+          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
+          cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          popd
+        done
+      continue-on-error: true
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        check_name: "Unit Tests - Linux Platform"
+        junit_files: "unit_tests_*.xml"
+
+    - name: Publish Coverage Results
+      if: always()
+      run: |
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+          gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
+          popd
+        done
+      continue-on-error: true
+
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: linux_tests_output
+        path: "${{ github.workspace }}/**/unit_tests.out"
+
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: linux_coverage_report
+        path: report_*.html
+
   build-windows:
     runs-on: windows-latest
     env:
@@ -140,173 +193,58 @@ jobs:
         name: qpep_windows_b${{ github.run_id }}
         path: build/installer.msi
 
+    - name: Prepare Tests
+      run: |
+        go install github.com/jstemmer/go-junit-report@v1.0.0
+        go install github.com/axw/gocov/gocov@v1.1.0
+        go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+        go install github.com/AlekSi/gocov-xml@v1.1.0
+
+    - name: Test
+      shell: bash
+      run: |
+        set -x
+        go generate github.com/parvit/qpep/windivert
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
+          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
+          cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+          popd
+        done
+      continue-on-error: true
+
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action/composite@v2
+      if: always()
+      with:
+        check_name: "Unit Tests - Windows Platform"
+        junit_files: "unit_tests_*.xml"
+
+    - name: Test Results
+      shell: bash
+      if: always()
+      run: |
+        set -x
+        for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+          gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
+          popd
+        done
+      continue-on-error: true
+
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: windows_generated_code
-        path: backend/quicly-go/internal/deps/
+        name: windows_coverage_output
+        path: unit_tests_*.xml
 
-  unit-tests-linux:
-    needs: [ build-linux ]
-    runs-on: ubuntu-latest
-    env:
-      GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
-      GOARCH: amd64
-      GOOS: linux
-      CGO_ENABLED: 1
-      QPEP_CI_ENV: 1
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          clean: true
-          submodules: true
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Prepare
-        run: |
-          mkdir build
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
-
-      - name: Test
-        run: |
-          set -x
-          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
-          do
-            pushd $i
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
-            cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
-        with:
-          check_name: "Unit Tests - Linux Platform"
-          junit_files: "unit_tests_*.xml"
-
-      - name: Publish Coverage Results
-        if: always()
-        run: |
-          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
-          do
-            pushd $i
-            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-            gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
-            gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
-            popd
-          done
-        continue-on-error: true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux_tests_output
-          path: "${{ github.workspace }}/**/unit_tests.out"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux_coverage_report
-          path: report_*.html
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux_generated_code
-          path: backend/quicly-go/internal/deps/
-
-  unit-tests-windows:
-    needs: [ build-windows ]
-    runs-on: windows-latest
-    env:
-      GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
-      GOARCH: amd64
-      GOOS: windows
-      CGO_ENABLED: 1
-      QPEP_CI_ENV: 1
-    defaults:
-      run:
-        shell: cmd
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          clean: true
-          submodules: true
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Prepare Test
-        run: |
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
-
-      - name: Test
-        shell: bash
-        run: |
-          set -x
-          go generate github.com/parvit/qpep/windivert
-          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
-          do
-            pushd $i
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
-            cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v2
-        if: always()
-        with:
-          check_name: "Unit Tests - Windows Platform"
-          junit_files: "unit_tests_*.xml"
-
-      - name: Test Results
-        shell: bash
-        if: always()
-        run: |
-          set -x
-          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
-          do
-            pushd $i
-            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-            gocov convert cover.out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
-            gocov convert cover.out | gocov-html -s ../.style.css > ../report_$(basename $PWD).html || true
-            popd
-          done
-        continue-on-error: true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows_coverage_output
-          path: unit_tests_*.xml
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows_coverage_report
-          path: report_*.html
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: windows_coverage_report
+        path: report_*.html
