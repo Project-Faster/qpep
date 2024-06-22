@@ -16,7 +16,8 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      CMAKE_BUILD_PARALLEL_LEVEL: 8
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      IGNORE_PACKAGES: 'tray|docker|docs|version'
     defaults:
       run:
         shell: bash
@@ -40,6 +41,9 @@ jobs:
     - name: Prepare
       run: |
         go clean -cache -x
+        mkdir -p cover
+        mkdir -p report
+        mkdir -p unit
 
     - name: Build Backends
       run: |
@@ -68,7 +72,7 @@ jobs:
     - name: Test
       run: |
         set -x
-        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
           pushd $i
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
@@ -78,37 +82,38 @@ jobs:
         done
       continue-on-error: true
 
-    - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      if: always()
-      with:
-        check_name: "Unit Tests - Linux Platform"
-        junit_files: "unit_tests_*.xml"
-
     - name: Publish Coverage Results
       if: always()
       run: |
-        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
           pushd $i
           echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
           gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          echo >> $GITHUB_STEP_SUMMARY
           gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
           popd
         done
       continue-on-error: true
 
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        check_name: "Unit Tests - Linux Platform"
+        junit_files: "unit/*.xml"
+
     - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: linux_tests_output
-        path: "${{ github.workspace }}/**/unit_tests.out"
+        name: linux_cover_output
+        path: "cover/*.out"
 
     - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: linux_coverage_report
-        path: report_*.html
+        path: "report/*.html"
 
   build-windows:
     runs-on: windows-latest
@@ -119,7 +124,8 @@ jobs:
       GOOS: windows
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
-      CMAKE_BUILD_PARALLEL_LEVEL: 8
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      IGNORE_PACKAGES: 'tray|docker|docs|version'
     defaults:
       run:
         shell: cmd
@@ -175,7 +181,7 @@ jobs:
       run: |
          go build -o build\64bits\qpep.exe
 
-    - name: Build QPep Tray 64bits
+    - name: Build QPep Tray
       run: |
          pushd qpep-tray
          export CGO_ENABLED=0
@@ -206,13 +212,30 @@ jobs:
       shell: bash
       run: |
         set -x
+        export WORKSPACE=$( echo "${{ github.workspace }}" | sed -n -e 's/\////p' )
         go generate github.com/parvit/qpep/windivert
-        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's/github.com\/parvit\/qpep\///p')
         do
           pushd $i
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=${{ github.workspace }}/cover/$(basename $PWD).out &> unit_tests.out || true
-          cat unit_tests.out | go-junit-report > ${{ github.workspace }}/unit/$(basename $PWD).xml
+          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+          cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+          popd
+        done
+      continue-on-error: true
+
+    - name: Publish Coverage Results
+      shell: bash
+      if: always()
+      run: |
+        set -x
+        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's/github.com\/parvit\/qpep\///p')
+        do
+          pushd $i
+          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
+          echo >> $GITHUB_STEP_SUMMARY
+          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
           popd
         done
       continue-on-error: true
@@ -224,27 +247,11 @@ jobs:
         check_name: "Unit Tests - Windows Platform"
         junit_files: "unit/*.xml"
 
-    - name: Publish Coverage Results
-      shell: bash
-      if: always()
-      run: |
-        set -x
-        for i in $(go list ./... | grep -E -v "tray|docker" | sed -n -e 's/github.com\/parvit\/qpep\///p')
-        do
-          pushd $i
-          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Total Coverage" >> $GITHUB_STEP_SUMMARY || true
-          echo >> $GITHUB_STEP_SUMMARY
-          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
-          popd
-        done
-      continue-on-error: true
-
     - uses: actions/upload-artifact@v4
       if: always()
       with:
         name: windows_coverage_output
-        path: unit/*.xml
+        path: cover/*.out
 
     - uses: actions/upload-artifact@v4
       if: always()
