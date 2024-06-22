@@ -212,7 +212,7 @@ jobs:
       shell: bash
       run: |
         set -x
-        export WORKSPACE=$( echo "${{ github.workspace }}" | sed -n -e 's|\\|/|p' )
+        export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
         go generate github.com/parvit/qpep/windivert
         for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
         do

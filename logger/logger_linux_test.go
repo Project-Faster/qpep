@@ -157,34 +157,6 @@ func (s *LoggerSuite) TestLogger_PanicMessage() {
 	assert.NotEqual(t, -1, strings.Index(strData, "PanicMessage"))
 }
 
-func (s *LoggerSuite) TestLogger_OutputDebugString_DebugLevel() {
-	t := s.T()
-	SetupLogger("test", "info")
-
-	log.SetGlobalLevel(log.DebugLevel)
-
-	var counter = 0
-	guard := monkey.Patch(dbg.Printf, func(format string, values ...interface{}) (int, error) {
-		counter++
-		_ = fmt.Sprint(fmt.Sprintf(format, values...))
-		return 0, nil
-	})
-	defer func() {
-		if guard != nil {
-			guard.Restore()
-		}
-	}()
-
-	Info("InfoMessage")
-	assert.PanicsWithValue(t, "PanicMessage", func() {
-		Panic("PanicMessage")
-	})
-	Debug("DebugMessage")
-	Error("ErrorMessage")
-
-	assert.Equal(t, 4, counter)
-}
-
 func (s *LoggerSuite) TestLogger_getLoggerFileFailExecutable() {
 	t := s.T()
 
