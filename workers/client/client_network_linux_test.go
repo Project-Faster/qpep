@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/Project-Faster/quic-go"
 	"github.com/parvit/qpep/api"
+	"github.com/parvit/qpep/backend"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
