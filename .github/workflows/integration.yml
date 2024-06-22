@@ -203,6 +203,9 @@ jobs:
 
     - name: Prepare Tests
       run: |
+        MKDIR unit
+        MKDIR cover
+        MKDIR report
         go install github.com/jstemmer/go-junit-report@v1.0.0
         go install github.com/axw/gocov/gocov@v1.1.0
         go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
@@ -229,13 +232,14 @@ jobs:
       if: always()
       run: |
         set -x
+        export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
         for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
         do
           pushd $i
           echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
+          gocov convert $WORKSPACE/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
           echo >> $GITHUB_STEP_SUMMARY
-          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
+          gocov convert $WORKSPACE/cover/$(basename $PWD).out | gocov-html > $WORKSPACE/report/$(basename $PWD).html || true
           popd
         done
       continue-on-error: true
