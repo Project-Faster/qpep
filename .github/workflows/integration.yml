@@ -75,10 +75,11 @@ jobs:
         for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
         do
           pushd $i
+          export WORKSPACE="${{ github.workspace }}"
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
-          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=${{ github.workspace }}/cover/$(basename $PWD).out &> unit_tests.out || true
+          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
           grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-          cat unit_tests.out | go-junit-report > ${{ github.workspace }}/unit/$(basename $PWD).xml
+          cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
           popd
         done
       continue-on-error: true
@@ -221,6 +222,7 @@ jobs:
         for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
         do
           pushd $i
+          cp -r $WORKSPACE/windivert/x64/* .
           go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> NUL || true
           ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
           grep -E "PASS|FAIL|SKIP" unit_tests.out || true
