@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/Project-Faster/quic-go"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/backend"
 	"github.com/parvit/qpep/shared"
@@ -45,6 +44,11 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 
 	shared.UsingProxy = false
 	shared.ProxyAddress = nil
+
+	backend.GenerateTLSConfig("cert.pem", "key.pem")
+
+	shared.QPepConfig.Certificate = "cert.pem"
+	shared.QPepConfig.CertKey = "key.pem"
 
 	shared.QPepConfig.GatewayHost = "127.0.0.1"
 	shared.QPepConfig.GatewayPort = 9443
@@ -415,17 +419,17 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
 	var calledQuicHandler = false
-	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ quic.Stream, _ net.Conn) {
+	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ backend.QuicBackendStream, _ net.Conn, _, _ *atomic.Bool) {
 		calledQuicHandler = true
 		wg.Done()
 	})
 	var calledTcpHandler = false
-	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ quic.Stream) {
+	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ backend.QuicBackendStream, _, _ *atomic.Bool) {
 		calledTcpHandler = true
 		wg.Done()
 	})
@@ -453,18 +457,18 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_Multistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		quicSession = &fakeQuicConnection{}
 		return &fakeStream{}, nil
 	})
 	var calledQuicHandler = false
-	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ quic.Stream, _ net.Conn) {
+	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ backend.QuicBackendStream, _ net.Conn, _, _ *atomic.Bool) {
 		calledQuicHandler = true
 		wg.Done()
 	})
 	var calledTcpHandler = false
-	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ quic.Stream) {
+	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ backend.QuicBackendStream, _, _ *atomic.Bool) {
 		calledTcpHandler = true
 		wg.Done()
 	})
@@ -498,7 +502,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_FailGetStream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		return nil, shared.ErrFailed
 	})
@@ -524,7 +528,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistreamProxy() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
@@ -537,12 +541,12 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistreamProxy() {
 		return nil, nil
 	})
 	var calledQuicHandler = false
-	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ quic.Stream, _ net.Conn) {
+	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ backend.QuicBackendStream, _ net.Conn, _, _ *atomic.Bool) {
 		calledQuicHandler = true
 		wg.Done()
 	})
 	var calledTcpHandler = false
-	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ quic.Stream) {
+	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ backend.QuicBackendStream, _, _ *atomic.Bool) {
 		calledTcpHandler = true
 		wg.Done()
 	})
@@ -622,6 +626,8 @@ func (s *ClientNetworkSuite) TestHandleTcpToQuic() {
 	ctx, _ := context.WithCancel(context.Background())
 
 	var qtFlag, tqFlag atomic.Bool
+	qtFlag.Store(true)
+	tqFlag.Store(true)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -651,6 +657,8 @@ func (s *ClientNetworkSuite) TestHandleQuicToTcp() {
 	ctx, _ := context.WithCancel(context.Background())
 
 	var qtFlag, tqFlag atomic.Bool
+	qtFlag.Store(true)
+	tqFlag.Store(true)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -728,7 +736,11 @@ User-Agent: windows
 			assert.True(s.T(), dstConn.writtenData.Len() >= len(headerBytes))
 		}
 
-		recvHeader, err := shared.QPepHeaderFromBytes(dstConn.writtenData)
+		var proxyWritten = &fakeStream{
+			readData: dstConn.writtenData,
+		}
+
+		recvHeader, err := shared.QPepHeaderFromBytes(proxyWritten)
 		assert.Nil(s.T(), err)
 
 		assert.NotNil(s.T(), recvHeader)
@@ -915,10 +927,6 @@ func (f *fakeStream) IsClosed() bool {
 	return f.closed
 }
 
-func (f *fakeStream) StreamID() quic.StreamID {
-	return 0
-}
-
 func (f *fakeStream) Read(b []byte) (n int, err error) {
 	if f.closed {
 		panic("Read from closed connection")
@@ -944,15 +952,7 @@ func (f *fakeStream) Close() error {
 	return nil
 }
 
-func (f *fakeStream) CancelRead(code quic.StreamErrorCode) {}
-
 func (f *fakeStream) SetReadDeadline(t time.Time) error {
-	return nil
-}
-
-func (f *fakeStream) CancelWrite(code quic.StreamErrorCode) {}
-
-func (f *fakeStream) Context() context.Context {
 	return nil
 }
 
@@ -960,11 +960,7 @@ func (f *fakeStream) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
-func (f *fakeStream) SetDeadline(t time.Time) error {
-	return nil
-}
-
-var _ quic.Stream = &fakeStream{}
+var _ backend.QuicBackendStream = &fakeStream{}
 
 // -------------------------- //
 
