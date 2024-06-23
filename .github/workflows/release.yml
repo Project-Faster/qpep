@@ -51,6 +51,8 @@ jobs:
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
     defaults:
       run:
         shell: bash
@@ -73,8 +75,10 @@ jobs:
 
       - name: Prepare
         run: |
-          go install github.com/jstemmer/go-junit-report@v1.0.0
           go clean -cache -x
+          mkdir -p cover
+          mkdir -p report
+          mkdir -p unit
 
       - name: Build Backends
         run: |
@@ -90,16 +94,27 @@ jobs:
           name: qpep_linux_b${{ github.run_id }}
           path: build/
 
+      - name: Prepare Tests
+        run: |
+          mkdir -p unit/
+          mkdir -p cover/
+          mkdir -p report/
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
+          
       - name: Test
         if: ${{ inputs.test_release }}
         run: |
           set -x
-          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
-            cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=${{ github.workspace }}/cover/$(basename $PWD).out &> unit_tests.out || true
+            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
+            cat unit_tests.out | go-junit-report > ${{ github.workspace }}/unit/$(basename $PWD).xml
             popd
           done
         continue-on-error: true
@@ -109,7 +124,7 @@ jobs:
         if: ${{ inputs.test_release }}
         with:
           check_name: "Unit Tests - Linux Platform"
-          junit_files: "unit_tests_*.xml"
+          junit_files: "unit/*.xml"
 
   build-windows:
     needs: check-release
@@ -122,6 +137,7 @@ jobs:
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
       CMAKE_BUILD_PARALLEL_LEVEL: 4
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
     defaults:
       run:
         shell: cmd
@@ -160,13 +176,12 @@ jobs:
 
       - name: Prepare
         run: |
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-          go clean -cache -x
           MKDIR build
           MKDIR build\64bits
           MKDIR build\32bits
           COPY /Y windivert\LICENSE build\LICENSE.windivert
           COPY /Y LICENSE build\LICENSE
+          go clean -cache -x
           COPY /Y windivert\x64\* build\64bits
 
       - name: Build Backends
@@ -198,28 +213,40 @@ jobs:
           name: qpep_windows_b${{ github.run_id }}
           path: build/installer.msi
 
+      - name: Prepare Tests
+        run: |
+          MKDIR unit
+          MKDIR cover
+          MKDIR report
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
+
       - name: Test
         if: ${{ inputs.test_release }}
         shell: bash
         run: |
           set -x
+          export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
           go generate github.com/parvit/qpep/windivert
-          for i in $(go list ./... | grep -v tray | sed -n -e 's/github.com\/parvit\/qpep\///p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=cover.out &> unit_tests.out || true
-            cat unit_tests.out | go-junit-report > ../unit_tests_$(basename $PWD).xml
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> NUL || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
+            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
             popd
           done
         continue-on-error: true
 
       - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v2
+        uses: EnricoMi/publish-unit-test-result-action/windows/bash@v2
         if: ${{ inputs.test_release }}
         with:
           check_name: "Unit Tests - Windows Platform"
-          junit_files: "unit_tests_*.xml"
+          junit_files: "unit/*.xml"
 
   create-release-tag:
     needs: [build-windows, build-linux]
