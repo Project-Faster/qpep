@@ -3,9 +3,3 @@
 //go:generate cmd /c "move /y resource.syso ..\\resource.syso"
 
 package version
-
-var (
-	VERSION_MAJOR = 0
-	VERSION_MINOR = 3
-	VERSION_PATCH = 0
-)

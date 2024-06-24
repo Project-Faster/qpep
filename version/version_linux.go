@@ -1,7 +1,1 @@
 package version
-
-var (
-	VERSION_MAJOR = 0
-	VERSION_MINOR = 3
-	VERSION_PATCH = 0
-)
