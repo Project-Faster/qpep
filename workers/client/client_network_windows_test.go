@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/backend"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/windivert"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -42,6 +44,11 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 
 	shared.UsingProxy = false
 	shared.ProxyAddress = nil
+
+	backend.GenerateTLSConfig("cert.pem", "key.pem")
+
+	shared.QPepConfig.Certificate = "cert.pem"
+	shared.QPepConfig.CertKey = "key.pem"
 
 	shared.QPepConfig.GatewayHost = "127.0.0.1"
 	shared.QPepConfig.GatewayPort = 9443
@@ -289,7 +296,7 @@ func (s *ClientNetworkSuite) TestOpenQuicSession() {
 	conn, err := openQuicSession()
 	assert.Nil(s.T(), err)
 
-	quicStream, err := conn.OpenStreamSync(context.Background())
+	quicStream, err := conn.OpenStream(context.Background())
 	assert.Nil(s.T(), err)
 
 	sessionHeader := &shared.QPepHeader{
@@ -388,17 +395,17 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
 	var calledQuicHandler = false
-	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ quic.Stream, _ net.Conn) {
+	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ backend.QuicBackendStream, _ net.Conn, _, _ *atomic.Bool) {
 		calledQuicHandler = true
 		wg.Done()
 	})
 	var calledTcpHandler = false
-	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ quic.Stream) {
+	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ backend.QuicBackendStream, _, _ *atomic.Bool) {
 		calledTcpHandler = true
 		wg.Done()
 	})
@@ -426,18 +433,18 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_Multistream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		quicSession = &fakeQuicConnection{}
 		return &fakeStream{}, nil
 	})
 	var calledQuicHandler = false
-	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ quic.Stream, _ net.Conn) {
+	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ backend.QuicBackendStream, _ net.Conn, _, _ *atomic.Bool) {
 		calledQuicHandler = true
 		wg.Done()
 	})
 	var calledTcpHandler = false
-	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ quic.Stream) {
+	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ backend.QuicBackendStream, _, _ *atomic.Bool) {
 		calledTcpHandler = true
 		wg.Done()
 	})
@@ -471,7 +478,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_FailGetStream() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		return nil, shared.ErrFailed
 	})
@@ -497,7 +504,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistreamProxy() {
 	fakeConn := &fakeTcpConn{}
 
 	var calledGetStream = false
-	monkey.Patch(getQuicStream, func(_ context.Context) (quic.Stream, error) {
+	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
 		return &fakeStream{}, nil
 	})
@@ -510,12 +517,12 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistreamProxy() {
 		return nil, nil
 	})
 	var calledQuicHandler = false
-	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ quic.Stream, _ net.Conn) {
+	monkey.Patch(handleTcpToQuic, func(_ context.Context, wg *sync.WaitGroup, _ backend.QuicBackendStream, _ net.Conn, _, _ *atomic.Bool) {
 		calledQuicHandler = true
 		wg.Done()
 	})
 	var calledTcpHandler = false
-	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ quic.Stream) {
+	monkey.Patch(handleQuicToTcp, func(_ context.Context, wg *sync.WaitGroup, _ net.Conn, _ backend.QuicBackendStream, _, _ *atomic.Bool) {
 		calledTcpHandler = true
 		wg.Done()
 	})
@@ -541,7 +548,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream() {
 	ClientConfiguration.MultiStream = false
 	quicSession = nil
 
-	monkey.Patch(openQuicSession, func() (quic.Connection, error) {
+	monkey.Patch(openQuicSession, func() (backend.QuicBackendConnection, error) {
 		return &fakeQuicConnection{}, nil
 	})
 
@@ -556,7 +563,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream_FailOpenSession() {
 	ClientConfiguration.MultiStream = false
 	quicSession = nil
 
-	monkey.Patch(openQuicSession, func() (quic.Connection, error) {
+	monkey.Patch(openQuicSession, func() (backend.QuicBackendConnection, error) {
 		return nil, shared.ErrFailedGatewayConnect
 	})
 
@@ -571,7 +578,7 @@ func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
 	ClientConfiguration.MultiStream = true
 	quicSession = nil
 
-	monkey.Patch(openQuicSession, func() (quic.Connection, error) {
+	monkey.Patch(openQuicSession, func() (backend.QuicBackendConnection, error) {
 		return &fakeQuicConnection{}, nil
 	})
 
@@ -594,8 +601,9 @@ func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
 func (s *ClientNetworkSuite) TestHandleTcpToQuic() {
 	ctx, _ := context.WithCancel(context.Background())
 
-	var activity_rx = false
-	ctx = context.WithValue(ctx, ACTIVITY_RX_FLAG, &activity_rx)
+	var qtFlag, tqFlag atomic.Bool
+	qtFlag.Store(true)
+	tqFlag.Store(true)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -613,7 +621,7 @@ User-Agent: windows
 `
 	srcConn.readData.WriteString(testdata)
 
-	go handleTcpToQuic(ctx, wg, dstConn, srcConn, &lastActivityTime)
+	go handleTcpToQuic(ctx, wg, dstConn, srcConn, &qtFlag, &tqFlag)
 
 	wg.Wait()
 
@@ -624,8 +632,9 @@ User-Agent: windows
 func (s *ClientNetworkSuite) TestHandleQuicToTcp() {
 	ctx, _ := context.WithCancel(context.Background())
 
-	var activity_tx = false
-	ctx = context.WithValue(ctx, ACTIVITY_TX_FLAG, &activity_tx)
+	var qtFlag, tqFlag atomic.Bool
+	qtFlag.Store(true)
+	tqFlag.Store(true)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -643,7 +652,7 @@ User-Agent: windows
 `
 	srcConn.readData.WriteString(testdata)
 
-	go handleQuicToTcp(ctx, wg, dstConn, srcConn, &lastActivityTime)
+	go handleQuicToTcp(ctx, wg, dstConn, srcConn, &qtFlag, &tqFlag)
 
 	wg.Wait()
 
@@ -703,7 +712,11 @@ User-Agent: windows
 			assert.True(s.T(), dstConn.writtenData.Len() >= len(headerBytes))
 		}
 
-		recvHeader, err := shared.QPepHeaderFromBytes(dstConn.writtenData)
+		var proxyWritten = &fakeStream{
+			readData: dstConn.writtenData,
+		}
+
+		recvHeader, err := shared.QPepHeaderFromBytes(proxyWritten)
 		assert.Nil(s.T(), err)
 
 		assert.NotNil(s.T(), recvHeader)
@@ -868,14 +881,26 @@ var _ net.Conn = &fakeTcpConn{}
 // --------------------------- //
 
 type fakeStream struct {
-	id          int
+	id          uint64
 	closed      bool
 	readData    *bytes.Buffer
 	writtenData *bytes.Buffer
 }
 
-func (f *fakeStream) StreamID() quic.StreamID {
-	return 0
+func (f *fakeStream) ID() uint64 {
+	return f.id
+}
+
+func (f *fakeStream) Sync() bool {
+	return f.readData.Len() == f.writtenData.Len()
+}
+
+func (f *fakeStream) AbortRead(code uint64) {}
+
+func (f *fakeStream) AbortWrite(code uint64) {}
+
+func (f *fakeStream) IsClosed() bool {
+	return f.closed
 }
 
 func (f *fakeStream) Read(b []byte) (n int, err error) {
@@ -903,15 +928,7 @@ func (f *fakeStream) Close() error {
 	return nil
 }
 
-func (f *fakeStream) CancelRead(code quic.StreamErrorCode) {}
-
 func (f *fakeStream) SetReadDeadline(t time.Time) error {
-	return nil
-}
-
-func (f *fakeStream) CancelWrite(code quic.StreamErrorCode) {}
-
-func (f *fakeStream) Context() context.Context {
 	return nil
 }
 
@@ -919,38 +936,33 @@ func (f *fakeStream) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
-func (f *fakeStream) SetDeadline(t time.Time) error {
-	return nil
-}
-
-var _ quic.Stream = &fakeStream{}
+var _ backend.QuicBackendStream = &fakeStream{}
 
 // -------------------------- //
 
-type fakeQuicConnection struct{}
+type fakeQuicConnection struct {
+	closeCalled bool
+}
 
-func (f *fakeQuicConnection) AcceptStream(ctx context.Context) (quic.Stream, error) {
+func (f *fakeQuicConnection) OpenStream(ctx context.Context) (backend.QuicBackendStream, error) {
+	return &fakeStream{id: rand.Uint64()}, nil
+}
+
+func (f *fakeQuicConnection) AcceptStream(ctx context.Context) (backend.QuicBackendStream, error) {
 	return nil, nil
 }
 
-func (f *fakeQuicConnection) AcceptUniStream(ctx context.Context) (quic.ReceiveStream, error) {
+func (f *fakeQuicConnection) AcceptConnection(ctx context.Context) (backend.QuicBackendConnection, error) {
 	return nil, nil
 }
 
-func (f *fakeQuicConnection) OpenStream() (quic.Stream, error) {
-	return &fakeStream{id: rand.Int()}, nil
+func (f *fakeQuicConnection) Close(code int, message string) error {
+	f.closeCalled = true
+	return nil
 }
 
-func (f *fakeQuicConnection) OpenStreamSync(ctx context.Context) (quic.Stream, error) {
-	return &fakeStream{id: rand.Int()}, nil
-}
-
-func (f *fakeQuicConnection) OpenUniStream() (quic.SendStream, error) {
-	return nil, nil
-}
-
-func (f *fakeQuicConnection) OpenUniStreamSync(ctx context.Context) (quic.SendStream, error) {
-	return nil, nil
+func (f *fakeQuicConnection) IsClosed() bool {
+	return f.closeCalled
 }
 
 func (f *fakeQuicConnection) LocalAddr() net.Addr {
@@ -967,24 +979,8 @@ func (f *fakeQuicConnection) RemoteAddr() net.Addr {
 	}
 }
 
-func (f *fakeQuicConnection) CloseWithError(code quic.ApplicationErrorCode, s string) error {
-	return nil
-}
-
 func (f *fakeQuicConnection) Context() context.Context {
 	return context.Background()
 }
 
-func (f *fakeQuicConnection) ConnectionState() quic.ConnectionState {
-	return quic.ConnectionState{}
-}
-
-func (f *fakeQuicConnection) SendMessage(i []byte) error {
-	return nil
-}
-
-func (f *fakeQuicConnection) ReceiveMessage() ([]byte, error) {
-	return nil, nil
-}
-
-var _ quic.Connection = &fakeQuicConnection{}
+var _ backend.QuicBackendConnection = &fakeQuicConnection{}

@@ -64,6 +64,10 @@ func (s *WinDivertSuite) BeforeTest(_, _ string) {
 	assert.False(s.T(), s.finished)
 }
 
+func (s *WinDivertSuite) SetupSuite() {
+	s.T().Logf("Tests need to be run with administrator priviledges")
+}
+
 func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	t := s.T()
 

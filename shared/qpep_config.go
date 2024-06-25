@@ -214,6 +214,11 @@ func (q *QPepConfigType) override(r rawConfigType) {
 
 	r.updateIntField(&q.MaxConnectionRetries, "maxretries")
 	r.updateStringField(&q.GatewayHost, "gateway")
+	r.updateStringField(&q.Backend, "backend")
+	r.updateStringField(&q.CCAlgorithm, "ccalgorithm")
+	r.updateStringField(&q.CCSlowstartAlgo, "ccslowstart")
+	r.updateStringField(&q.Certificate, "certificate")
+	r.updateStringField(&q.CertKey, "certificate_key")
 	r.updateIntField(&q.GatewayPort, "port")
 	r.updateIntField(&q.GatewayAPIPort, "apiport")
 	r.updateStringField(&q.ListenHost, "listenaddress")

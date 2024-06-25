@@ -51,7 +51,7 @@ func (s *LoggerSuite) TestLogger_InfoLevel() {
 	SetupLogger("test", "info")
 
 	assert.NotEqual(t, prevlog, _log)
-	assert.Equal(t, _log.GetLevel(), log.DebugLevel)
+	assert.Equal(t, _log.GetLevel(), log.InfoLevel)
 	assert.Equal(t, log.GlobalLevel(), log.InfoLevel)
 
 	Info("InfoMessage")
@@ -76,11 +76,11 @@ func (s *LoggerSuite) TestLogger_DebugLevel() {
 	logFile := filepath.Join(filepath.Dir(execPath), "test")
 
 	var prevlog = _log
-	SetupLogger("test", "info")
+	SetupLogger("test", "debug")
 
 	assert.NotEqual(t, prevlog, _log)
 	assert.Equal(t, log.DebugLevel, _log.GetLevel())
-	assert.Equal(t, log.InfoLevel, log.GlobalLevel())
+	assert.Equal(t, log.DebugLevel, log.GlobalLevel())
 
 	log.SetGlobalLevel(log.DebugLevel)
 
@@ -109,7 +109,7 @@ func (s *LoggerSuite) TestLogger_ErrorLevel() {
 	SetupLogger("test", "info")
 
 	assert.NotEqual(t, prevlog, _log)
-	assert.Equal(t, _log.GetLevel(), log.DebugLevel)
+	assert.Equal(t, _log.GetLevel(), log.InfoLevel)
 	assert.Equal(t, log.GlobalLevel(), log.InfoLevel)
 
 	log.SetGlobalLevel(log.ErrorLevel)
@@ -139,7 +139,7 @@ func (s *LoggerSuite) TestLogger_PanicMessage() {
 	SetupLogger("test", "info")
 
 	assert.NotEqual(t, prevlog, _log)
-	assert.Equal(t, _log.GetLevel(), log.DebugLevel)
+	assert.Equal(t, _log.GetLevel(), log.InfoLevel)
 	assert.Equal(t, log.GlobalLevel(), log.InfoLevel)
 
 	log.SetGlobalLevel(log.DebugLevel)
@@ -154,7 +154,7 @@ func (s *LoggerSuite) TestLogger_PanicMessage() {
 	data, _ := os.ReadFile(logFile)
 	var strData = string(data)
 	assert.NotEqual(t, -1, strings.Index(strData, "InfoMessage"))
-	assert.NotEqual(t, -1, strings.Index(strData, "DebugMessage"))
+	assert.Equal(t, -1, strings.Index(strData, "DebugMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "ErrorMessage"))
 	assert.NotEqual(t, -1, strings.Index(strData, "PanicMessage"))
 }

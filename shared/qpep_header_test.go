@@ -3,8 +3,10 @@ package shared
 import (
 	"bytes"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"net"
 	"testing"
+	"time"
 )
 
 // Header -> Bytes
@@ -193,7 +195,9 @@ func TestQPepHeader_FromBytes(t *testing.T) {
 		0x01, 0x00, // flags
 	}
 
-	buf := bytes.NewReader(testValue)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, err)
@@ -231,7 +235,9 @@ func TestQPepHeader_FromBytesV6(t *testing.T) {
 		0x00, 0x00, // flags
 	}
 
-	buf := bytes.NewReader(testValue)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, err)
@@ -266,7 +272,9 @@ func TestQPepHeader_FromBytesV4V6(t *testing.T) {
 		0x00, 0x00, // flags
 	}
 
-	buf := bytes.NewReader(testValue)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, err)
@@ -303,7 +311,9 @@ func TestQPepHeader_FromBytesV6V4(t *testing.T) {
 		0x00, 0x00, // flags
 	}
 
-	buf := bytes.NewReader(testValue)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, err)
@@ -317,7 +327,9 @@ func TestQPepHeader_FromBytes_NilSrcDst(t *testing.T) {
 		0x00, // type dst
 	}
 
-	buf := bytes.NewReader(testValue)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
@@ -336,7 +348,9 @@ func TestQPepHeader_FromBytes_NilSrc(t *testing.T) {
 		0x00, 0x00, // flags
 	}
 
-	buf := bytes.NewReader(testValue)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
@@ -355,8 +369,9 @@ func TestQPepHeader_FromBytes_NilDst(t *testing.T) {
 		0x00, 0x00, // flags
 	}
 
-	buf := bytes.NewReader(testValue)
-
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
 	assert.Equal(t, ErrInvalidHeaderAddressType, err)
@@ -366,13 +381,17 @@ func TestQPepHeader_FromBytes_NilDst(t *testing.T) {
 func TestQPepHeader_FromBytes_MalformedPreamble(t *testing.T) {
 	var testValue_len0 = make([]byte, 0)
 
-	buf := bytes.NewReader(testValue_len0)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue_len0),
+	}
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
 	assert.Equal(t, ErrInvalidHeader, err)
 
 	var testValue_len1 = []byte{0x04}
-	buf = bytes.NewReader(testValue_len1)
+	buf = &TimeoutReader{
+		Reader: bytes.NewReader(testValue_len1),
+	}
 	decodeHeader, err = QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
 	assert.Equal(t, ErrInvalidHeader, err)
@@ -388,7 +407,9 @@ func TestQPepHeader_FromBytes_MalformedDataTruncated(t *testing.T) {
 		0xbd, // missing last 0x01 byte
 	}
 
-	buf := bytes.NewReader(testValue)
+	buf := &TimeoutReader{
+		Reader: bytes.NewReader(testValue),
+	}
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
 	assert.Equal(t, ErrInvalidHeaderDataLength, err)
@@ -458,3 +479,16 @@ func assertHeadersEquals(t *testing.T, header *QPepHeader, header2 *QPepHeader) 
 
 	assert.Equal(t, header.Flags, header2.Flags, "Flags values are not equal")
 }
+
+type TimeoutReader struct {
+	io.Reader
+
+	timeout time.Time
+}
+
+func (r *TimeoutReader) SetReadDeadline(tDuration time.Time) error {
+	r.timeout = tDuration
+	return nil
+}
+
+var _ readTimeoutReader = &TimeoutReader{}

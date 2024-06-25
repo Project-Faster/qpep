@@ -15,7 +15,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	log "github.com/rs/zerolog"
 
-	service "github.com/parvit/kardianos-service"
+	kservice "github.com/parvit/kardianos-service"
 
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/flags"
@@ -55,16 +55,16 @@ type qpepServiceStarter struct {
 	realService *QPepService
 }
 
-func (p *qpepServiceStarter) Start(_ service.Service) error {
+func (p *qpepServiceStarter) Start(_ kservice.Service) error {
 	return p.realService.Start()
 }
-func (p *qpepServiceStarter) Stop(_ service.Service) error {
+func (p *qpepServiceStarter) Stop(_ kservice.Service) error {
 	return p.realService.Stop()
 }
 
 // QPepService struct models the service and its internal state to the operating system
 type QPepService struct {
-	service.Service
+	kservice.Service
 
 	// context Termination context
 	context context.Context
@@ -76,7 +76,7 @@ type QPepService struct {
 	exitValue int
 }
 
-var _ service.Service = &QPepService{}
+var _ kservice.Service = &QPepService{}
 
 // ServiceMain method wraps the starting logic of the qpep service
 func ServiceMain() int {
@@ -113,13 +113,13 @@ func ServiceMain() int {
 	if flags.Globals.Client {
 		serviceName = clientService
 	}
-	svcConfig := &service.Config{
+	svcConfig := &kservice.Config{
 		Name:        serviceName,
 		DisplayName: strings.ToTitle(serviceName),
 		Description: "QPep - high-latency network accelerator",
 
-		Executable: PLATFORM_EXE_NAME,
-		Option:     make(service.KeyValue),
+		Executable: "qpep.exe",
+		Option:     make(kservice.KeyValue),
 
 		WorkingDirectory: workingDir,
 
@@ -145,7 +145,7 @@ func ServiceMain() int {
 	starter := &qpepServiceStarter{
 		realService: qpepService,
 	}
-	serviceInst, err := service.New(starter, svcConfig)
+	serviceInst, err := kservice.New(starter, svcConfig)
 	if err != nil {
 		logger.Panic(err.Error())
 	}
@@ -158,10 +158,9 @@ func ServiceMain() int {
 			return getStatusCode(serviceInst)
 		}
 
-		err = service.Control(serviceInst, svcCommand)
+		err = kservice.Control(serviceInst, svcCommand)
 		if err != nil {
-			logger.Error("%v\n", err.Error())
-			logger.Info("Possible actions: %q", service.ControlAction)
+			logger.Info("Error %v\nPossible actions: %q\n", err.Error(), kservice.ControlAction)
 			return WIN32_UNKNOWN_CODE
 		}
 
@@ -190,7 +189,7 @@ func ServiceMain() int {
 	// detect forced interactive mode because service was not installed
 	status := getStatusCode(serviceInst)
 
-	if status == WIN32_UNKNOWN_CODE || service.ChosenSystem().Interactive() {
+	if status == WIN32_UNKNOWN_CODE || kservice.ChosenSystem().Interactive() {
 		logger.Info("Executes as Interactive mode\n")
 		err = qpepService.Main()
 	} else {
@@ -207,22 +206,22 @@ func ServiceMain() int {
 	return qpepService.exitValue
 }
 
-func getStatusCode(svc service.Service) int {
+func getStatusCode(svc kservice.Service) int {
 	status, err := svc.Status()
 	if err != nil {
-		status = service.StatusUnknown
+		status = kservice.StatusUnknown
 	}
 
 	switch status {
-	case service.StatusRunning:
+	case kservice.StatusRunning:
 		return WIN32_RUNNING_CODE
 
-	case service.StatusStopped:
+	case kservice.StatusStopped:
 		return WIN32_STOPPED_CODE
 
 	default:
 		fallthrough
-	case service.StatusUnknown:
+	case kservice.StatusUnknown:
 		return WIN32_UNKNOWN_CODE
 	}
 }
@@ -327,8 +326,8 @@ TERMINATIONLOOP:
 	return nil
 }
 
-func (p *QPepService) Logger(errs chan<- error) (service.Logger, error) {
-	return service.ConsoleLogger, nil
+func (p *QPepService) Logger(errs chan<- error) (kservice.Logger, error) {
+	return kservice.ConsoleLogger, nil
 }
 
 // runAsClient method wraps the logic to setup the system as client mode
