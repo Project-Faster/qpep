@@ -16,7 +16,7 @@ hide = [ 'QPep.app/Contents/MacOS/config/', 'QPep.app/Contents/MacOS/qpep' ]
 # Symlinks to create
 symlinks = {"Applications": "/Applications"}
 
-icon = 'QPep.app/Contents/Resources/QPep.icns'
+icon = 'QPep.app/Contents/Resources/Application.icns'
 
 icon_locations = { "QPep": (140,120), "Applications": (500,120) }
 
