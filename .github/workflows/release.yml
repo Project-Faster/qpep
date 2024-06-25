@@ -74,10 +74,10 @@ jobs:
         with:
           cmake-version: ${{ env.CMAKE_VERSION }}
 
-            - name: Set up Python
-              uses: actions/setup-python@v5
-              with:
-                python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Prepare
         run: |
@@ -380,7 +380,7 @@ jobs:
           junit_files: "unit/*.xml"
 
   create-release-tag:
-    needs: [build-windows, build-linux, build-mac-os]
+    needs: [ build-windows, build-linux, build-mac-os ]
     runs-on: ubuntu-latest
     defaults:
       run:
