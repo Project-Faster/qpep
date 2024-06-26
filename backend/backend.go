@@ -50,8 +50,8 @@ type QuicBackendStream interface {
 	IsClosed() bool
 }
 
-// generateTLSConfig creates a new x509 key/certificate pair and dumps it to the disk
-func generateTLSConfig(certfile, keyfile string) tls.Certificate {
+// GenerateTLSConfig creates a new x509 key/certificate pair and dumps it to the disk
+func GenerateTLSConfig(certfile, keyfile string) tls.Certificate {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(err)

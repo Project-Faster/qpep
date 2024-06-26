@@ -11,6 +11,7 @@ import (
 	"github.com/Project-Faster/qpep/backend"
 	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/quic-go"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	log "github.com/rs/zerolog"

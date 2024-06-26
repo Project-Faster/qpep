@@ -13,6 +13,7 @@ import (
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/windivert"
+	"github.com/Project-Faster/quic-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/big"
