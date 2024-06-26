@@ -44,7 +44,7 @@ type WriterTimeout interface {
 func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address string, port int) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("PANIC: %v\n", err, string(debug.Stack()))
+			logger.Error("PANIC: %v\n%v\n", err, string(debug.Stack()))
 		}
 		cancel()
 	}()
@@ -57,7 +57,7 @@ func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address s
 	}
 
 	var err error
-	quicListener, err = quicProvider.Listen(context.Background(), address, port, shared.QPepConfig.Certificate, shared.QPepConfig.CertKey,
+	quicListener, err = quicProvider.Listen(ctx, address, port, shared.QPepConfig.Certificate, shared.QPepConfig.CertKey,
 		shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo,
 		flags.Globals.Trace)
 

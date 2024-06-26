@@ -113,7 +113,7 @@ func getNetworkTypeFromAddr(addr *net.TCPAddr) byte {
 // * Nil header and ErrInvalidHeaderAddressType, if preamble values are invalid
 // * Nil header and ErrInvalidHeaderDataLength, if the data length is not suitable for extracting the indicated header
 func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
-	var timeoutReader readTimeoutReader = stream.(readTimeoutReader)
+	var timeoutReader = stream.(readTimeoutReader)
 
 	preamble := make([]byte, QPEP_PREAMBLE_LENGTH)
 

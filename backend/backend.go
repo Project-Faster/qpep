@@ -64,8 +64,8 @@ func generateTLSConfig(certfile, keyfile string) tls.Certificate {
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 
-	ioutil.WriteFile(certfile, keyPEM, 0777)
-	ioutil.WriteFile(keyfile, certPEM, 0777)
+	ioutil.WriteFile(certfile, certPEM, 0777)
+	ioutil.WriteFile(keyfile, keyPEM, 0777)
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {

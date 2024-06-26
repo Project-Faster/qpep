@@ -40,7 +40,7 @@ backend: quic-go
 ccalgorithm: reno
 ccslowstart: search
 certificate: server_cert.pem
-certificate_key:
+certificate_key: server_key.pem
 decimate: 4
 decimatetime: 100
 maxretries: 10
