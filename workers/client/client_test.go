@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bou.ke/monkey"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -10,6 +9,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/windivert"

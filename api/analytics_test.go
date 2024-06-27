@@ -1,9 +1,9 @@
 package api
 
 import (
-	"bou.ke/monkey"
 	"encoding/json"
 	"fmt"
+	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/version"

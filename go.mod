@@ -19,7 +19,7 @@ require (
 )
 
 require (
-	bou.ke/monkey v1.0.2
+	github.com/Project-Faster/monkey v1.0.4
 	github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d
 	github.com/Project-Faster/quicly-go v0.0.0-00010101000000-000000000000
 	github.com/eclipse/paho.mqtt.golang v1.4.2
@@ -34,6 +34,7 @@ require (
 )
 
 require (
+	bou.ke/monkey v1.0.2 // indirect
 	git.sr.ht/~sbinet/gg v0.3.1 // indirect
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect

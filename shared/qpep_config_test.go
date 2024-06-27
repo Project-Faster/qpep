@@ -1,9 +1,9 @@
 package shared
 
 import (
-	"bou.ke/monkey"
 	"errors"
 	"fmt"
+	"github.com/Project-Faster/monkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"gopkg.in/yaml.v3"

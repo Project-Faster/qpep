@@ -1,11 +1,11 @@
 package api
 
 import (
-	"bou.ke/monkey"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/version"
 	"github.com/julienschmidt/httprouter"

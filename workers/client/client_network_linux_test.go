@@ -3,10 +3,10 @@
 package client
 
 import (
-	"bou.ke/monkey"
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/backend"
 	"github.com/Project-Faster/qpep/shared"

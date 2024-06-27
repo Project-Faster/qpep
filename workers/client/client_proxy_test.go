@@ -1,7 +1,7 @@
 package client
 
 import (
-	"bou.ke/monkey"
+	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

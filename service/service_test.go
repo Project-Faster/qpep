@@ -1,8 +1,8 @@
 package service
 
 import (
-	"bou.ke/monkey"
 	"context"
+	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/workers/client"
