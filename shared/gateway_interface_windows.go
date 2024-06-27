@@ -49,6 +49,9 @@ func RunCommand(name string, cmd ...string) ([]byte, error, int) {
 }
 
 func getRouteListeningAddresses() []string {
+	if defaultListeningAddress == "" {
+		defaultListeningAddress = "127.0.0.1"
+	}
 	return []string{defaultListeningAddress}
 }
 

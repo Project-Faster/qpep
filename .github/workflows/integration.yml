@@ -97,6 +97,7 @@ jobs:
           do
             pushd $i
             export WORKSPACE="${{ github.workspace }}"
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test
             go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
             ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
             grep -E "PASS|FAIL|SKIP" unit_tests.out || true

@@ -1,8 +1,11 @@
+//go:build darwin
+
 package notify
 
 import (
 	"fmt"
-	"github.com/Project-Faster/qpep/qpep-tray/notify/toast"
+	gosx "github.com/Project-Faster/qpep/qpep-tray/notify/gosx-notifier"
+	platformnotify "github.com/martinlindhe/notify"
 	"github.com/project-faster/dialog"
 	"log"
 )
@@ -12,27 +15,19 @@ var (
 )
 
 func NotifyUser(message, category string, longNotification bool) {
-	var duration = toast.Short
-	if longNotification {
-		duration = toast.Long
+	n := &gosx.Notification{
+		Sender:   "QPep",
+		Title:    message,
+		Subtitle: category,
 	}
-	n := toast.Notification{
-		AppID:    "QPep",
-		Title:    category,
-		Message:  message,
-		Duration: duration,
-		Icon:     MainIconData,
-	}
-	if err := n.Push(); err != nil {
-		log.Println("ERR: ", err)
-	}
+	n.Push()
 }
 
 func ErrorMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)
 	log.Println("ERR: ", str)
 
-	NotifyUser(message, "Error", false)
+	platformnotify.Notify("QPep", "Error", message, MainIconData)
 }
 func InfoMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)

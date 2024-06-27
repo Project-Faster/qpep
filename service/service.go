@@ -176,10 +176,10 @@ func ServiceMain() int {
 	}
 
 	// As-service run
-	logName := "log/qpep-server.log"
+	logName := "qpep-server.log"
 	logLevel := "info"
 	if flags.Globals.Client {
-		logName = "log/qpep-client.log"
+		logName = "qpep-client.log"
 	}
 	if flags.Globals.Verbose {
 		logLevel = "debug"
