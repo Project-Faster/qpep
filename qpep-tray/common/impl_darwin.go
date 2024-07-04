@@ -1,6 +1,7 @@
 package common
 
 import (
+	"github.com/Project-Faster/qpep/logger"
 	"os/exec"
 	"path/filepath"
 
@@ -40,6 +41,7 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 		return nil
 	}
 	cmd.Dir, _ = filepath.Abs(ExeDir)
+	logger.Info(cmd.String())
 	return cmd
 }
 

@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
@@ -42,13 +42,10 @@ const (
 	// WIN32_UNKNOWN_CODE Win32 exit code for not installed status of service
 	WIN32_UNKNOWN_CODE = 255
 
-	// serverService server service name
-	serverService = "qpep-server"
-	// clientService client service name
-	clientService = "qpep-client"
-
 	// defaultLinuxWorkDir default working directory for linux platform
 	defaultLinuxWorkDir = "/opt/qpep"
+	// defaultDarwinWorkDir default working directory for darwin platform
+	defaultDarwinWorkDir = "/Applications/QPep.app/Contents/MacOS/"
 )
 
 type qpepServiceStarter struct {
@@ -94,8 +91,13 @@ func ServiceMain() int {
 		logger.Error("Could not find executable: %s", err)
 	}
 
-	workingDir := defaultLinuxWorkDir
-	if runtime.GOOS == "windows" {
+	workingDir := "./"
+	switch runtime.GOOS {
+	case "darwin":
+		workingDir = defaultDarwinWorkDir
+	case "linux":
+		workingDir = defaultLinuxWorkDir
+	case "windows":
 		workingDir = filepath.Dir(execPath)
 		if !setCurrentWorkingDir(workingDir) {
 			return 1
@@ -109,19 +111,20 @@ func ServiceMain() int {
 		cancelFunc: cancel,
 	}
 
-	serviceName := serverService
+	serviceName := PLATFORM_SERVICE_SERVER_NAME
 	if flags.Globals.Client {
-		serviceName = clientService
+		serviceName = PLATFORM_SERVICE_CLIENT_NAME
 	}
 	svcConfig := &kservice.Config{
 		Name:        serviceName,
-		DisplayName: strings.ToTitle(serviceName),
+		DisplayName: "QPep",
 		Description: "QPep - high-latency network accelerator",
 
-		Executable: "qpep.exe",
+		Executable: PLATFORM_EXE_NAME,
 		Option:     make(kservice.KeyValue),
 
 		WorkingDirectory: workingDir,
+		UserName:         os.Getenv("USER"),
 
 		EnvVars:   make(map[string]string),
 		Arguments: []string{},
@@ -132,11 +135,12 @@ func ServiceMain() int {
 	if runtime.GOOS == "darwin" {
 		svcConfig.Option["UserService"] = true
 		svcConfig.Option["KeepAlive"] = false
+		svcConfig.Option["RunAtLoad"] = true
 		svcConfig.Option["LogDirectory"] = "/tmp"
 	}
 
 	path, _ := os.LookupEnv("PATH")
-	svcConfig.EnvVars["PATH"] = workingDir + ";" + path
+	svcConfig.EnvVars["PATH"] = fmt.Sprintf("%s%c%s", workingDir, PLATFORM_PATHVAR_SEP, path)
 
 	if flags.Globals.Client {
 		svcConfig.Arguments = append(svcConfig.Arguments, `--client`)

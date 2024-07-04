@@ -7,7 +7,10 @@ import (
 )
 
 const (
-	PLATFORM_EXE_NAME = "qpep"
+	PLATFORM_EXE_NAME    = "qpep"
+	PLATFORM_PATHVAR_SEP = ':'
+	SERVICE_CLIENT_NAME  = "qpep-client"
+	SERVICE_SERVER_NAME  = "qpep-server"
 )
 
 // setCurrentWorkingDir method is currently a no-op

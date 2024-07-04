@@ -75,7 +75,13 @@ func startClientProcess() error {
 	if err != nil {
 		return err
 	}
-	return cmd.Wait()
+	err = cmd.Wait()
+	if err != nil {
+		log.Printf("ERR: Full command: %v", cmd.String())
+		out, _ := cmd.CombinedOutput()
+		log.Printf("ERR: Full error: %v", string(out))
+	}
+	return err
 }
 
 func stopClientProcess() error {

@@ -32,7 +32,7 @@ func ErrorMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)
 	log.Println("ERR: ", str)
 
-	NotifyUser(message, "Error", false)
+	NotifyUser(str, "Error", false)
 }
 func InfoMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)

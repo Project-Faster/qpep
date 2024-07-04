@@ -27,7 +27,7 @@ func ErrorMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)
 	log.Println("ERR: ", str)
 
-	platformnotify.Notify("QPep", "Error", message, MainIconData)
+	platformnotify.Notify("QPep", "Error", str, MainIconData)
 }
 func InfoMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)

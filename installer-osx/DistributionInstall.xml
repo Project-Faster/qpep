@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>SU_TITLE</title>
+    <pkg-ref id="com.project-faster.qpep"/>
+    <options customize="never" require-scripts="false" rootVolumeOnly="true" hostArchitectures="x86_64,arm64"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.project-faster.qpep"/>
+        </line>
+    </choices-outline>
+    <welcome file="Welcome.html" mime-type="text/html"/>
+    <license file="LICENSE.rtf" mime-type="text/rtf"/>
+    <conclusion file="Conclusion.html" mime-type="text/html"/>
+    <choice id="default"/>
+    <choice id="com.project-faster.qpep" visible="false">
+        <pkg-ref id="com.project-faster.qpep"/>
+    </choice>
+    <pkg-ref id="com.project-faster.qpep" version="0" onConclusion="none">DistributionInstall.pkg</pkg-ref>
+
+    <background file="background.png" alignment="bottomleft" scaling="proportional" mime-type="image/png" />
+    <background-darkAqua file="background-dark.png" alignment="bottomleft" scaling="proportional" mime-type="image/png" />
+</installer-gui-script>

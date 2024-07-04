@@ -38,14 +38,14 @@ func getLoggerFile(logName string) *os.File {
 	}
 
 	logPath := filepath.Join(filepath.Dir(execPath), "log")
-	err = os.MkdirAll(logPath, 0666)
+	err = os.MkdirAll(logPath, 0755)
 	if err != nil {
 		Panic("%v", err)
 	}
 
 	logFile := filepath.Join(logPath, logName)
 
-	_logFile, err = os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	_logFile, err = os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		Panic("%v", err)
 	}

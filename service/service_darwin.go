@@ -12,7 +12,10 @@ import (
 )
 
 const (
-	PLATFORM_EXE_NAME = "qpep"
+	PLATFORM_EXE_NAME            = "qpep"
+	PLATFORM_PATHVAR_SEP         = ':'
+	PLATFORM_SERVICE_CLIENT_NAME = "com.project-faster.qpep-client"
+	PLATFORM_SERVICE_SERVER_NAME = "com.project-faster.qpep-server"
 )
 
 // RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
@@ -58,14 +61,14 @@ func waitChildProcessTermination(name string) {
 func setServiceUserPermissions(serviceName string) {
 	user := os.Getenv("USER")
 	serviceFile := fmt.Sprintf("/Users/%s/Library/LaunchAgents/%s.plist", user, serviceName)
-	out, _, _ := runCommand("sudo", "chown", "root:wheel", serviceFile)
+	out, _, _ := runCommand("sudo", "-A", "chown", "root:wheel", serviceFile)
 	fmt.Printf("service ownership: %s\n", string(out))
-	out, _, _ = runCommand("sudo", "chmod", "o-w", serviceFile)
+	out, _, _ = runCommand("sudo", "-A", "chmod", "o-w", serviceFile)
 	fmt.Printf("service permission: %s\n", string(out))
 }
 
 // setInstallDirectoryPermissions method is currently a no-op
 func setInstallDirectoryPermissions(installDir string) {
-	_ = os.Mkdir(filepath.Join(installDir, "log"), 0777)
+	_ = os.Mkdir(filepath.Join(installDir, "log"), 0755)
 	return
 }

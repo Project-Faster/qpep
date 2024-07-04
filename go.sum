@@ -94,8 +94,8 @@ github.com/onsi/ginkgo/v2 v2.8.0/go.mod h1:6JsQiECmxCa3V5st74AL/AmsV482EDdVrGaVW
 github.com/onsi/gomega v1.25.0 h1:Vw7br2PCDYijJHSfBOWhov+8cAnUf8MfMaIOV323l6Y=
 github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c h1:rp5dCmg/yLR3mgFuSOe4oEnDDmGLROTvMragMUXpTQw=
 github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c/go.mod h1:X07ZCGwUbLaax7L0S3Tw4hpejzu63ZrrQiUe6W0hcy0=
-github.com/parvit/kardianos-service v0.0.0-20231028113046-0b8d3c1cf1c4 h1:re2HEEQxqtbpS3L1C9WrgLV9GgLb2cc/B32CJlaFa3c=
-github.com/parvit/kardianos-service v0.0.0-20231028113046-0b8d3c1cf1c4/go.mod h1:2hdrOLAZgUpNyRF7Qv2WWTrwjB/v4sgEfWx0KE06K80=
+github.com/parvit/kardianos-service v1.0.1 h1:mvao5XrG7ZSV/cCxlcBtwtks9jXmp8CvfSjLzj01m7Q=
+github.com/parvit/kardianos-service v1.0.1/go.mod h1:2hdrOLAZgUpNyRF7Qv2WWTrwjB/v4sgEfWx0KE06K80=
 github.com/phpdave11/gofpdf v1.4.2/go.mod h1:zpO6xFn9yxo3YLyMvW8HcKWVdbNqgIfOOp2dXMnm1mY=
 github.com/phpdave11/gofpdi v1.0.12/go.mod h1:vBmVV0Do6hSBHC8uKUQ71JGW+ZGQq74llk/7bXwjDoI=
 github.com/phpdave11/gofpdi v1.0.13/go.mod h1:vBmVV0Do6hSBHC8uKUQ71JGW+ZGQq74llk/7bXwjDoI=
