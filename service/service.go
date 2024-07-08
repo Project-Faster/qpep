@@ -281,6 +281,8 @@ func (p *QPepService) Main() error {
 	}()
 
 	logger.Info("Main")
+	var lastError error
+	p.context = context.WithValue(p.context, "lastError", &lastError)
 
 	if err := shared.ReadConfiguration(false); err != nil {
 		return err
@@ -311,8 +313,6 @@ TERMINATIONLOOP:
 			break TERMINATIONLOOP
 		case <-p.context.Done():
 			break TERMINATIONLOOP
-		case <-time.After(100 * time.Millisecond):
-			continue
 		}
 	}
 
@@ -326,6 +326,12 @@ TERMINATIONLOOP:
 
 	logger.Info("Exiting...")
 	p.exitValue = 0
+
+	var errPtr = p.context.Value("lastError").(*error)
+	if *errPtr != nil {
+		p.exitValue = 1
+		return *errPtr
+	}
 
 	return nil
 }

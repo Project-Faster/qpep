@@ -55,7 +55,9 @@ var mServer *systray.MenuItem
 func OnReady() {
 	// Setup tray menu
 	systray.SetTemplateIcon(icons.MainIconData, icons.MainIconData)
-	systray.SetTitle("QPep Connection Accelerator")
+	if runtime.GOOS != "darwin" {
+		systray.SetTitle("QPep Connection Accelerator")
+	}
 	systray.SetTooltip("QPep Connection Accelerator")
 
 	mInfo := systray.AddMenuItem("About", "About the project")
@@ -262,6 +264,9 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 		var animIcons = [][]byte{
 			icons.MainIconWaiting,
 			icons.MainIconData,
+		}
+		if runtime.GOOS == "darwin" {
+			animIcons[1] = icons.MainIconWaiting2
 		}
 
 	ICONLOOP:

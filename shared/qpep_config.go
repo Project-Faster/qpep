@@ -51,7 +51,7 @@ listenaddress: 0.0.0.0
 listenport: 9443
 multistream: true
 verbose: false
-preferproxy: false
+preferproxy: true
 varackdelay: 0
 threads: 4
 `

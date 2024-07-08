@@ -82,6 +82,8 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 
 	if err := srv.ListenAndServe(); err != nil {
 		logger.Info("Error running API server: %v", err)
+		var errPtr = ctx.Value("lastError").(*error)
+		*errPtr = err
 	}
 	srv = nil
 	cancel()

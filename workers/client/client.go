@@ -92,6 +92,8 @@ func RunClient(ctx context.Context, cancel context.CancelFunc) {
 	})
 	if err != nil {
 		logger.Error("Encountered error when binding client proxy listener: %s", err)
+		var errPtr = ctx.Value("lastError").(*error)
+		*errPtr = err
 		return
 	}
 

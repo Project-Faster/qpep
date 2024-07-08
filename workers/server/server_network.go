@@ -63,6 +63,8 @@ func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address s
 
 	if err != nil {
 		logger.Error("Unrecoverable error while listening for QUIC connections: %s\n", err)
+		var errPtr = ctx.Value("lastError").(*error)
+		*errPtr = err
 		return
 	}
 
@@ -77,6 +79,8 @@ func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address s
 		quicSession, err := quicListener.AcceptConnection(ctx)
 		if err != nil {
 			logger.Error("Unrecoverable error while accepting QUIC session: %s\n", err)
+			var errPtr = ctx.Value("lastError").(*error)
+			*errPtr = err
 			return
 		}
 		go func() {
