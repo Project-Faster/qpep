@@ -2,9 +2,9 @@ package notify
 
 import (
 	"fmt"
+	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/qpep-tray/notify/toast"
 	"github.com/project-faster/dialog"
-	"log"
 )
 
 var (
@@ -24,22 +24,22 @@ func NotifyUser(message, category string, longNotification bool) {
 		Icon:     MainIconData,
 	}
 	if err := n.Push(); err != nil {
-		log.Println("ERR: ", err)
+		logger.Error("ERR: %v", err)
 	}
 }
 
 func ErrorMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)
-	log.Println("ERR: ", str)
+	logger.Error(str)
 
 	NotifyUser(str, "Error", false)
 }
 func InfoMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)
-	log.Println("INFO: ", str)
+	logger.Info("ASK: %s", str)
 }
 func ConfirmMsg(message string, parameters ...interface{}) bool {
 	str := fmt.Sprintf(message, parameters...)
-	log.Println("ASK: ", str)
+	logger.Info("ASK: %s", str)
 	return dialog.Message(str).YesNo()
 }

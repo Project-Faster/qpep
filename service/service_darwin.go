@@ -31,7 +31,7 @@ func runCommand(name string, cmd ...string) ([]byte, error, int) {
 
 // setCurrentWorkingDir method is currently a no-op
 func setCurrentWorkingDir(path string) bool {
-	return true // no-op
+	return os.Chdir(path) == nil
 }
 
 // sendProcessInterrupt method send an interrupt signal to the service

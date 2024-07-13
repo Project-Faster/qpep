@@ -3,11 +3,8 @@ package main
 import (
 	"github.com/Project-Faster/qpep/qpep-tray/common"
 	"github.com/Project-Faster/qpep/qpep-tray/notify"
-	"io"
-	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/Project-Faster/qpep/shared"
@@ -26,17 +23,6 @@ func main() {
 	signal.Notify(interruptListener, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	common.Init(os.Args[0])
-
-	// open the log file in current directory
-	f, err := os.OpenFile(filepath.Join(common.ExeDir, "qpep-tray.log"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer f.Close()
-	wrt := io.MultiWriter(os.Stdout, f)
-	log.SetOutput(wrt)
-
-	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
 	// read configuration
 	if err := shared.ReadConfiguration(true); err != nil {

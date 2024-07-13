@@ -33,6 +33,7 @@ var (
 	serverSep  = []byte(`Server: `)
 	portSep    = []byte(`Port: `)
 	ipSep      = []byte(`IP address: `)
+	newLineSep = []byte("\n")
 
 	ipRegexp = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
 )
@@ -201,17 +202,32 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 
 func parseProxyUrlFromOutput(output []byte) string {
 	if len(output) == 0 {
-		return ""
-	}
-	serverIndex := bytes.Index(output, serverSep)
-	portIndex := bytes.Index(output, portSep)
-	if serverIndex == -1 || portIndex == -1 {
+		logger.Error("Empty proxy output")
 		return ""
 	}
 
-	serverEndIndex := bytes.IndexByte(output[serverIndex:], byte('\n'))
-	portEndIndex := bytes.IndexByte(output[portIndex:], byte('\n'))
+	proxyHost := ""
+	proxyPort := ""
 
-	return fmt.Sprintf("%s:%s", bytes.TrimSpace(output[serverIndex:serverEndIndex]),
-		bytes.TrimSpace(output[portIndex:portEndIndex]))
+	fields := bytes.Split(output, newLineSep)
+	for _, field := range fields {
+		idx := bytes.IndexByte(field, byte(':'))
+		if idx == -1 {
+			continue
+		}
+		if bytes.HasPrefix(field, serverSep) {
+			proxyHost = string(field[8:])
+			continue
+		}
+		if bytes.HasPrefix(field, portSep) {
+			proxyPort = string(field[6:])
+			continue
+		}
+	}
+	if len(proxyHost) == 0 || len(proxyPort) == 0 {
+		logger.Error("Could not parse proxy output: %v", string(output))
+		return ""
+	}
+
+	return fmt.Sprintf("%s:%s", proxyHost, proxyPort)
 }

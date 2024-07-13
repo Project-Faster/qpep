@@ -102,18 +102,16 @@ func RequestEcho(localAddress, address string, apiPort int, toServer bool) *Echo
 	}
 
 	if scanner.Err() != nil {
-		logger.Error("%v\n", scanner.Err())
+		logger.Error("API ERROR: %v\n", scanner.Err())
 		return nil
 	}
 
-	if shared.QPepConfig.Verbose {
-		logger.Info("%s\n", str.String())
-	}
+	logger.Info("API RESP: %s\n", str.String())
 
 	respData := &EchoResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		logger.Error("%v\n", jsonErr)
+		logger.Error("API ERROR: %v\n", jsonErr)
 		return nil
 	}
 

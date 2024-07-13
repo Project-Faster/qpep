@@ -3,8 +3,8 @@ package common
 import (
 	"context"
 	"fmt"
+	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/qpep-tray/notify"
-	"log"
 	"os"
 	"time"
 
@@ -13,9 +13,18 @@ import (
 )
 
 func openConfigurationWithOSEditor() {
-	_, baseConfigPath, _ := shared.GetConfigurationPaths()
+	_, baseConfigPath, _, _ := shared.GetConfigurationPaths()
 
 	if err := open.Run(baseConfigPath); err != nil {
+		notify.ErrorMsg("Editor configuration failed with error: %v", err)
+		return
+	}
+}
+
+func openLogsFolder() {
+	_, _, _, logsPath := shared.GetConfigurationPaths()
+
+	if err := open.Run(logsPath); err != nil {
 		notify.ErrorMsg("Editor configuration failed with error: %v", err)
 		return
 	}
@@ -46,7 +55,7 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		_, baseConfigFile, _ := shared.GetConfigurationPaths()
+		_, baseConfigFile, _, _ := shared.GetConfigurationPaths()
 
 		var lastModTime time.Time
 		if stat, err := os.Stat(baseConfigFile); err == nil {
@@ -62,7 +71,7 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("Stopping configfile watchdog")
+				logger.Info("Stopping config file watchdog")
 				break CHECKLOOP
 
 			case <-time.After(10 * time.Second):

@@ -159,7 +159,7 @@ func (s *QPepConfigSuite) TestGetConfigurationPaths() {
 
 	_ = os.RemoveAll(expectConfDir)
 
-	confDir, confFile, confUserFile := GetConfigurationPaths()
+	confDir, confFile, confUserFile, _ := GetConfigurationPaths()
 	assert.True(s.T(), len(confDir) > 0)
 	assert.True(s.T(), len(confFile) > 0)
 	assert.True(s.T(), len(confUserFile) > 0)
@@ -212,7 +212,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithUserConfigOverride() {
 }
 
 func (s *QPepConfigSuite) TestReadConfiguration_WithLimitsConfig() {
-	_, f, _ := GetConfigurationPaths()
+	_, f, _, _ := GetConfigurationPaths()
 	_ = ioutil.WriteFile(f, []byte(TEST_LIMITS_CONFIG), 0777)
 
 	assert.Nil(s.T(), ReadConfiguration(true))
@@ -224,7 +224,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithLimitsConfig() {
 }
 
 func (s *QPepConfigSuite) TestReadConfiguration_WithBrokerConfig() {
-	_, f, _ := GetConfigurationPaths()
+	_, f, _, _ := GetConfigurationPaths()
 	_ = ioutil.WriteFile(f, []byte(TEST_BROKER_CONFIG), 0777)
 
 	assert.Nil(s.T(), ReadConfiguration(true))

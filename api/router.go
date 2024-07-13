@@ -110,7 +110,7 @@ func newServer(addr string, rtr *APIRouter, ctx context.Context) *http.Server {
 // apiFilter method checks if a request to an api path is really intended to be an api request, checking
 // that the "Accept" header be compatible with json content, if not then it returns an http 400 error BadRequest
 func apiFilter(next httprouter.Handle) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		logger.Info("apiFilter - %s\n", formatRequest(r))
 
 		// Request API request must accept JSON
@@ -127,8 +127,9 @@ func apiFilter(next httprouter.Handle) httprouter.Handle {
 
 		// Request is found for API request
 		w.Header().Add("Content-Type", "application/json")
+		w.Header().Set("Connection", "close")
 		next(w, r, ps)
-	})
+	}
 }
 
 // apiForbidden method returns as response the http status code 403 Forbidden

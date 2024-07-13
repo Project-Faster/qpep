@@ -2,9 +2,8 @@ package common
 
 import (
 	"errors"
+	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/qpep-tray/notify"
-	"log"
-
 	"github.com/Project-Faster/qpep/shared"
 )
 
@@ -12,7 +11,6 @@ var serverActive bool = false
 
 func startServer() error {
 	if serverActive {
-		log.Println("ERROR: Cannot start an already running server, first stop it")
 		return shared.ErrFailed
 	}
 
@@ -20,7 +18,7 @@ func startServer() error {
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {
 			shared.QPepConfig.ListenHost = addressList[idx]
-			log.Printf("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
+			logger.Error("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
 			break
 		}
 	}
@@ -42,12 +40,11 @@ func startServer() error {
 
 func stopServer() error {
 	if !serverActive {
-		log.Println("ERROR: Cannot stop an already stopped server, first start it")
 		return nil
 	}
 
 	if err := stopServerProcess(); err != nil {
-		log.Printf("Could not stop process gracefully (%v)\n", err)
+		logger.Error("Could not stop process gracefully (%v)\n", err)
 		return err
 	}
 

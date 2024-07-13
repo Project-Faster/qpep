@@ -38,7 +38,10 @@ func (s *APIClientSuite) BeforeTest(_, testName string) {
 	shared.QPepConfig.ListenHost = "127.0.0.1"
 	shared.QPepConfig.GatewayAPIPort = 9443
 	s.finished = false
+
+	var err error
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.ctx = context.WithValue(s.ctx, "lastError", &err)
 
 	go func() {
 		RunServer(s.ctx, s.cancel, true)

@@ -4,9 +4,9 @@ package notify
 
 import (
 	"fmt"
+	"github.com/Project-Faster/qpep/logger"
 	platformnotify "github.com/martinlindhe/notify"
 	"github.com/project-faster/dialog"
-	"log"
 )
 
 var (
@@ -19,16 +19,16 @@ func NotifyUser(message, category string, longNotification bool) {
 
 func ErrorMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)
-	log.Println("ERR: ", str)
+	logger.Error(str)
 
 	platformnotify.Notify("QPep", "Error", str, MainIconData)
 }
 func InfoMsg(message string, parameters ...interface{}) {
 	str := fmt.Sprintf(message, parameters...)
-	log.Println("INFO: ", str)
+	logger.Info(str)
 }
 func ConfirmMsg(message string, parameters ...interface{}) bool {
 	str := fmt.Sprintf(message, parameters...)
-	log.Println("ASK: ", str)
+	logger.Info("ASK: %s", str)
 	return dialog.Message(str).YesNo()
 }

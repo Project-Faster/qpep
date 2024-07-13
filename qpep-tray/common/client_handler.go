@@ -2,9 +2,8 @@ package common
 
 import (
 	"errors"
+	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/qpep-tray/notify"
-	"log"
-
 	"github.com/Project-Faster/qpep/shared"
 )
 
@@ -12,7 +11,6 @@ var clientActive bool = false
 
 func startClient() error {
 	if clientActive {
-		log.Println("ERROR: Cannot start an already running client, first stop it")
 		return shared.ErrFailed
 	}
 
@@ -20,7 +18,7 @@ func startClient() error {
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {
 			shared.QPepConfig.ListenHost = addressList[idx]
-			log.Printf("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
+			logger.Info("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
 			break
 		}
 	}
@@ -42,7 +40,6 @@ func startClient() error {
 
 func stopClient() error {
 	if !clientActive {
-		notify.ErrorMsg("ERROR: Cannot stop an already stopped client, first start it")
 		return nil
 	}
 
@@ -77,9 +74,9 @@ func startClientProcess() error {
 	}
 	err = cmd.Wait()
 	if err != nil {
-		log.Printf("ERR: Full command: %v", cmd.String())
+		logger.Error("Full command: %v", cmd.String())
 		out, _ := cmd.CombinedOutput()
-		log.Printf("ERR: Full error: %v", string(out))
+		logger.Error("Full error: %v", string(out))
 	}
 	return err
 }

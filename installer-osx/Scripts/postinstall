@@ -11,13 +11,6 @@ echo ">> Fix permissions"
 chown -R $USER:staff /Applications/QPep.app
 chmod -R 0755 /Applications/QPep.app
 
-echo """#!/bin/bash
-osascript -e 'Tell application \"System Events\" to display dialog \"Password:\" default answer \"\" with hidden answer' -e 'text returned of result'
-""" > /Applications/QPep.app/Contents/MacOS/askpass.sh
-
-chmod 0755 /Applications/QPep.app/Contents/MacOS/askpass.sh
-chmod +x /Applications/QPep.app/Contents/MacOS/askpass.sh
-
 mkdir /Applications/QPep.app/Contents/MacOS/log
 chown -R $USER:staff /Applications/QPep.app/Contents/MacOS/log
 chmod -R 0755 /Applications/QPep.app/Contents/MacOS/log
@@ -29,8 +22,6 @@ if [[ -d /tmp/qpep-config ]]; then
 fi
 
 echo ">> Remove previous service if present"
-export SUDO_ASKPASS=/Applications/QPep.app/Contents/MacOS/askpass.sh
-
 sudo -S -E -u "$USER" /bin/bash -c 'cd /Applications/QPep.app/Contents/MacOS/ && ./qpep --client --service uninstall' || true
 
 echo ">> Install client service"
@@ -41,9 +32,6 @@ ls /Users/$USER/Library/LaunchAgents/
 echo ">> Fix service permission"
 sudo -S chown root:wheel "/Users/$USER/Library/LaunchAgents/qpep-client.plist"
 sudo -S chmod o-w "/Users/$USER/Library/LaunchAgents/qpep-client.plist"
-
-#echo ">> Start application..."
-#open -n -a /Applications/QPep.app
 
 echo "Done"
 }  &> /tmp/qpep-postinstall.log

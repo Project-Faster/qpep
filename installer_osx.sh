@@ -46,7 +46,6 @@ fi
 
 echo [Cleanup]
 cd installer-osx
-rm -rf ./*.dmg
 rm -rf ./*.pkg
 rm -rf QPep.app/Contents/MacOS/*
 echo "OK"
@@ -65,6 +64,15 @@ fi
 cp ../build/qpep QPep.app/Contents/MacOS/
 cp ../build/qpep-tray QPep.app/Contents/MacOS/
 mkdir -p QPep.app/Contents/MacOS/config
+
+export QPEP_GATEWAY=192.168.1.100
+export QPEP_ADDRESS=0.0.0.0
+export QPEP_PORT=1443
+export QPEP_BACKEND=quic-go
+export QPEP_CCA=reno
+export QPEP_SLOWSTART=search
+envsubst < ./qpep.yml.tpl > QPep.app/Contents/MacOS/config/qpep.yml
+cp ./server_cert.pem QPep.app/Contents/MacOS/server_cert.pem
 
 echo [Generate Bundle]
 pkgbuild --root "QPep.app" --identifier com.project-faster.qpep --scripts Scripts --install-location "/Applications/QPep.app" DistributionInstall.pkg

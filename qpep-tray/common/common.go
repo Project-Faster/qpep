@@ -3,9 +3,9 @@ package common
 import (
 	"context"
 	"fmt"
+	"github.com/Project-Faster/qpep/logger"
 	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"io/ioutil"
-	"log"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -30,13 +30,15 @@ var (
 )
 
 func Init(pathDir string) {
+	logger.SetupLogger("qpep-tray.log", "info")
+
 	ExeDir, _ = filepath.Abs(filepath.Dir(pathDir))
 
 	if runtime.GOOS != "darwin" {
 		notify.MainIconData = filepath.Join(ExeDir, "main.png")
 		// extract the icon for notifications
 		if err := ioutil.WriteFile(notify.MainIconData, icons.MainIconConnected, 0666); err != nil {
-			log.Println("ERR: Could not extract notification icon")
+			logger.Error("Could not extract notification icon")
 		}
 	}
 }
@@ -65,6 +67,7 @@ func OnReady() {
 	mStatus := systray.AddMenuItem("Status Interface", "Open the status web gui")
 	mConfig := systray.AddMenuItem("Edit Configuration", "Open configuration for next client / server executions")
 	mConfigRefresh := systray.AddMenuItem("Reload Configuration", "Reload configuration from disk and restart the service")
+	mLogs := systray.AddMenuItem("Open Logs Folder", "Opens the logs folder for checking")
 	systray.AddSeparator()
 	mListeningAddress := systray.AddMenuItem("Listen Address", "Force a listening address on the fly")
 	addressList, _ := shared.GetLanListeningAddresses()
@@ -84,6 +87,7 @@ func OnReady() {
 	mStatus.SetIcon(icons.ConfigIconData)
 	mConfig.SetIcon(icons.ConfigIconData)
 	mConfigRefresh.SetIcon(icons.RefreshIconData)
+	mLogs.SetIcon(icons.ConfigIconData)
 
 	// launch the watchdog routines
 	contextConfigWatchdog, cancelConfigWatchdog = startReloadConfigurationWatchdog()
@@ -92,7 +96,7 @@ func OnReady() {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("PANIC: %v", err)
+				logger.Panic("PANIC: %v", err)
 				debug.PrintStack()
 				cancelConfigWatchdog()
 			}
@@ -139,6 +143,10 @@ func OnReady() {
 			case <-mConfigRefresh.ClickedCh:
 				shared.ReadConfiguration(true)
 				notify.NotifyUser("Reload finished", "Info", false)
+				continue
+
+			case <-mLogs.ClickedCh:
+				openLogsFolder()
 				continue
 
 			case <-mClient.ClickedCh:
@@ -218,7 +226,7 @@ func OnReady() {
 }
 
 func OnExit() {
-	log.Println("Waiting for resources to be freed...")
+	logger.Info("Waiting for resources to be freed...")
 
 	// request cancelling of the watchdogs
 	cancelConfigWatchdog()
@@ -255,7 +263,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("PANIC: %v\n", err)
+				logger.Panic("PANIC: %v\n", err)
 				debug.PrintStack()
 			}
 		}()
@@ -306,7 +314,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("PANIC: %v\n", err)
+				logger.Panic("PANIC: %v\n", err)
 				debug.PrintStack()
 			}
 		}()
@@ -317,7 +325,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("Stopping connection check watchdog")
+				logger.Info("Stopping connection check watchdog")
 				break CHECKLOOP
 
 			case <-time.After(10 * time.Second):
@@ -340,7 +348,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 				if shared.UsingProxy {
 					shared.QPepConfig.ListenHost = shared.ProxyAddress.Hostname()
 				}
-				log.Printf("Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
+				logger.Info("Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
 
 				if !fakeAPICallCheckProxy() {
 					notify.NotifyUser("Detected issue with setting the proxy values, terminating...", "Error", false)
@@ -355,20 +363,20 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 					var resp = api.RequestEcho(listenHost, gatewayHost, gatewayAPIPort, clientToServer)
 					if resp == nil {
 						// check in tray-icon for activated proxy
-						log.Printf("Server Echo: FAILED\n")
+						logger.Info("Server Echo: FAILED\n")
 						continue
 					}
 
-					log.Printf("Server Echo: %s %d\n", resp.Address, resp.Port)
+					logger.Info("Server Echo: %s %d\n", resp.Address, resp.Port)
 					pubAddress = resp.Address
 				}
 
 				if len(pubAddress) > 0 {
 					var status = api.RequestStatus(listenHost, gatewayHost, gatewayAPIPort, pubAddress, clientToServer)
 					if status == nil {
-						log.Printf("Server Status: no / invalid response\n")
+						logger.Info("Server Status: no / invalid response\n")
 					} else if status.ConnectionCounter < 0 {
-						log.Printf("Server Status: no connections received\n")
+						logger.Info("Server Status: no connections received\n")
 					}
 					if status == nil || status.ConnectionCounter < 0 {
 						pubAddress = ""
@@ -376,7 +384,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 						continue
 					}
 
-					log.Printf("Server Status: %s %d\n", status.LastCheck, status.ConnectionCounter)
+					logger.Info("Server Status: %s %d\n", status.LastCheck, status.ConnectionCounter)
 					notify.NotifyUser("Connection established", "Info", false)
 					state = stateConnected
 				}
