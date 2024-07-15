@@ -316,7 +316,7 @@ jobs:
       - name: Build QPep Tray
         run: |
           pushd qpep-tray
-          export CGO_ENABLED=0
+          set CGO_ENABLED=0
           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
           popd
 

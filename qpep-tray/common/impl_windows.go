@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/qpep-tray/icons"
 	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"os/exec"
 	"path/filepath"
@@ -67,4 +68,11 @@ func fakeAPICallCheckProxy() bool {
 		return true
 	}
 	return false
+}
+
+func getWaitingIcons() [][]byte {
+	return [][]byte{
+		icons.MainIconWaiting,
+		icons.MainIconData,
+	}
 }

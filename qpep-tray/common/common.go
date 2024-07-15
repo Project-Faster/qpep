@@ -269,13 +269,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 		}()
 
 		var flip = 0
-		var animIcons = [][]byte{
-			icons.MainIconWaiting,
-			icons.MainIconData,
-		}
-		if runtime.GOOS == "darwin" {
-			animIcons[1] = icons.MainIconWaiting2
-		}
+		var animIcons = getWaitingIcons()
 
 	ICONLOOP:
 		for {

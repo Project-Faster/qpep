@@ -2,10 +2,10 @@ package common
 
 import (
 	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/qpep-tray/icons"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"os/exec"
 	"path/filepath"
-
-	"github.com/Project-Faster/qpep/qpep-tray/notify"
 
 	"github.com/Project-Faster/qpep/shared"
 )
@@ -47,4 +47,11 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 
 func fakeAPICallCheckProxy() bool {
 	return true
+}
+
+func getWaitingIcons() [][]byte {
+	return [][]byte{
+		icons.MainIconWaiting,
+		icons.MainIconWaiting2,
+	}
 }

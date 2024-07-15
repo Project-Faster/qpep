@@ -1,6 +1,7 @@
 package common
 
 import (
+	"github.com/Project-Faster/qpep/qpep-tray/icons"
 	"os/exec"
 	"path/filepath"
 
@@ -48,4 +49,11 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 // "false" value means the proxy is not running correctly
 func fakeAPICallCheckProxy() bool {
 	return true
+}
+
+func getWaitingIcons() [][]byte {
+	return [][]byte{
+		icons.MainIconWaiting,
+		icons.MainIconData,
+	}
 }
