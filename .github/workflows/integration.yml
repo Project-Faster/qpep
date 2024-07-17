@@ -5,7 +5,7 @@ on:
   push:
     branches: [ "main", "testing-*", "issue*" ]
 
-run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }} rev. ${{ github.sha }}]
+run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] rev.${{ github.sha }}
 
 jobs:
   build-linux:
@@ -23,99 +23,99 @@ jobs:
         shell: bash
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        clean: true
-        submodules: true
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Set up CMake
-      uses: jwlawson/actions-setup-cmake@v1.14
-      with:
-        cmake-version: ${{ env.CMAKE_VERSION }}
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
 
-    - name: Prepare
-      run: |
-        go clean -cache -x
-        mkdir -p cover
-        mkdir -p report
-        mkdir -p unit
+      - name: Prepare
+        run: |
+          go clean -cache -x
+          mkdir -p cover
+          mkdir -p report
+          mkdir -p unit
 
-    - name: Build Backends
-      run: |
-        cd backend/
-        go generate
+      - name: Build Backends
+        run: |
+          cd backend/
+          go generate
 
-    - name: Build Executable
-      run: |
-        go build -v -o build/qpep
+      - name: Build Executable
+        run: |
+          go build -v -o build/qpep
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: qpep_linux_b${{ github.run_id }}
-        path: build/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_linux_b${{ github.run_id }}
+          path: build/
 
-    - name: Prepare Tests
-      run: |
-        mkdir -p unit/
-        mkdir -p cover/
-        mkdir -p report/
-        go install github.com/jstemmer/go-junit-report@v1.0.0
-        go install github.com/axw/gocov/gocov@v1.1.0
-        go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-        go install github.com/AlekSi/gocov-xml@v1.1.0
+      - name: Prepare Tests
+        run: |
+          mkdir -p unit/
+          mkdir -p cover/
+          mkdir -p report/
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
 
-    - name: Test
-      run: |
-        set -x
-        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
-        do
-          pushd $i
-          export WORKSPACE="${{ github.workspace }}"
-          go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
-          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
-          grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-          cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
-          popd
-        done
-      continue-on-error: true
+      - name: Test
+        run: |
+          set -x
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            export WORKSPACE="${{ github.workspace }}"
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
+            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+            popd
+          done
+        continue-on-error: true
 
-    - name: Publish Coverage Results
-      if: always()
-      run: |
-        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
-        do
-          pushd $i
-          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
-          echo >> $GITHUB_STEP_SUMMARY
-          gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
-          popd
-        done
-      continue-on-error: true
+      - name: Publish Coverage Results
+        if: always()
+        run: |
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
+            echo >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
+            popd
+          done
+        continue-on-error: true
 
-    - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      if: always()
-      with:
-        check_name: "Unit Tests - Linux Platform"
-        junit_files: "unit/*.xml"
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2
+        if: always()
+        with:
+          check_name: "Unit Tests - Linux Platform"
+          junit_files: "unit/*.xml"
 
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: linux_cover_output
-        path: "cover/*.out"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux_cover_output
+          path: "cover/*.out"
 
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: linux_coverage_report
-        path: "report/*.html"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux_coverage_report
+          path: "report/*.html"
 
   build-windows:
     runs-on: windows-latest
@@ -128,141 +128,147 @@ jobs:
       QPEP_CI_ENV: 1
       CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      MINGW_BASEDIR: 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
     defaults:
       run:
         shell: cmd
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        clean: true
-        submodules: true
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Install Wix
-      uses: actions/checkout@v2
-      with:
-        repository: fbarresi/wix
-        path: wix
+      - name: Install Wix
+        uses: actions/checkout@v2
+        with:
+          repository: fbarresi/wix
+          path: wix
 
-    - name: Install MSBuild
-      uses: microsoft/setup-msbuild@v1.1
+      - name: Install MSBuild
+        uses: microsoft/setup-msbuild@v1.1
 
-    - name: Set up MinGW
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x64
-        static: false
-        version: 11.1.0
+      - name: Set up MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+          static: true
+          version: 11.1.0
 
-    - name: Set up CMake
-      uses: jwlawson/actions-setup-cmake@v1.14
-      with:
-        cmake-version: ${{ env.CMAKE_VERSION }}
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
 
-    - name: Prepare
-      run: |
-        MKDIR build
-        MKDIR build\64bits
-        MKDIR build\32bits
-        COPY /Y windivert\LICENSE build\LICENSE.windivert
-        COPY /Y LICENSE build\LICENSE
-        go clean -cache -x
-        COPY /Y windivert\x64\* build\64bits
+      - name: Prepare
+        run: |
+          @echo on
+          
+          MKDIR build
+          MKDIR build\64bits
+          MKDIR build\32bits
+          COPY /Y windivert\LICENSE build\LICENSE.windivert
+          COPY /Y LICENSE build\LICENSE
+          go clean -cache -x
+          COPY /Y windivert\x64\* build\64bits
+          COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\64bits
+          COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\64bits
+          COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\64bits
 
-    - name: Build Backends
-      run: |
-        cd backend/
-        go generate
+      - name: Build Backends
+        run: |
+          cd backend/
+          go generate
 
-    - name: Build QPep
-      run: |
-         go build -o build\64bits\qpep.exe
+      - name: Build QPep
+        run: |
+          go build -o build\64bits\qpep.exe
 
-    - name: Build QPep Tray
-      run: |
-         pushd qpep-tray
-         export CGO_ENABLED=0
-         go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
-         popd
-
-    - name: Build QPep Installer
-      run: |
-        sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > installer/installer.wxs
-        sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
-        sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
-        set PATH=${{ github.workspace }}\wix\tools;%PATH%
-        msbuild installer\installer.sln
-
-    - uses: actions/upload-artifact@v4
-      with:
-        name: qpep_windows_b${{ github.run_id }}
-        path: build/installer.msi
-
-    - name: Prepare Tests
-      run: |
-        MKDIR unit
-        MKDIR cover
-        MKDIR report
-        go install github.com/jstemmer/go-junit-report@v1.0.0
-        go install github.com/axw/gocov/gocov@v1.1.0
-        go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-        go install github.com/AlekSi/gocov-xml@v1.1.0
-
-    - name: Test
-      shell: bash
-      run: |
-        set -x
-        export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-        go generate github.com/parvit/qpep/windivert
-        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
-        do
-          pushd $i
-          cp -r $WORKSPACE/windivert/x64/* .
-          go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> NUL || true
-          ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
-          grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-          cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+      - name: Build QPep Tray
+        run: |
+          pushd qpep-tray
+          set CGO_ENABLED=0
+          go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
           popd
-        done
-      continue-on-error: true
 
-    - name: Publish Coverage Results
-      shell: bash
-      if: always()
-      run: |
-        set -x
-        export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-        for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
-        do
-          pushd $i
-          echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-          gocov convert $WORKSPACE/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
-          echo >> $GITHUB_STEP_SUMMARY
-          gocov convert $WORKSPACE/cover/$(basename $PWD).out | gocov-html > $WORKSPACE/report/$(basename $PWD).html || true
-          popd
-        done
-      continue-on-error: true
+      - name: Build QPep Installer
+        run: |
+          sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > installer/installer.wxs
+          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
+          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
+          set PATH=${{ github.workspace }}\wix\tools;%PATH%
+          msbuild installer\installer.sln
 
-    - name: Publish Unit Test Results
-      uses: EnricoMi/publish-unit-test-result-action/windows@v2
-      if: always()
-      with:
-        check_name: "Unit Tests - Windows Platform"
-        junit_files: "unit/*.xml"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_windows_b${{ github.run_id }}
+          path: build/installer.msi
 
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: windows_coverage_output
-        path: cover/*.out
+      - name: Prepare Tests
+        run: |
+          MKDIR unit
+          MKDIR cover
+          MKDIR report
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
 
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: windows_coverage_report
-        path: report/*.html
+      - name: Test
+        shell: bash
+        run: |
+          set -x
+          export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
+          go generate github.com/Project-Faster/qpep/windivert
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            cp -r $WORKSPACE/windivert/x64/* .
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> NUL || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
+            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Coverage Results
+        shell: bash
+        if: always()
+        run: |
+          set -x
+          export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+            gocov convert $WORKSPACE/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
+            echo >> $GITHUB_STEP_SUMMARY
+            gocov convert $WORKSPACE/cover/$(basename $PWD).out | gocov-html > $WORKSPACE/report/$(basename $PWD).html || true
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action/windows@v2
+        if: always()
+        with:
+          check_name: "Unit Tests - Windows Platform"
+          junit_files: "unit/*.xml"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows_coverage_output
+          path: cover/*.out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows_coverage_report
+          path: report/*.html
