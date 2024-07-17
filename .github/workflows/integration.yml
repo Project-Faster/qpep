@@ -286,7 +286,7 @@ jobs:
         uses: egor-tensin/setup-mingw@v2
         with:
           platform: x64
-          static: false
+          static: true
           version: 11.1.0
 
       - name: Set up CMake
