@@ -49,6 +49,10 @@ func TestServerSuite(t *testing.T) {
 
 type ServerSuite struct {
 	suite.Suite
+
+	err    error
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func (s *ServerSuite) BeforeTest(_, testName string) {
@@ -59,11 +63,16 @@ func (s *ServerSuite) BeforeTest(_, testName string) {
 	shared.QPepConfig.ListenHost = "127.0.0.1"
 	shared.QPepConfig.ListenPort = 9090
 	shared.QPepConfig.GatewayAPIPort = 9443
+
+	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.ctx = context.WithValue(s.ctx, "lastError", &s.err)
 }
 
 func (s *ServerSuite) AfterTest(_, testName string) {
 	monkey.UnpatchAll()
 	api.Statistics.Reset()
+
+	s.err = nil
 }
 
 func (s *ServerSuite) TestValidateConfiguration() {
@@ -103,15 +112,13 @@ func (s *ServerSuite) TestValidateConfiguration_BadAPIPort() {
 }
 
 func (s *ServerSuite) TestPerformanceWatcher() {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	api.Statistics.SetMappedAddress("127.0.0.1", "192.168.1.100")
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		performanceWatcher(ctx, cancel)
+		performanceWatcher(s.ctx, s.cancel)
 	}()
 
 	for i := 0; i < 3; i++ {
@@ -130,7 +137,7 @@ func (s *ServerSuite) TestPerformanceWatcher() {
 
 	<-time.After(3 * time.Second)
 
-	cancel()
+	s.cancel()
 
 	wg.Wait()
 
@@ -150,15 +157,13 @@ func (s *ServerSuite) TestPerformanceWatcher_Panic() {
 	}()
 
 	assert.NotPanics(s.T(), func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		performanceWatcher(ctx, cancel)
+		performanceWatcher(s.ctx, s.cancel)
 	})
 }
 
 func (s *ServerSuite) TestListenQuicSession_Panic() {
 	quicProvider = fakeBackend
-	ctx, cancel := context.WithCancel(context.Background())
-	listenQuicSession(ctx, cancel, "127.0.0.1", 9443)
+	listenQuicSession(s.ctx, s.cancel, "127.0.0.1", 9443)
 }
 
 func (s *ServerSuite) TestListenQuicConn_Panic() {
@@ -170,19 +175,17 @@ func (s *ServerSuite) TestHandleQuicStream_Panic() {
 }
 
 func (s *ServerSuite) runServerTest() {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	var finished = false
 	var wg = &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 		finished = true
 	}()
 
 	<-time.After(1 * time.Second)
-	cancel()
+	s.cancel()
 	<-time.After(1 * time.Second)
 
 	wg.Wait()
@@ -209,8 +212,6 @@ func (s *ServerSuite) TestRunServer_BadListener() {
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection() {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	monkey.Patch(shared.GetDefaultLanListeningAddress, func(current, gateway string) (string, []int64) {
 		return "127.0.0.1", nil
 	})
@@ -219,11 +220,11 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
-		api.RunServer(ctx, cancel, false)
+		api.RunServer(s.ctx, s.cancel, false)
 	}()
 
 	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
@@ -231,7 +232,7 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -253,11 +254,11 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 	recv, _ := stream.Read(receiveData)
 
 	expectedRecv := `HTTP\/1\.1 200 OK
+Connection: close
 Content-Type: application\/json
 Vary: Origin
 Date: .+ GMT
 Content-Length: \d+
-Connection: close
 
 {"address":"[^"]+","port":\d+,"serverversion":"[^"]+","total_connections":\d+}`
 
@@ -267,7 +268,7 @@ Connection: close
 	stream.AbortRead(0)
 	stream.Close()
 
-	cancel()
+	s.cancel()
 
 	wg.Wait()
 
@@ -276,13 +277,11 @@ Connection: close
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 
 	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
@@ -290,7 +289,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	stream.Write([]byte{0, 0})
@@ -304,23 +303,21 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
 	stream.AbortRead(0)
 	stream.Close()
 
-	cancel()
+	s.cancel()
 
 	wg.Wait()
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
-		api.RunServer(ctx, cancel, false)
+		api.RunServer(s.ctx, s.cancel, false)
 	}()
 
 	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
@@ -328,7 +325,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -352,7 +349,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 	stream.AbortRead(0)
 	stream.Close()
 
-	cancel()
+	s.cancel()
 
 	wg.Wait()
 }
@@ -381,24 +378,22 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 	shared.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
-
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
-		api.RunServer(ctx, cancel, false)
+		api.RunServer(s.ctx, s.cancel, false)
 	}()
 
 	// open connection and send
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -427,7 +422,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 	stream.AbortRead(0)
 	stream.Close()
 
-	cancel()
+	s.cancel()
 
 	wg.Wait()
 }
@@ -456,24 +451,22 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 	shared.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
-
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
-		api.RunServer(ctx, cancel, false)
+		api.RunServer(s.ctx, s.cancel, false)
 	}()
 
 	// open connection and send
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -502,7 +495,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 	stream.AbortRead(0)
 	stream.Close()
 
-	cancel()
+	s.cancel()
 
 	wg.Wait()
 }
@@ -530,15 +523,13 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	shared.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
-
 	var apisrv *http.Server = nil
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
@@ -557,7 +548,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
 			Handler: corsRouterHandler,
 			BaseContext: func(l net.Listener) context.Context {
-				return ctx
+				return s.ctx
 			},
 		}
 
@@ -571,7 +562,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -611,7 +602,7 @@ Connection: close
 	stream.AbortRead(0)
 	stream.Close()
 
-	cancel()
+	s.cancel()
 
 	apisrv.Close()
 
@@ -644,8 +635,6 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	shared.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
-
 	var apisrv *http.Server = nil
 	var expectSent = 0
 
@@ -653,7 +642,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
@@ -675,7 +664,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
 			Handler: corsRouterHandler,
 			BaseContext: func(l net.Listener) context.Context {
-				return ctx
+				return s.ctx
 			},
 		}
 
@@ -689,7 +678,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -726,7 +715,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 		}
 	}
 
-	cancel()
+	s.cancel()
 
 	_ = apisrv.Close()
 
@@ -758,8 +747,6 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	shared.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
-
 	var apisrv *http.Server = nil
 	var expectSent = 1024 * 1024 * 10
 
@@ -767,7 +754,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
@@ -790,7 +777,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
 			Handler: corsRouterHandler,
 			BaseContext: func(l net.Listener) context.Context {
-				return ctx
+				return s.ctx
 			},
 		}
 
@@ -804,7 +791,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -826,7 +813,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	out, err := io.ReadAll(stream)
 	assert.Nil(s.T(), err)
 
-	cancel()
+	s.cancel()
 
 	_ = apisrv.Close()
 
@@ -854,8 +841,6 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	shared.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
-
 	var apisrv *http.Server = nil
 	var expectSent = 1024 * 1024 * 10
 
@@ -863,7 +848,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		RunServer(ctx, cancel)
+		RunServer(s.ctx, s.cancel)
 	}()
 	go func() {
 		defer wg.Done()
@@ -886,7 +871,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 			Addr:    fmt.Sprintf("%s:%d", addr, 9443),
 			Handler: corsRouterHandler,
 			BaseContext: func(l net.Listener) context.Context {
-				return ctx
+				return s.ctx
 			},
 		}
 
@@ -900,7 +885,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
 
-	stream, err := conn.OpenStream(ctx)
+	stream, err := conn.OpenStream(s.ctx)
 	assert.Nil(s.T(), err)
 
 	sessionHeader := shared.QPepHeader{
@@ -922,7 +907,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	out, err := ioutil.ReadAll(stream)
 	assert.NotNil(s.T(), err)
 
-	cancel()
+	s.cancel()
 
 	_ = apisrv.Close()
 

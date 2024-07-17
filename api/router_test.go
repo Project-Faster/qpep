@@ -36,6 +36,8 @@ func (s *RouterSuite) BeforeTest(_, testName string) {
 	shared.QPepConfig.GatewayAPIPort = 9443
 	s.finished = false
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+	var err error
+	s.ctx = context.WithValue(s.ctx, "lastError", &err)
 	var local = true
 
 	switch testName {

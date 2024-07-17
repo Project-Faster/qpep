@@ -130,7 +130,7 @@ func (s *QPepConfigSuite) TestRawConfigType_OverrideRealType() {
 	s.T().Logf("config: %v == %v\n", prevValues, newValues)
 
 	assert.NotEqual(s.T(), prevValues, newValues)
-	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 0 0 0 0 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true true false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 0 0 0 0 0}",
 		newValues)
 }
 
@@ -192,7 +192,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithoutUserConfig() {
 
 	assert.NotNil(s.T(), QPepConfig)
 	configValues := fmt.Sprintf("%v", QPepConfig)
-	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true true false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
 		configValues)
 }
 
@@ -207,7 +207,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithUserConfigOverride() {
 
 	assert.NotNil(s.T(), QPepConfig)
 	configValues := fmt.Sprintf("%v", QPepConfig)
-	assert.Equal(s.T(), "{10 198.18.0.254 9090 444 quic-go 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 9090 444 quic-go 0.0.0.0 9443 true true false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
 		configValues)
 }
 
@@ -236,7 +236,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithBrokerConfig() {
 }
 
 func (s *QPepConfigSuite) TestReadConfiguration_Panic() {
-	guard := monkey.Patch(GetConfigurationPaths, func() (string, string, string) {
+	guard := monkey.Patch(GetConfigurationPaths, func() (string, string, string, string) {
 		panic("test")
 	})
 	defer guard.Unpatch()
@@ -322,7 +322,7 @@ func (s *QPepConfigSuite) TestWriteConfigurationOverrideFile_createFileIfAbsentE
 }
 
 func (s *QPepConfigSuite) TestWriteConfigurationOverrideFile_PanicError() {
-	guard := monkey.Patch(GetConfigurationPaths, func() (string, string, string) {
+	guard := monkey.Patch(GetConfigurationPaths, func() (string, string, string, string) {
 		panic("<test-error>")
 	})
 	defer guard.Unpatch()
