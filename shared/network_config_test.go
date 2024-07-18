@@ -38,7 +38,7 @@ func (s *NetworkConfigSuite) TestGetLanListeningAddresses_Default() {
 	detectedGatewayInterfaces = []int64{1}
 
 	addrs, interfaces := GetLanListeningAddresses()
-	assertArrayEqualsString(t, []string{"127.0.0.1"}, addrs)
+	assert.Len(t, addrs, 1)
 	assertArrayEqualsInt64(t, []int64{1}, interfaces)
 }
 

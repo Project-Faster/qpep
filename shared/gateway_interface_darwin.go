@@ -23,6 +23,7 @@ import (
 
 // notes
 // networksetup -listallnetworkservices -> All network interfaces available
+// networksetup -getinfo "<interface>" -> Data on network interfaces
 // networksetup -setwebproxy "Wi-fi" 127.0.0.1 8080 -> HTTP proxy
 // networksetup -setwebproxystate "Wi-fi" on -> activate HTTP proxy
 // networksetup -setsecurewebproxy "Wi-fi" 127.0.0.1 8443 -> HTTPS proxy

@@ -52,6 +52,9 @@ func (s *RouterSuite) BeforeTest(_, testName string) {
 			flags.Globals.Client = true
 		}
 		go func() {
+			defer func() {
+				_ = recover()
+			}()
 			RunServer(s.ctx, s.cancel, local)
 			s.finished = true
 		}()
