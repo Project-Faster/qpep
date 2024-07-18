@@ -15,8 +15,8 @@ var (
 	// ServerConfiguration global variable that keeps track of the current server configuration
 	ServerConfiguration = ServerConfig{
 		ListenHost:  "0.0.0.0",
-		ListenPort:  443,
-		APIPort:     444,
+		ListenPort:  1443,
+		APIPort:     8444,
 		IdleTimeout: 3 * time.Second,
 	}
 )

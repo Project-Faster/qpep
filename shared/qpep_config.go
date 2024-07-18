@@ -47,8 +47,8 @@ decimate: 4
 decimatetime: 100
 maxretries: 10
 gateway: 198.18.0.254
-port: 443
-apiport: 444
+port: 1443
+apiport: 8444
 listenaddress: 0.0.0.0
 listenport: 9443
 multistream: true
