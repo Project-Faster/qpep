@@ -327,10 +327,11 @@ TERMINATIONLOOP:
 
 	<-time.After(1 * time.Second)
 
-	logger.Info("Exiting...")
 	p.exitValue = 0
 
 	var errPtr = p.context.Value("lastError").(*error)
+	logger.Info("Exiting %v (%d / %v)", wasInterrupted, p.exitValue, *errPtr)
+
 	if !wasInterrupted && *errPtr != nil {
 		p.exitValue = 1
 		return *errPtr
