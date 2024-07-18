@@ -306,10 +306,13 @@ func (p *QPepService) Main() error {
 	interruptListener := make(chan os.Signal, 1)
 	signal.Notify(interruptListener, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	var wasInterrupted = false
+
 TERMINATIONLOOP:
 	for {
 		select {
 		case <-interruptListener:
+			wasInterrupted = true
 			break TERMINATIONLOOP
 		case <-p.context.Done():
 			break TERMINATIONLOOP
@@ -328,7 +331,7 @@ TERMINATIONLOOP:
 	p.exitValue = 0
 
 	var errPtr = p.context.Value("lastError").(*error)
-	if *errPtr != nil {
+	if !wasInterrupted && *errPtr != nil {
 		p.exitValue = 1
 		return *errPtr
 	}
