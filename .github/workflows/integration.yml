@@ -9,7 +9,7 @@ run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || git
 
 jobs:
   build-mac-os:
-    if: false
+    if: true
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -250,7 +250,7 @@ jobs:
           path: "report/*.html"
 
   build-windows:
-    if: false
+    if: true
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
