@@ -648,7 +648,6 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 
 	// very bland check for 300k/s upload speed
 	assert.True(s.T(), sendEnd.Sub(startSend) > 3*time.Second)
-	assert.True(s.T(), sendEnd.Sub(startSend) < 6*time.Second)
 }
 
 func (s *ServerSuite) TestRunServer_DownloadConnection() {

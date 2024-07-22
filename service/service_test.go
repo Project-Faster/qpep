@@ -23,7 +23,11 @@ func TestServiceSuite(t *testing.T) {
 	suite.Run(t, &q)
 }
 
-type ServiceSuite struct{ suite.Suite }
+type ServiceSuite struct {
+	suite.Suite
+
+	svc *QPepService
+}
 
 func (s *ServiceSuite) SetupSuite() {}
 
@@ -31,19 +35,19 @@ func (s *ServiceSuite) TearDownSuite() {}
 
 func (s *ServiceSuite) AfterTest(_, _ string) {
 	monkey.UnpatchAll()
+
+	s.svc = nil
 }
 
 func (s *ServiceSuite) BeforeTest(_, _ string) {}
 
 func (s *ServiceSuite) TestServiceMain_Server() {
-	var svc *QPepService
-
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0,
 		}, nil
 	})
@@ -54,22 +58,17 @@ func (s *ServiceSuite) TestServiceMain_Server() {
 	os.Args = os.Args[:1]
 	go ServiceMain()
 
-	<-time.After(1 * time.Second)
-	svc.cancelFunc()
-	<-time.After(1 * time.Second)
-
-	assert.Equal(s.T(), 0, svc.exitValue)
+	s.expectServiceStopErrorCode(0)
 }
 
 func (s *ServiceSuite) TestServiceMain_Client() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0,
 		}, nil
 	})
@@ -79,22 +78,17 @@ func (s *ServiceSuite) TestServiceMain_Client() {
 	os.Args = append(os.Args[:1], "--client")
 	go ServiceMain()
 
-	<-time.After(1 * time.Second)
-	svc.cancelFunc()
-	<-time.After(1 * time.Second)
-
-	assert.Equal(s.T(), 0, svc.exitValue)
+	s.expectServiceStopErrorCode(0)
 }
 
 func (s *ServiceSuite) TestServiceStart() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0,
 		}, nil
 	})
@@ -105,22 +99,17 @@ func (s *ServiceSuite) TestServiceStart() {
 	os.Args = append(os.Args[:1], "--service", "start")
 	go ServiceMain()
 
-	<-time.After(1 * time.Second)
-	svc.cancelFunc()
-	<-time.After(1 * time.Second)
-
-	assert.Equal(s.T(), 0, svc.exitValue)
+	s.expectServiceStopErrorCode(0)
 }
 
 func (s *ServiceSuite) TestServiceStop_WhenStopped() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0,
 		}, nil
 	})
@@ -131,23 +120,18 @@ func (s *ServiceSuite) TestServiceStop_WhenStopped() {
 	os.Args = append(os.Args[:1], "--service", "stop")
 	go ServiceMain()
 
-	<-time.After(1 * time.Second)
-	svc.cancelFunc()
-	<-time.After(1 * time.Second)
-
-	assert.Equal(s.T(), 0, svc.exitValue)
+	s.expectServiceStopErrorCode(0)
 }
 
 func (s *ServiceSuite) TestServiceStop_WhenStarted() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
-		svc.status = startedSvc
+		s.svc = svcStarter.realService
+		s.svc.status = startedSvc
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0,
 		}, nil
 	})
@@ -156,30 +140,26 @@ func (s *ServiceSuite) TestServiceStop_WhenStarted() {
 		calledServiceInterrupt = true
 	})
 	monkey.Patch(service.Control, func(service.Service, string) error {
-		return svc.Stop()
+		return s.svc.Stop()
 	})
 
 	os.Args = append(os.Args[:1], "--service", "stop")
 	go ServiceMain()
 
-	<-time.After(1 * time.Second)
-	svc.cancelFunc()
-	<-time.After(1 * time.Second)
+	s.expectServiceStopErrorCode(0)
 
-	assert.Equal(s.T(), 0, svc.exitValue)
-	assert.Equal(s.T(), stoppedSvc, svc.status)
+	assert.Equal(s.T(), stoppedSvc, s.svc.status)
 	assert.True(s.T(), calledServiceInterrupt)
 }
 
 func (s *ServiceSuite) TestServiceStatus_Unknown() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: service.StatusUnknown,
 		}, nil
 	})
@@ -191,14 +171,13 @@ func (s *ServiceSuite) TestServiceStatus_Unknown() {
 }
 
 func (s *ServiceSuite) TestServiceStatus_Unexpected() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0xFF,
 		}, nil
 	})
@@ -210,14 +189,13 @@ func (s *ServiceSuite) TestServiceStatus_Unexpected() {
 }
 
 func (s *ServiceSuite) TestServiceStatus_Running() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: service.StatusRunning,
 		}, nil
 	})
@@ -229,14 +207,13 @@ func (s *ServiceSuite) TestServiceStatus_Running() {
 }
 
 func (s *ServiceSuite) TestServiceStatus_Stopped() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: service.StatusStopped,
 		}, nil
 	})
@@ -248,14 +225,13 @@ func (s *ServiceSuite) TestServiceStatus_Stopped() {
 }
 
 func (s *ServiceSuite) TestServiceUnknownCommand() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0,
 		}, nil
 	})
@@ -270,14 +246,13 @@ func (s *ServiceSuite) TestServiceUnknownCommand() {
 }
 
 func (s *ServiceSuite) TestServiceInstall() {
-	var svc *QPepService
 
 	monkey.Patch(setCurrentWorkingDir, func(_ string) bool { return true })
 	monkey.Patch(service.New, func(i service.Interface, _ *service.Config) (service.Service, error) {
 		svcStarter := i.(*qpepServiceStarter)
-		svc = svcStarter.realService
+		s.svc = svcStarter.realService
 		return &fakeQPepService{
-			q:           svc,
+			q:           s.svc,
 			StatusField: 0,
 		}, nil
 	})
@@ -294,11 +269,8 @@ func (s *ServiceSuite) TestServiceInstall() {
 	os.Args = append(os.Args[:1], "--service", "install")
 	go ServiceMain()
 
-	<-time.After(1 * time.Second)
-	svc.cancelFunc()
-	<-time.After(1 * time.Second)
+	s.expectServiceStopErrorCode(0)
 
-	assert.Equal(s.T(), 0, svc.exitValue)
 	assert.True(s.T(), calledServicePerm)
 	assert.True(s.T(), calledDirPerm)
 }
@@ -333,6 +305,21 @@ func (s *ServiceSuite) TestRunAsServer() {
 }
 
 // --- utilities --- //
+
+func (s *ServiceSuite) expectServiceStopErrorCode(ret int) {
+	<-time.After(1 * time.Second)
+
+	retries := 10
+	for retries > 0 {
+		<-time.After(1 * time.Second)
+		if s.svc.exitValue == 0 {
+			break
+		}
+		retries--
+	}
+
+	assert.Equal(s.T(), ret, s.svc.exitValue)
+}
 
 type fakeQPepService struct {
 	q *QPepService

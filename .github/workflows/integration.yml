@@ -139,6 +139,17 @@ jobs:
           name: macos_coverage_report
           path: "report/*.html"
 
+      - name: Fail build on test error
+        run: |
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            grep -E "FAIL" unit_tests.out
+            if [[ $? -ne 0 ]]; then
+              exit /b 1
+            fi
+          done
+
   build-linux:
     if: true
     runs-on: ubuntu-latest
@@ -249,6 +260,17 @@ jobs:
           name: linux_coverage_report
           path: "report/*.html"
 
+      - name: Fail build on test error
+        run: |
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            grep -E "FAIL" unit_tests.out
+            if [[ $? -ne 0 ]]; then
+              exit /b 1
+            fi
+          done
+
   build-windows:
     if: true
     runs-on: windows-latest
@@ -355,7 +377,6 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
           go generate github.com/Project-Faster/qpep/windivert
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
@@ -374,7 +395,6 @@ jobs:
         shell: bash
         if: always()
         run: |
-          set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
@@ -405,3 +425,15 @@ jobs:
         with:
           name: windows_coverage_report
           path: report/*.html
+
+      - name: Fail build on test error
+        shell: bash
+        run: |
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            grep -E "FAIL" unit_tests.out
+            if [[ $? -ne 0 ]]; then
+              exit /b 1
+            fi
+          done
