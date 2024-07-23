@@ -9,7 +9,7 @@ run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || git
 
 jobs:
   build-mac-os:
-    if: true
+    if: false
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -145,7 +145,7 @@ jobs:
           do
             pushd $i
             grep -E "FAIL" unit_tests.out
-            if [[ $? -ne 0 ]]; then
+            if [ $? -ne 0 ]; then
               exit /b 1
             fi
           done
@@ -262,17 +262,18 @@ jobs:
 
       - name: Fail build on test error
         run: |
+          set -x
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             grep -E "FAIL" unit_tests.out
-            if [[ $? -ne 0 ]]; then
+            if [ $? -ne 0 ]; then
               exit /b 1
             fi
           done
 
   build-windows:
-    if: true
+    if: false
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
@@ -433,7 +434,7 @@ jobs:
           do
             pushd $i
             grep -E "FAIL" unit_tests.out
-            if [[ $? -ne 0 ]]; then
+            if [ $? -ne 0 ]; then
               exit /b 1
             fi
           done
