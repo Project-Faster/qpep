@@ -50,6 +50,8 @@ func NotifyUser(message, category string, longNotification bool) {
 		Message:  message,
 		Duration: duration,
 		Icon:     MainIconData,
+
+		ActivationType: "background",
 	}
 	if err := n.Push(); err != nil {
 		log.Println("ERR: ", err)
@@ -267,7 +269,7 @@ func onExit() {
 		break
 	}
 
-	NotifyUser("Closed", "Info", false)
+	log.Println("Closed")
 }
 
 func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
@@ -337,8 +339,6 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 			}
 		}()
 
-		var pubAddress = ""
-
 	CHECKLOOP:
 		for {
 			select {
@@ -346,9 +346,9 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 				log.Println("Stopping connection check watchdog")
 				break CHECKLOOP
 
-			case <-time.After(10 * time.Second):
+			case <-time.After(3 * time.Second):
 				if !clientActive && !serverActive {
-					pubAddress = ""
+					state = stateDisconnected
 					continue
 				}
 
@@ -386,23 +386,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 					}
 
 					log.Printf("Server Echo: %s %d\n", resp.Address, resp.Port)
-					pubAddress = resp.Address
-				}
 
-				if len(pubAddress) > 0 {
-					var status = api.RequestStatus(listenHost, gatewayHost, gatewayAPIPort, pubAddress, clientToServer)
-					if status == nil {
-						log.Printf("Server Status: no / invalid response\n")
-					} else if status.ConnectionCounter < 0 {
-						log.Printf("Server Status: no connections received\n")
-					}
-					if status == nil || status.ConnectionCounter < 0 {
-						pubAddress = ""
-						state = stateConnecting
-						continue
-					}
-
-					log.Printf("Server Status: %s %d\n", status.LastCheck, status.ConnectionCounter)
 					NotifyUser("Connection established", "Info", false)
 					state = stateConnected
 				}
@@ -419,7 +403,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 // "false" value means the proxy is not running correctly
 func fakeAPICallCheckProxy() bool {
 	data, err, _ := shared.RunCommand("powershell.exe", "-ExecutionPolicy", "ByPass", "-Command",
-		"Invoke-WebRequest -Uri \"http://192.168.1.40:444/qpep-client-proxy-check\" -UseBasicParsing -TimeoutSec 1",
+		fmt.Sprintf("Invoke-WebRequest -Uri \"http://%s:%d/qpep-client-proxy-check\" -UseBasicParsing -TimeoutSec 1", shared.QPepConfig.ListenHost, shared.QPepConfig.ListenPort),
 	)
 	logger.Info("proxy check data: %s", data)
 	logger.Info("proxy check error: %v", err)

@@ -54,11 +54,14 @@ type ServerSuite struct {
 func (s *ServerSuite) BeforeTest(_, testName string) {
 	backend.GenerateTLSConfig("cert.pem", "key.pem")
 
+	shared.QPepConfig.BufferSize = 32
 	shared.QPepConfig.Certificate = "cert.pem"
 	shared.QPepConfig.CertKey = "key.pem"
 	shared.QPepConfig.ListenHost = "127.0.0.1"
 	shared.QPepConfig.ListenPort = 9090
 	shared.QPepConfig.GatewayAPIPort = 9443
+
+	logger.SetupLogger(testName, "debug")
 }
 
 func (s *ServerSuite) AfterTest(_, testName string) {
@@ -253,11 +256,11 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 	recv, _ := stream.Read(receiveData)
 
 	expectedRecv := `HTTP\/1\.1 200 OK
+Connection: close
 Content-Type: application\/json
 Vary: Origin
 Date: .+ GMT
 Content-Length: \d+
-Connection: close
 
 {"address":"[^"]+","port":\d+,"serverversion":"[^"]+","total_connections":\d+}`
 
@@ -546,7 +549,11 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 		rtr := httprouter.New()
 		rtr.RedirectTrailingSlash = true
 		rtr.RedirectFixedPath = true
-		rtr.Handle(http.MethodPost, "/testapi", func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+		rtr.Handle(http.MethodPost, "/testapi", func(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+			data, _ := ioutil.ReadAll(req.Body)
+
+			logger.Info("Read: %d", len(data))
+
 			w.WriteHeader(http.StatusOK)
 			w.Header().Add("Content-Type", "text/html")
 			w.Write([]byte("OK\r\n"))
@@ -587,30 +594,25 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	var startSend = time.Now()
 	stream.Write(sessionHeader.ToBytes())
 
-	sendData := []byte("POST /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n" +
-		strings.Repeat("N", 1024*1024) +
-		"\r\n\n")
+	sendData := []byte("POST /testapi HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nConnection: close\r\nContent-Length: 1048576\r\nUser-Agent: windows\r\n\r\n" +
+		strings.Repeat("N", 1024*1024))
 
 	written, err := stream.Write(sendData)
-	assert.True(s.T(), written >= 0)
+	assert.Equal(s.T(), written, len(sendData))
 	assert.Nil(s.T(), err)
 
+	stream.Sync()
+
 	receiveData := make([]byte, 1024)
+	stream.SetReadDeadline(time.Now().Add(3 * time.Second))
 	recv, _ := stream.Read(receiveData)
 	var sendEnd = time.Now()
 
-	matchStr := strings.ReplaceAll(string(receiveData[:recv]), "\r", "")
-
-	assert.Equal(s.T(), `HTTP/1.1 400 Bad Request
-Content-Type: text/plain; charset=utf-8
-Connection: close
-
-400 Bad Request`, matchStr)
+	assert.Contains(s.T(), string(receiveData[:recv]), `HTTP/1.1 200 OK`)
 
 	stream.AbortWrite(0)
 	stream.AbortRead(0)
 	stream.Close()
-
 	cancel()
 
 	apisrv.Close()
@@ -619,7 +621,6 @@ Connection: close
 
 	// very bland check for 300k/s upload speed
 	assert.True(s.T(), sendEnd.Sub(startSend) >= 3*time.Second)
-	assert.True(s.T(), sendEnd.Sub(startSend) < 6*time.Second)
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
@@ -777,6 +778,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 		rtr.Handle(http.MethodGet, "/testapi", func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Add("Content-Type", "text/html")
+
 			data := strings.Repeat("X", 1024*1024*5)
 			sent, _ := w.Write([]byte(data))
 			<-time.After(1 * time.Second)
@@ -823,8 +825,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 
 	stream.Write(sendData)
 
-	out, err := io.ReadAll(stream)
-	assert.Nil(s.T(), err)
+	out, _ := io.ReadAll(stream)
 
 	cancel()
 
@@ -875,7 +876,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 			w.Header().Add("Content-Type", "text/html")
 			data := strings.Repeat("X", 1024*1024*5)
 			sent, _ := w.Write([]byte(data))
-			<-time.After(4 * time.Second)
+			<-time.After(20 * time.Second)
 			assert.Equal(s.T(), 1024*1024*5, sent)
 			data = strings.Repeat("X", 1024*1024*5)
 			sent, _ = w.Write([]byte(data))

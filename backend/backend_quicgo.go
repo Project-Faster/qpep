@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Project-Faster/quic-go"
+	"github.com/Project-Faster/quic-go/logging"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"io/ioutil"
@@ -40,7 +41,7 @@ type quicGoBackend struct {
 }
 
 func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
-	quicConfig := qgoGetConfiguration()
+	quicConfig := qgoGetConfiguration(traceOn)
 
 	var err error
 	var session quic.Connection
@@ -64,7 +65,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int
 }
 
 func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
-	quicConfig := qgoGetConfiguration()
+	quicConfig := qgoGetConfiguration(traceOn)
 
 	tlsConf := loadTLSConfig(serverCertPath, serverKeyPath)
 
@@ -89,17 +90,24 @@ func (q *quicGoBackend) Close() error {
 	return nil
 }
 
-func qgoGetConfiguration() *quic.Config {
-	return &quic.Config{
+func qgoGetConfiguration(traceOn bool) *quic.Config {
+	cfg := &quic.Config{
 		MaxIncomingStreams:      1024,
 		DisablePathMTUDiscovery: true,
-		MaxIdleTimeout:          3 * time.Second,
+		MaxIdleTimeout:          15 * time.Second,
+
+		InitialConnectionReceiveWindow: 10 * 1024 * 1024,
 
 		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
 		KeepAlivePeriod:      0,
 
 		EnableDatagrams: false,
 	}
+	if traceOn {
+		cfg.Tracer = &qpepQuicTracer{}
+	}
+
+	return cfg
 }
 
 type qgoConnectionAdapter struct {
@@ -242,6 +250,13 @@ func (stream *qgoStreamAdapter) IsClosed() bool {
 	return false // stream.closedRead || stream.closedWrite
 }
 
+func (stream *qgoStreamAdapter) Close() error {
+	ctx := stream.Stream.Context()
+	<-ctx.Done()
+
+	return stream.Stream.Close()
+}
+
 var _ QuicBackendStream = &qgoStreamAdapter{}
 
 // --- Certificate support --- //
@@ -366,4 +381,61 @@ func parsePrivateKey(der []byte) (crypto.PrivateKey, error) {
 	}
 
 	return nil, errors.New("tls: failed to parse private key")
+}
+
+// --- Tracer --- //
+type qpepQuicTracer struct {
+	logging.NullTracer
+}
+
+var tracer = &qpepQuicConnectionTracer{}
+
+func (t *qpepQuicTracer) TracerForConnection(ctx context.Context, p logging.Perspective, odcid logging.ConnectionID) logging.ConnectionTracer {
+	return tracer
+}
+func (t *qpepQuicTracer) SentPacket(addr net.Addr, hdr *logging.Header, count logging.ByteCount, frames []logging.Frame) {
+	logger.Info("[QGO] Sent packet to %s: %s %d", addr, hdr.PacketType(), count)
+}
+func (t *qpepQuicTracer) DroppedPacket(addr net.Addr, typePkt logging.PacketType, count logging.ByteCount, reason logging.PacketDropReason) {
+	logger.Info("[QGO] Dropped packet to %s: %d %d - %v", addr, typePkt, count, reason)
+}
+
+type qpepQuicConnectionTracer struct {
+	logging.NullConnectionTracer
+}
+
+func (n *qpepQuicConnectionTracer) SentLongHeaderPacket(hdr *logging.ExtendedHeader, count logging.ByteCount, _ *logging.AckFrame, frames []logging.Frame) {
+	logger.Info("[QGO] Sent packet (long) %v: %d", hdr, count)
+}
+func (n *qpepQuicConnectionTracer) SentShortHeaderPacket(hdr *logging.ShortHeader, count logging.ByteCount, _ *logging.AckFrame, frames []logging.Frame) {
+	logger.Info("[QGO] Sent packet (short) %v: %d", hdr, count)
+}
+func (n *qpepQuicConnectionTracer) ReceivedRetry(hdr *logging.Header) {
+	logger.Info("[QGO] Retry packet %v", hdr)
+}
+func (n *qpepQuicConnectionTracer) ReceivedLongHeaderPacket(hdr *logging.ExtendedHeader, count logging.ByteCount, frames []logging.Frame) {
+	logger.Info("[QGO] Recv packet (long) %v: %d", hdr, count)
+}
+func (n *qpepQuicConnectionTracer) ReceivedShortHeaderPacket(hdr *logging.ShortHeader, count logging.ByteCount, frames []logging.Frame) {
+	logger.Info("[QGO] Recv packet (short) %v: %d", hdr, count)
+}
+
+func (n *qpepQuicConnectionTracer) BufferedPacket(typePkt logging.PacketType, count logging.ByteCount) {
+	logger.Info("[QGO] Buffered packet %d: %d", typePkt, count)
+}
+func (n *qpepQuicConnectionTracer) AcknowledgedPacket(level logging.EncryptionLevel, number logging.PacketNumber) {
+	logger.Info("[QGO] Ack packet %d", number)
+}
+func (n *qpepQuicConnectionTracer) LostPacket(level logging.EncryptionLevel, number logging.PacketNumber, reason logging.PacketLossReason) {
+	logger.Info("[QGO] Lost packet %d - %v", number, reason)
+}
+func (n *qpepQuicConnectionTracer) UpdatedCongestionState(state logging.CongestionState) {
+	logger.Info("[QGO] congestion changed to state %v", state)
+}
+func (n *qpepQuicConnectionTracer) Close() {
+	logger.Info("[QGO] Close")
+}
+
+func (n *qpepQuicConnectionTracer) ClosedConnection(err error) {
+	logger.Info("[QGO] Close Connection: %v", err)
 }

@@ -17,6 +17,12 @@ import (
 	"github.com/parvit/qpep/version"
 )
 
+func closeBody(req *http.Request) {
+	if req != nil && req.Body != nil {
+		req.Body.Close()
+	}
+}
+
 // formatRequest method formats to a string the request in input, if verbose configuration
 // is set then also the body of the request is extracted
 func formatRequest(r *http.Request) string {
@@ -30,7 +36,9 @@ func formatRequest(r *http.Request) string {
 
 // apiStatus handles the api path /status , which sends as output a json object
 // of type StatusResponse
-func apiStatus(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func apiStatus(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	defer closeBody(r)
+
 	addr := ps.ByName("addr")
 
 	if len(addr) == 0 {
@@ -54,6 +62,8 @@ func apiStatus(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
 // apiEcho handles the api path /echo , which sends as output a json object
 // of type EchoResponse
 func apiEcho(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	defer closeBody(r)
+
 	mappedAddr := r.RemoteAddr
 
 	if !strings.HasPrefix(r.RemoteAddr, "127.") {
@@ -98,6 +108,8 @@ func apiEcho(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 // apiVersions handles the api path /versions , which sends as output a json object
 // of type VersionsResponse
 func apiVersions(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	defer closeBody(r)
+
 	server := "N/A"
 	client := "N/A"
 	if strings.Contains(r.URL.String(), API_PREFIX_SERVER) {
@@ -123,7 +135,9 @@ func apiVersions(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 // apiStatisticsHosts handles the api path /statistics/hosts , which responds using a json object
 // of type StatsInfoResponse, containing an attribute object StatsInfo of value "Address" for
 // every host tracked
-func apiStatisticsHosts(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func apiStatisticsHosts(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	defer closeBody(r)
+
 	info := StatsInfoResponse{}
 	hosts := Statistics.GetHosts()
 
@@ -153,7 +167,9 @@ func apiStatisticsHosts(w http.ResponseWriter, _ *http.Request, _ httprouter.Par
 // * INFO_UPDATE
 // * INFO_PLATFORM
 // for the requested address (via the _addr_ parameter) or for the responding system if not specified
-func apiStatisticsInfo(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	defer closeBody(r)
+
 	reqAddress := ps.ByName("addr")
 
 	lastUpdate := ""
@@ -207,7 +223,9 @@ func apiStatisticsInfo(w http.ResponseWriter, _ *http.Request, ps httprouter.Par
 // * PERF_UP_TOTAL
 // * PERF_DW_TOTAL
 // for the requested address or for the responding system if not specified
-func apiStatisticsData(w http.ResponseWriter, _ *http.Request, ps httprouter.Params) {
+func apiStatisticsData(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	defer closeBody(r)
+
 	reqAddress := ps.ByName("addr")
 
 	currConnections := Statistics.GetCounter(PERF_CONN, reqAddress)

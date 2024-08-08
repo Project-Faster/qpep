@@ -5,12 +5,10 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/parvit/qpep/flags"
-	"hash/crc64"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -25,12 +23,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	BUFFER_SIZE = 512 * 1024
-
-	DEBUG_DUMP_PACKETS = false
-)
-
 var (
 	// proxyListener listener for the local http connections that get diverted or proxied to the quic server
 	proxyListener net.Listener
@@ -39,16 +31,6 @@ var (
 	// quicSession listening quic connection to the server
 	quicSession backend.QuicBackendConnection
 )
-
-type ReaderTimeout interface {
-	io.Reader
-	SetReadDeadline(time.Time) error
-}
-
-type WriterTimeout interface {
-	io.Writer
-	SetWriteDeadline(time.Time) error
-}
 
 func setLinger(c net.Conn) {
 	if conn, ok := c.(*net.TCPConn); ok {
@@ -144,9 +126,11 @@ func handleTCPConn(tcpConn net.Conn) {
 		if sessionHeader.DestAddr.IP.String() == ClientConfiguration.GatewayHost {
 			sessionHeader.Flags |= shared.QPEP_LOCALSERVER_DESTINATION
 		}
-		logger.Info("Connection flags : %d %d", sessionHeader.Flags, sessionHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
 
-		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v", sessionHeader.SourceAddr, sessionHeader.DestAddr)
+		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v (Connection flags : %d %d)",
+			sessionHeader.SourceAddr, sessionHeader.DestAddr,
+			sessionHeader.Flags, sessionHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
+
 		_, err := quicStream.Write(sessionHeader.ToBytes())
 		logger.OnError(err, "writing to quic stream")
 	} else {
@@ -157,8 +141,8 @@ func handleTCPConn(tcpConn net.Conn) {
 	}
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
-	logger.Info("== Stream %d Start ==", quicStream.ID())
- 
+	logger.Info("[%d] Stream Start", quicStream.ID())
+
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
 
@@ -169,9 +153,9 @@ func handleTCPConn(tcpConn net.Conn) {
 	go handleQuicToTcp(ctx, &streamWait, tcpConn, quicStream, &qtActiveFlag, &tqActiveFlag)
 
 	//we exit (and close the TCP connection) once both streams are done copying
-	logger.Info("== Stream %d Wait ==", quicStream.ID())
+	logger.Debug("[%d] Stream Wait", quicStream.ID())
 	streamWait.Wait()
-	logger.Info("== Stream %d (duration: %v) End ==", quicStream.ID(), time.Now().Sub(startTime))
+	logger.Info("[%d] Stream End (duration: %v)", quicStream.ID(), time.Now().Sub(startTime))
 
 	if !ClientConfiguration.MultiStream || (quicSession != nil && quicSession.IsClosed()) {
 		// destroy the session so a new one is created next time
@@ -205,7 +189,7 @@ func getQuicStream(ctx context.Context) (backend.QuicBackendStream, error) {
 
 	// if we allow for multiple streams in a session, try and open on the existing session
 	if ClientConfiguration.MultiStream && localSession != nil {
-		logger.Info("Trying to open on existing session")
+		logger.Debug("Trying to open on existing session")
 		quicStream, err = localSession.OpenStream(context.Background())
 		if err == nil {
 			logger.Info("Opened a new stream: %d", quicStream.ID())
@@ -269,7 +253,7 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 		}
 
 		t := http.Response{
-			Status:        http.StatusText(http.StatusOK),
+			Status:        "200 Connection established",
 			StatusCode:    http.StatusOK,
 			Proto:         req.Proto,
 			ProtoMajor:    req.ProtoMajor,
@@ -371,17 +355,12 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
 		logger.Info("QPEP header %v / ID: %v", headerData, stream.ID())
 
-		stream.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
-
-		logger.Info("QPEP header: %v", headerData)
 		_, err := stream.Write(headerData)
 		if err != nil {
 			_ = tcpConn.Close()
 			logger.Error("Error writing to quic stream: %v", err)
 			return shared.ErrFailed
 		}
-
-		tcpConn.SetWriteDeadline(time.Now().Add(3 * time.Millisecond))
 
 		logger.Info("Sending captured %s request\n", req.Method)
 		err = req.Write(stream)
@@ -411,7 +390,7 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
 
 		t := http.Response{
-			Status:        http.StatusText(http.StatusOK),
+			Status:        "200 Connection established",
 			StatusCode:    http.StatusOK,
 			Proto:         req.Proto,
 			ProtoMajor:    req.ProtoMajor,
@@ -422,14 +401,11 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 			Header:        make(http.Header, 0),
 		}
 
-		tcpConn.SetWriteDeadline(time.Now().Add(3 * time.Millisecond))
-
 		t.Write(tcpConn)
 
 		logger.Info("Proxied connection")
 		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
 
-		stream.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
 		_, err := stream.Write(header.ToBytes())
 		if err != nil {
 			_ = tcpConn.Close()
@@ -446,11 +422,11 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn, qtFlag, tqFlag *atomic.Bool) {
 
-	buf := make([]byte, BUFFER_SIZE)
+	buf := make([]byte, shared.QPepConfig.BufferSize*1024)
 	written := int64(0)
 	read := int64(0)
 
-	logger.Info("== [%d] Stream TCP->Quic start ==", dst.ID())
+	logger.Debug("[%d] Stream T->Q start", dst.ID())
 
 	tskKey := fmt.Sprintf("Tcp->Quic:%v", dst.ID())
 	tsk := shared.StartRegion(tskKey)
@@ -462,11 +438,10 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		tsk.End()
 		streamWait.Done()
 		tqFlag.Store(false)
-		logger.Info("== Stream %v TCP->Quic [wr:%v rd:%d] done ==", dst.ID(), written, read)
+		logger.Info("[%d] Stream T->Q done [wr:%v rd:%d]", dst.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.client.tq", dst.ID())
-	pktcounter := 0
 
 	for {
 		select {
@@ -476,41 +451,45 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		}
 
 		if dst.IsClosed() || !qtFlag.Load() {
-			logger.Error("[%v] LINKED TQ CLOSE", dst.ID())
+			logger.Debug("[%v] T->Q CLOSE", dst.ID())
 			return
 		}
 
-		wr, rd, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktcounter)
+		wr, rd, err := backend.CopyBuffer(dst, src, buf, 100*time.Millisecond, pktPrefix)
+
+		// update counters
 		written += wr
 		read += rd
 
+		logger.Debug("[%d] T->Q: %v, %v", dst.ID(), wr, err)
+
+		// stop / skip conditions
 		if rd == 0 && err == nil {
 			return
 		}
-
-		logger.Debug("[%d] T->Q: %v, %v", dst.ID(), wr, err)
-
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
-			logger.Debug("[%d] END T->Q: %v", dst.ID(), err)
+			logger.Error("[%d] END T->Q: %v", dst.ID(), err)
+			dst.AbortWrite(0)
+			dst.AbortRead(0)
 			return
 		}
 	}
-	//logger.Info("Finished Copying TCP Conn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.ID())
+	//logger.Info("Finished Copying TCP NetConn %s->%s, Stream ID %d\n", src.LocalAddr().String(), src.RemoteAddr().String(), dst.ID())
 }
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QuicBackendStream, qtFlag, tqFlag *atomic.Bool) {
 
-	buf := make([]byte, BUFFER_SIZE)
+	buf := make([]byte, shared.QPepConfig.BufferSize*1024)
 	written := int64(0)
 	read := int64(0)
 
-	logger.Info("== [%d] Stream Quic->TCP start ==", src.ID())
+	logger.Debug("[%d] Stream Q->T start", src.ID())
 
-	tskKey := fmt.Sprintf("Quic->Tcp:%v", src.ID())
+	tskKey := fmt.Sprintf("Q->T:%v", src.ID())
 	tsk := shared.StartRegion(tskKey)
 	defer func() {
 		if err := recover(); err != nil {
@@ -520,11 +499,10 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		tsk.End()
 		streamWait.Done()
 		qtFlag.Store(false)
-		logger.Info("== Stream %v Quic->TCP [wr:%v rd:%d] done ==", src.ID(), written, read)
+		logger.Info("[%d] Stream Q->T done [wr:%v rd:%d]", src.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.client.qt", src.ID())
-	pktCounter := 0
 
 	for {
 		select {
@@ -534,26 +512,30 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		}
 
 		if src.IsClosed() || !tqFlag.Load() {
-			logger.Error("[%v] LINKED QT CLOSE", src.ID())
+			logger.Error("[%v] Q->T CLOSE", src.ID())
 			return
 		}
 
-		wr, rd, err := copyBuffer(dst, src, buf, 100*time.Millisecond, 100*time.Millisecond, pktPrefix, &pktCounter)
+		wr, rd, err := backend.CopyBuffer(dst, src, buf, 100*time.Millisecond, pktPrefix)
+
+		// update counters
 		written += wr
 		read += rd
 
+		logger.Debug("[%d] Q->T: %v, %v", src.ID(), wr, err)
+
+		// stop / skip conditions
 		if rd == 0 && err == nil {
 			return
 		}
-
-		logger.Debug("[%d] Q->T: %v, %v", src.ID(), wr, err)
-
 		if err != nil {
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
 			// closed tcp endpoint means its useless to go on with quic side
-			logger.Debug("[%d] END Q->T: %v", src.ID(), err)
+			logger.Error("[%d] END Q->T: %v", src.ID(), err)
+			src.AbortWrite(0)
+			src.AbortRead(0)
 			return
 		}
 	}
@@ -624,7 +606,7 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 		flags.Globals.Trace)
 
 	if err != nil {
-		logger.Error("Unable to Dial QUIC Session: %v\n", err)
+		logger.Error("== Unable to Dial QUIC Session: %v ==\n", err)
 		return nil, shared.ErrFailedGatewayConnect
 	}
 
@@ -632,83 +614,4 @@ func openQuicSession() (backend.QuicBackendConnection, error) {
 		session)
 
 	return session, nil
-}
-
-func copyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeoutDst time.Duration, timeoutSrc time.Duration,
-	prefix string, counter *int) (written, read int64, err error) {
-
-	//limitSrc := io.LimitReader(src, BUFFER_SIZE)
-
-	src.SetReadDeadline(time.Now().Add(timeoutDst))
-
-	nr, er := src.Read(buf)
-
-	if nr > 0 {
-		read += int64(nr)
-
-		if DEBUG_DUMP_PACKETS {
-			dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-rd.bin", prefix, shared.QPepConfig.Backend, *counter))
-			if derr != nil {
-				panic(derr)
-			}
-			dump.Write(buf[0:nr])
-			go func() {
-				dump.Sync()
-				dump.Close()
-			}()
-			logger.Debug("[%d][%s] rd: %d (%v)", *counter, dump.Name(), nr, crc64.Checksum(buf[0:nr], crc64.MakeTable(crc64.ISO)))
-		} else {
-			logger.Debug("[%d][%s] rd: %d", *counter, prefix, nr)
-		}
-
-		offset := 0
-		for offset < nr {
-			dst.SetWriteDeadline(time.Now().Add(timeoutDst))
-
-			nw, ew := dst.Write(buf[offset:nr])
-			offset += nw
-			written += int64(nw)
-			if nw < 0 || nr < nw {
-				nw = 0
-				if ew == nil {
-					ew = io.ErrUnexpectedEOF
-					break
-				}
-			}
-			if ew != nil {
-				if err2, ok := ew.(net.Error); ok && err2.Timeout() {
-					continue
-				}
-				err = ew
-				break
-			}
-			//if nr != nw {
-			//err = io.ErrShortWrite
-			//}
-		}
-
-		if DEBUG_DUMP_PACKETS {
-			dump, derr := os.Create(fmt.Sprintf("%s.%s.%d-wr.bin", prefix, shared.QPepConfig.Backend, *counter))
-			if derr != nil {
-				panic(derr)
-			}
-			dump.Write(buf[0:offset])
-			go func() {
-				dump.Sync()
-				dump.Close()
-			}()
-			logger.Debug("[%d][%s] wr: %d (%v)", *counter, dump.Name(), offset, crc64.Checksum(buf[0:offset], crc64.MakeTable(crc64.ISO)))
-		} else {
-			logger.Debug("[%d][%s] wr: %d", *counter, prefix, offset)
-		}
-		*counter = *counter + 1
-
-	} else {
-		logger.Debug("[%d][%s] w,r: %d,%v **", *counter, prefix, 0, er)
-	}
-
-	if er != nil && er != io.EOF {
-		err = er
-	}
-	return written, read, err
 }

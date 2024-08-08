@@ -125,6 +125,7 @@ func apiFilter(next httprouter.Handle) httprouter.Handle {
 
 		// Request is found for API request
 		w.Header().Add("Content-Type", "application/json")
+		w.Header().Set("Connection", "close")
 		next(w, r, ps)
 	})
 }

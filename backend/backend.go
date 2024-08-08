@@ -7,11 +7,21 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
+	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared"
+	"hash/crc64"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"net"
+	"os"
 	"time"
+)
+
+var (
+	localPacketCounter = 0
+	crcTable           = crc64.MakeTable(crc64.ISO)
 )
 
 type QuicBackend interface {
@@ -48,6 +58,82 @@ type QuicBackendStream interface {
 	SetWriteDeadline(t time.Time) error
 
 	IsClosed() bool
+}
+
+type ReaderTimeout interface {
+	io.Reader
+	SetReadDeadline(time.Time) error
+}
+
+type WriterTimeout interface {
+	io.Writer
+	SetWriteDeadline(time.Time) error
+}
+
+func CopyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeout time.Duration, debugPrefix string) (written, read int64, err error) {
+	src.SetReadDeadline(time.Now().Add(timeout))
+
+	var nr int
+	var er error
+	var nw int
+	var ew error
+
+	nr, er = src.Read(buf)
+
+	if nr > 0 {
+		read += int64(nr)
+
+		dumpPacket("rd", debugPrefix, buf, nr)
+
+		offset := 0
+		for written != read {
+			dst.SetWriteDeadline(time.Now().Add(timeout))
+			nw, ew = dst.Write(buf[offset:nr])
+			written += int64(nw)
+			offset += nw
+			if ew == nil && nw <= 0 {
+				nw = 0
+				ew = io.ErrUnexpectedEOF
+				err = io.ErrUnexpectedEOF
+			}
+			if ew != nil {
+				if err2, ok := ew.(net.Error); ok && !err2.Timeout() {
+					continue
+				}
+				err = ew
+			}
+		}
+
+		dumpPacket("wr", debugPrefix, buf, nw)
+
+	} else {
+		if er != nil {
+			err = er
+		}
+	}
+	if er == io.EOF {
+		err = nil
+	}
+
+	logger.Debug("[%d][%s] %d,%v wr: %d,%v - %v **", localPacketCounter, debugPrefix, nr, er, nw, ew, err)
+
+	localPacketCounter++
+	return written, read, err
+}
+
+func dumpPacket(dmpType, prefix string, buf []byte, nr int) {
+	if !shared.DEBUG_DUMP_PACKETS {
+		return
+	}
+
+	dump, derr := os.Create(fmt.Sprintf("%s.%d-rd.bin", prefix, localPacketCounter))
+	if derr != nil {
+		panic(derr)
+	}
+	dump.Write(buf[0:nr])
+	dump.Sync()
+	dump.Close()
+	logger.Debug("[%d][%s] %s: %d (%v)", localPacketCounter, dump.Name(), dmpType, nr, crc64.Checksum(buf[0:nr], crcTable))
 }
 
 // GenerateTLSConfig creates a new x509 key/certificate pair and dumps it to the disk

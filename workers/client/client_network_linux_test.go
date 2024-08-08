@@ -56,11 +56,14 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 	shared.QPepConfig.ListenHost = "127.0.0.1"
 	shared.QPepConfig.ListenPort = 9090
 
+	shared.QPepConfig.BufferSize = 32
 	shared.QPepConfig.MaxConnectionRetries = 15
 	shared.QPepConfig.MultiStream = false
 	shared.QPepConfig.WinDivertThreads = 4
 	shared.QPepConfig.PreferProxy = true
 	shared.QPepConfig.Verbose = true
+
+	logger.SetupLogger(testName, "debug")
 }
 
 func (s *ClientNetworkSuite) AfterTest(_, testName string) {
@@ -731,7 +734,7 @@ User-Agent: windows
 		if method == "CONNECT" {
 			assert.Equal(s.T(), len(headerBytes), dstConn.writtenData.Len())
 			okResp := srcConn.writtenData.String()
-			assert.True(s.T(), strings.Contains(okResp, "200 OK"))
+			assert.True(s.T(), strings.Contains(okResp, "200 Connection established"))
 		} else {
 			assert.True(s.T(), dstConn.writtenData.Len() >= len(headerBytes))
 		}

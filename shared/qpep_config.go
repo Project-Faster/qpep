@@ -37,6 +37,7 @@ const (
 acks: 10
 ackdelay: 25
 backend: quic-go
+buffersize: 32 # in Kb
 ccalgorithm: reno
 ccslowstart: search
 certificate: server_cert.pem
@@ -77,7 +78,8 @@ type QPepConfigType struct {
 	// GatewayAPIPort (yaml:apiport) Port on which the gateway qpep server listens for TCP API requests
 	GatewayAPIPort int `yaml:"apiport"`
 	// Backend (yaml:backend) Specifies the backend to use for quic connections(available: quic-go and quicly-go)
-	Backend string `yaml:"backend"`
+	Backend    string `yaml:"backend"`
+	BufferSize int    `yaml:"buffersize"`
 	// ListenHost (yaml:listenaddress) Address on which the local instance (client or server) listens for incoming connections
 	// if indicates subnet 0. or 127. it will try to autodetect a good ip available
 	ListenHost string `yaml:"listenaddress"`

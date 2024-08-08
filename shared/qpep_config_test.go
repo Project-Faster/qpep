@@ -130,7 +130,7 @@ func (s *QPepConfigSuite) TestRawConfigType_OverrideRealType() {
 	s.T().Logf("config: %v == %v\n", prevValues, newValues)
 
 	assert.NotEqual(s.T(), prevValues, newValues)
-	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 0 0 0 0 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 0 0 0 0 0}",
 		newValues)
 }
 
@@ -147,7 +147,7 @@ func (s *QPepConfigSuite) TestRawConfigType_OverrideStringType() {
 	s.T().Logf("config: %v == %v\n", prevValues, newValues)
 
 	assert.NotEqual(s.T(), prevValues, newValues)
-	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true false false 4 cert.pem key.pem reno search {map[] map[]} {false  0  } 0 0 0 0 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0 0.0.0.0 9443 true false false 4 cert.pem key.pem reno search {map[] map[]} {false  0  } 0 0 0 0 0}",
 		newValues)
 }
 
@@ -192,7 +192,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithoutUserConfig() {
 
 	assert.NotNil(s.T(), QPepConfig)
 	configValues := fmt.Sprintf("%v", QPepConfig)
-	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 32 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
 		configValues)
 }
 
@@ -207,7 +207,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithUserConfigOverride() {
 
 	assert.NotNil(s.T(), QPepConfig)
 	configValues := fmt.Sprintf("%v", QPepConfig)
-	assert.Equal(s.T(), "{10 198.18.0.254 9090 444 quic-go 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 9090 444 quic-go 32 0.0.0.0 9443 true false false 4 server_cert.pem server_key.pem reno search {map[] map[]} {false  0  } 10 25 4 100 0}",
 		configValues)
 }
 
@@ -219,7 +219,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithLimitsConfig() {
 
 	assert.NotNil(s.T(), QPepConfig)
 	configValues := fmt.Sprintf("%v", QPepConfig)
-	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true false false 4 cert.pem key.pem reno search {map[192.168.1.1/25:100K] map[192.168.1.128/25:200K wikipedia.com:0]} {false  0  } 0 0 0 0 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0 0.0.0.0 9443 true false false 4 cert.pem key.pem reno search {map[192.168.1.1/25:100K] map[192.168.1.128/25:200K wikipedia.com:0]} {false  0  } 0 0 0 0 0}",
 		configValues)
 }
 
@@ -231,7 +231,7 @@ func (s *QPepConfigSuite) TestReadConfiguration_WithBrokerConfig() {
 
 	assert.NotNil(s.T(), QPepConfig)
 	configValues := fmt.Sprintf("%v", QPepConfig)
-	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0.0.0.0 9443 true false false 4 cert.pem key.pem reno search {map[] map[]} {true 192.168.1.9 1883 tcp qpep-server-1/data} 0 0 0 0 0}",
+	assert.Equal(s.T(), "{10 198.18.0.254 443 444 quic-go 0 0.0.0.0 9443 true false false 4 cert.pem key.pem reno search {map[] map[]} {true 192.168.1.9 1883 tcp qpep-server-1/data} 0 0 0 0 0}",
 		configValues)
 }
 

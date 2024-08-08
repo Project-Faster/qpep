@@ -12,6 +12,9 @@ import (
 )
 
 const (
+	DEBUG_DUMP_PACKETS  = false
+	DEBUG_MASK_REDIRECT = false
+
 	DEBUG_FILE_FMT = "%s_%v_%s.prof"
 )
 
