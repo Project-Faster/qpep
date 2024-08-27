@@ -138,6 +138,7 @@ jobs:
       QPEP_CI_ENV: 1
       CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      MINGW_BASEDIR: 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
     defaults:
       run:
         shell: cmd
@@ -166,7 +167,7 @@ jobs:
         uses: egor-tensin/setup-mingw@v2
         with:
           platform: x64
-          static: false
+          static: true
           version: 11.1.0
 
       - name: Set up CMake
@@ -176,6 +177,8 @@ jobs:
 
       - name: Prepare
         run: |
+          @echo on
+          
           MKDIR build
           MKDIR build\64bits
           MKDIR build\32bits
@@ -183,6 +186,9 @@ jobs:
           COPY /Y LICENSE build\LICENSE
           go clean -cache -x
           COPY /Y windivert\x64\* build\64bits
+          COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\64bits
+          COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\64bits
+          COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\64bits
 
       - name: Build Backends
         run: |
@@ -196,7 +202,7 @@ jobs:
       - name: Build QPep Tray
         run: |
           pushd qpep-tray
-          export CGO_ENABLED=0
+          set CGO_ENABLED=0
           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
           popd
 
