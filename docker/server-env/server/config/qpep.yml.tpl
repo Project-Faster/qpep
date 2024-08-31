@@ -10,6 +10,7 @@ listenport: ${QPEP_PORT}
 backend: ${QPEP_BACKEND}
 ccalgorithm: ${QPEP_CCA}
 ccslowstart: ${QPEP_SLOWSTART}
+buffersize: 512 # in Kb
 
 # certificate
 certificate: server_cert.pem

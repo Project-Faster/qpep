@@ -73,7 +73,7 @@ func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, cc
 		CertificateFile:      certPath,
 		CertificateKey:       certKeyPath,
 		ApplicationProtocol:  QUICLYGO_ALPN,
-		IdleTimeoutMs:        5 * 1000,
+		IdleTimeoutMs:        30 * 1000,
 		CongestionAlgorithm:  ccAlgorithm,
 		CCSlowstartAlgorithm: ccSlowstartAlgo,
 		TraceQuicly:          traceOn,

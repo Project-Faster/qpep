@@ -142,23 +142,20 @@ jobs:
         shell: pwsh
         run: |
           $Stoploop = $false
-          [ int ]$MaxRetries = "120"
+          [ int ]$MaxRetries = "60"
           [ int ]$Retrycount = $MaxRetries
 
-           do {
+          do {
             try {
               $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
               Write-Host "$DT : Echoing server... (Remaining $Retrycount)"
-              Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 1
+              Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 3
               Write-Host "Job completed"
               $Stoploop = $true
             }
             catch {
               $Retrycount = $Retrycount - 1
-              if ($Retrycount -gt 0){
-                Start-Sleep -Seconds 2
-              }
-              else {
+              if ($Retrycount -lt 0){
                 Write-Error "Could not get server after $MaxRetries retries." -ErrorAction Stop
               }
             }
@@ -182,8 +179,39 @@ jobs:
       - name: Stop Client
         if: always()
         shell: pwsh
+        continue-on-error: true
         run: |
-          Get-Process qpep | Stop-Process
+          ${{ github.workspace }}/docker/speedtests/utils/windows-kill.exe -SIGBREAK @(Get-Process qpep | select -expand id)
+          
+      - name: Wait Client Stop
+        if: always()
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $Stoploop = $false
+          [ int ]$MaxRetries = "60"
+          [ int ]$Retrycount = $MaxRetries
+          
+          do {
+            try {
+              $id = Get-Process qpep -ErrorAction Stop | select -expand id
+              Write-Host "QPep client still active with pid ${id}, wait 1sec... (Retries: ${Retrycount})"
+              Start-Sleep -Seconds 1
+              $Retrycount = $Retrycount - 1
+            }
+            catch {
+              $Stoploop = $true
+              Write-Host "QPep client stopped"
+            }
+            
+            if ($Retrycount -lt 0){
+              Write-Host "Could not get stop client after $MaxRetries retries, forcing stop."
+              $Stoploop = $true
+          
+              Get-Process qpep | Stop-Process
+            }
+          }
+          While($Stoploop -eq $false)
 
       - name: Reset Proxy
         if: always()
@@ -285,7 +313,7 @@ jobs:
         uses:
           nick-fields/retry@v3
         with:
-          timeout_minutes: 10
+          timeout_minutes: 5
           max_attempts: 3
           retry_on: timeout
           warning_on_retry: true
@@ -300,7 +328,7 @@ jobs:
             RETRIES=${{ inputs.server_wait_timeout }}
             while ! (( RETRIES <= 0 ));
             do
-              CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
+              CONN_NUM=$(curl -s -XGET -H 'Accept:application/json' -H 'Connection: close' http://127.0.0.1:444/api/v1/server/echo | jq .total_connections || true)
               if [[ "$CONN_NUM" == "" ]]; then
                 echo [FAIL]: Local server not available
                 exit 1

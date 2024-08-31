@@ -23,7 +23,7 @@ require (
 require (
 	bou.ke/monkey v1.0.2
 	github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d
-	github.com/Project-Faster/quicly-go v0.0.0-00010101000000-000000000000
+	github.com/Project-Faster/quicly-go v0.3.0
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
@@ -61,7 +61,6 @@ require (
 	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
-	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect
 	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
@@ -69,5 +68,4 @@ require (
 	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
-	modernc.org/mathutil v1.5.0 // indirect
 )

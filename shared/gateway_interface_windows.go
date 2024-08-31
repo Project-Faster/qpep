@@ -168,6 +168,10 @@ BLOCK:
 }
 
 func SetSystemProxy(active bool) {
+	if active && ProxyAddress != nil {
+		return
+	}
+
 	preloadRegistryKeysForUsers()
 
 	if !active {

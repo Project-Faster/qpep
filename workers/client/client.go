@@ -31,7 +31,7 @@ var (
 		RedirectedInterfaces: []int64{},
 		QuicStreamTimeout:    2, MultiStream: shared.QPepConfig.MultiStream,
 		MaxConnectionRetries: shared.DEFAULT_REDIRECT_RETRIES,
-		IdleTimeout:          time.Duration(300) * time.Second,
+		IdleTimeout:          time.Duration(3) * time.Second,
 		WinDivertThreads:     1,
 		Verbose:              false,
 	}
@@ -118,11 +118,15 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 
 	var connected = false
 	var checkIsRunning = false
-	var publicAddress = ""
 
 	// start redirection right away because we normally expect the
 	// connection with the server to be on already up
 	initialCheckConnection()
+
+	localAddr := ClientConfiguration.ListenHost
+	apiAddr := ClientConfiguration.GatewayHost
+	apiPort := ClientConfiguration.APIPort
+	connected, _ = gatewayStatusCheck(localAddr, apiAddr, apiPort)
 
 	// Update loop
 	for {
@@ -133,47 +137,22 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 			}
 			return
 
-		case <-time.After(1 * time.Second):
+		case <-time.After(10 * time.Second):
 			if shared.DEBUG_MASK_REDIRECT || checkIsRunning {
 				continue
 			}
 			checkIsRunning = true
-			localAddr := ClientConfiguration.ListenHost
-			apiAddr := ClientConfiguration.GatewayHost
-			apiPort := ClientConfiguration.APIPort
-			if !connected {
-				ok, response := gatewayStatusCheck(localAddr, apiAddr, apiPort)
-				checkIsRunning = false
-				if ok {
-					publicAddress = response.Address
-					connected = true
-					logger.Info("Server returned public address %s\n", publicAddress)
 
-				} else {
-					// if connection is lost then keep the redirection active
-					// for a certain number of retries then terminate to not keep
-					// all the network blocked
-					if failedCheckConnection() {
-						return
-					}
-				}
-				continue
-			}
-
-			connected = clientStatisticsUpdate(localAddr, apiAddr, apiPort, publicAddress)
+			connected, _ = gatewayStatusCheck(localAddr, apiAddr, apiPort)
 			checkIsRunning = false
 			if !connected {
-				logger.Info("Error during statistics update from server\n")
-
 				// if connection is lost then keep the redirection active
 				// for a certain number of retries then terminate to not keep
 				// all the network blocked
 				if failedCheckConnection() {
 					return
 				}
-				connected = false
 			}
-			continue
 		}
 	}
 }

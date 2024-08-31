@@ -8,6 +8,7 @@ import (
 	"github.com/parvit/qpep/logger"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"runtime"
 	"strings"
@@ -60,6 +61,10 @@ func doAPIRequest(addr string, client *http.Client) (*http.Response, error) {
 		logger.Error("%v\n", err)
 		return nil, err
 	}
+
+	data, _ := httputil.DumpResponse(resp, true)
+	logger.Info("RESP: %v\n", string(data))
+
 	return resp, nil
 }
 

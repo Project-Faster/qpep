@@ -216,12 +216,11 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	//we exit (and close the TCP connection) once both streams are done copying or timeout
 	logger.Debug("[%v] Stream Wait", quicStream.ID())
 	streamWait.Wait()
-	logger.Info("Stream %d (duration: %v) End", quicStream.ID(), time.Now().Sub(startTime))
 
 	tcpConn.Close()
 	quicStream.Close()
 
-	logger.Debug("[%d] Closed TCP NetConn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
+	logger.Info("[%d] Closed TCP NetConn %s -> %s [%d] (%v)\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress, quicStream.ID(), time.Now().Sub(startTime))
 }
 
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit int64, dst net.Conn, src backend.QuicBackendStream, qtFlag, tqFlag *atomic.Bool) {
@@ -233,7 +232,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	periodStart := time.Now()
 	periodWritten := int64(0)
 
-	logger.Info("[%d] Stream Q->T start", src.ID())
+	logger.Debug("[%d] Stream Q->T start", src.ID())
 
 	tskKey := fmt.Sprintf("Q->T:%v", src.ID())
 	tsk := shared.StartRegion(tskKey)
@@ -246,7 +245,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk.End()
 		streamWait.Done()
 		qtFlag.Store(false)
-		logger.Error("[%d] Stream Q->T [wr:%v rd:%d] done", src.ID(), written, read)
+		logger.Info("[%d] Stream Q->T [wr:%v rd:%d] done", src.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.server.qt", src.ID())
@@ -260,7 +259,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		}
 
 		if src.IsClosed() || !tqFlag.Load() {
-			logger.Info("[%v] T->Q CLOSE (%v %v %v)", src.ID(), src.IsClosed(), !tqFlag.Load(), src.Sync())
+			logger.Debug("[%v] T->Q CLOSE (%v %v %v)", src.ID(), src.IsClosed(), !tqFlag.Load(), src.Sync())
 			return
 		}
 
@@ -287,7 +286,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
-			logger.Error("[%d] END Q->T: %v", src.ID(), err)
+			logger.Error("[%d] STREAM ERR Q->T: %v", src.ID(), err)
 			closeStreamNow(src)
 			return
 		}
@@ -313,7 +312,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	periodStart := time.Now()
 	periodWritten := int64(0)
 
-	logger.Info("[%d] Stream T->Q start", dst.ID())
+	logger.Debug("[%d] Stream T->Q start", dst.ID())
 
 	tskKey := fmt.Sprintf("T->Q:%v", dst.ID())
 	tsk := shared.StartRegion(tskKey)
@@ -339,7 +338,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		}
 
 		if dst.IsClosed() || !qtFlag.Load() {
-			logger.Info("[%v] T->Q CLOSE (%v %v %v)", dst.ID(), dst.IsClosed(), !qtFlag.Load(), dst.Sync())
+			logger.Error("[%v] T->Q CLOSE (%v %v %v)", dst.ID(), dst.IsClosed(), !qtFlag.Load(), dst.Sync())
 			return
 		}
 
@@ -365,7 +364,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
-			logger.Error("[%d] END T->Q: %v", dst.ID(), err)
+			logger.Error("[%d] STREAM ERR T->Q: %v", dst.ID(), err)
 			closeStreamNow(dst)
 			return
 		}

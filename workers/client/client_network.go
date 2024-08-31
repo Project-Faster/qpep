@@ -141,7 +141,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	}
 
 	//Proxy all stream content from quic to TCP and from TCP to quic
-	logger.Info("[%d] Stream Start", quicStream.ID())
+	logger.Debug("[%d] Stream Start", quicStream.ID())
 
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
@@ -192,7 +192,6 @@ func getQuicStream(ctx context.Context) (backend.QuicBackendStream, error) {
 		logger.Debug("Trying to open on existing session")
 		quicStream, err = localSession.OpenStream(context.Background())
 		if err == nil {
-			logger.Info("Opened a new stream: %d", quicStream.ID())
 			return quicStream, nil
 		}
 		// if we weren't able to open a quicStream on that session (usually inactivity timeout), we can try to open a new session
@@ -362,13 +361,8 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 			return shared.ErrFailed
 		}
 
-		logger.Info("Sending captured %s request\n", req.Method)
+		logger.Debug("Sending captured %s request\n", req.Method)
 		err = req.Write(stream)
-		//if err != nil {
-		//	_ = tcpConn.Close()
-		//	logger.Error("Error writing to tcp stream: %v", err)
-		//	return shared.ErrFailed
-		//}
 		break
 
 	case http.MethodConnect:
@@ -403,8 +397,7 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 
 		t.Write(tcpConn)
 
-		logger.Info("Proxied connection")
-		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
+		logger.Info("(Proxied) Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
 
 		_, err := stream.Write(header.ToBytes())
 		if err != nil {

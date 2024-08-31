@@ -93,8 +93,8 @@ func (q *quicGoBackend) Close() error {
 func qgoGetConfiguration(traceOn bool) *quic.Config {
 	cfg := &quic.Config{
 		MaxIncomingStreams:      1024,
-		DisablePathMTUDiscovery: true,
-		MaxIdleTimeout:          15 * time.Second,
+		DisablePathMTUDiscovery: false,
+		MaxIdleTimeout:          2 * time.Second,
 
 		InitialConnectionReceiveWindow: 10 * 1024 * 1024,
 
