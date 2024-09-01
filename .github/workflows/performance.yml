@@ -8,7 +8,7 @@ env:
 
 on:
   schedule:
-    - cron: '1 1 * * *'
+    - cron: '30 10 * * *'  # '1 1 * * *'
 
   workflow_dispatch:
     inputs:
@@ -104,12 +104,12 @@ jobs:
             cca: 'cubic'
     uses: './.github/workflows/run-performance.yml'
     with:
-      server_public_address: ${{ inputs.server_public_address }}
-      server_private_address: ${{ inputs.server_private_address }}
-      client_listen_address: ${{ inputs.client_listen_address }}
-      connection_delay_device: ${{ inputs.connection_delay_device }}
-      connection_delay_ms: ${{ matrix.connection_delay_ms }}
-      backend_trace_active: ${{ inputs.backend_trace_active }}
+      server_public_address: ${{ inputs.server_public_address || '35.163.142.7' }}
+      server_private_address: ${{ inputs.server_private_address || '172.31.38.198' }}
+      client_listen_address: ${{ inputs.client_listen_address || '172.31.21.30' }}
+      connection_delay_device: ${{ inputs.connection_delay_device || 'eth0' }}
+      connection_delay_ms: ${{ matrix.connection_delay_ms || 500 }}
+      backend_trace_active: ${{ inputs.backend_trace_active || false }}
       backend: ${{ matrix.backend }}
       cca: ${{ matrix.cca }}
       slowstart: ${{ matrix.slowstart }}
