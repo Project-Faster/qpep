@@ -108,7 +108,7 @@ jobs:
       server_private_address: ${{ inputs.server_private_address || '172.31.38.198' }}
       client_listen_address: ${{ inputs.client_listen_address || '172.31.21.30' }}
       connection_delay_device: ${{ inputs.connection_delay_device || 'eth0' }}
-      connection_delay_ms: ${{ matrix.connection_delay_ms || 500 }}
+      connection_delay_ms: ${{ matrix.connection_delay_ms }}
       backend_trace_active: ${{ inputs.backend_trace_active || false }}
       backend: ${{ matrix.backend }}
       cca: ${{ matrix.cca }}
