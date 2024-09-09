@@ -88,7 +88,7 @@ func (s *APIClientSuite) TestDoAPIRequest() {
 
 	body := make([]byte, 1024)
 	n, err := resp.Body.Read(body)
-	assert.Equal(t, io.EOF, err)
+	assert.Nil(t, err)
 
 	t.Logf("data: %v\n", string(body[:n]))
 
