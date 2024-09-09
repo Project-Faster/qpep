@@ -73,7 +73,7 @@ jobs:
       - name: Test
         run: |
           set -x
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             export WORKSPACE="${{ github.workspace }}"
@@ -88,7 +88,7 @@ jobs:
       - name: Publish Coverage Results
         if: always()
         run: |
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
@@ -226,8 +226,8 @@ jobs:
         run: |
           set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          go generate github.com/Project-Faster/qpep/windivert
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          go generate github.com/parvit/qpep/windivert
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             cp -r $WORKSPACE/windivert/x64/* .
@@ -245,7 +245,7 @@ jobs:
         run: |
           set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
