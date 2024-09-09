@@ -1,15 +1,14 @@
 package main
 
 import (
-	"io"
-	"log"
+	"github.com/parvit/qpep/qpep-tray/common"
+	"github.com/parvit/qpep/qpep-tray/notify"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
-	"github.com/getlantern/systray"
 	"github.com/parvit/qpep/shared"
+	"github.com/project-faster/systray"
 )
 
 func main() {
@@ -23,23 +22,12 @@ func main() {
 	interruptListener := make(chan os.Signal, 1)
 	signal.Notify(interruptListener, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	// open the log file in current directory
-	ExeDir, _ = filepath.Abs(filepath.Dir(os.Args[0]))
-
-	f, err := os.OpenFile(filepath.Join(ExeDir, "qpep-tray.log"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer f.Close()
-	wrt := io.MultiWriter(os.Stdout, f)
-	log.SetOutput(wrt)
-
-	log.SetFlags(log.Ltime | log.Lmicroseconds)
+	common.Init(os.Args[0])
 
 	// read configuration
 	if err := shared.ReadConfiguration(true); err != nil {
-		ErrorMsg("Could not load configuration file, please edit: %v", err)
+		notify.ErrorMsg("Could not load configuration file, please edit: %v", err)
 	}
 
-	systray.Run(onReady, onExit)
+	systray.Run(common.OnReady, common.OnExit)
 }

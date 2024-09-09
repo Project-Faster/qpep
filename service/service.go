@@ -267,7 +267,9 @@ func (p *QPepService) Main() error {
 			logger.Error("PANIC: %v\n", err)
 			p.exitValue = 1
 		}
-		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
+		// be sure to clear proxy and diverter settings on exit
+		shared.SetSystemProxy(false)
+		shared.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
 	}()
 
 	logger.Info("Main")
@@ -309,12 +311,9 @@ TERMINATIONLOOP:
 	p.cancelFunc()
 	<-p.context.Done()
 
-	logger.Info("Shutdown...")
-	logger.Info("%d", windivert.CloseWinDivertEngine())
-
+	logger.Info("Exiting...")
 	<-time.After(1 * time.Second)
 
-	logger.Info("Exiting...")
 	p.exitValue = 0
 
 	return nil

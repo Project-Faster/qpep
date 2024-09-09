@@ -114,6 +114,9 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 		}
 		wg.Done()
 		cancel()
+
+		stopDiverter()
+		stopProxy()
 	}()
 
 	var connected = false

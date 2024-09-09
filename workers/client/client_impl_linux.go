@@ -7,11 +7,13 @@ import (
 // initDiverter method wraps the logic for initializing the windiverter engine, returns true if the diverter
 // succeeded initialization and false otherwise
 func initDiverter() bool {
-	return false
+	return shared.SetConnectionDiverter(true, "", shared.QPepConfig.ListenHost, 0, shared.QPepConfig.ListenPort, 0, 0)
 }
 
 // stopDiverter method wraps the calls for stopping the diverter
-func stopDiverter() {}
+func stopDiverter() {
+	shared.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
+}
 
 // initProxy method wraps the calls for initializing the proxy
 func initProxy() {

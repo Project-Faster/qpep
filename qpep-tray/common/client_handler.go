@@ -1,9 +1,9 @@
-package main
+package common
 
 import (
 	"errors"
-	"log"
-
+	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/qpep-tray/notify"
 	"github.com/parvit/qpep/shared"
 )
 
@@ -11,7 +11,6 @@ var clientActive bool = false
 
 func startClient() error {
 	if clientActive {
-		log.Println("ERROR: Cannot start an already running client, first stop it")
 		return shared.ErrFailed
 	}
 
@@ -19,7 +18,7 @@ func startClient() error {
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {
 			shared.QPepConfig.ListenHost = addressList[idx]
-			log.Printf("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
+			logger.Info("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
 			break
 		}
 	}
@@ -29,30 +28,29 @@ func startClient() error {
 	})
 
 	if err := startClientProcess(); err != nil {
-		ErrorMsg("Could not start client program: %v", err)
+		notify.ErrorMsg("Could not start client program: %v", err)
 		clientActive = false
 		return shared.ErrCommandNotStarted
 	}
 	clientActive = true
-	InfoMsg("Client started")
+	notify.InfoMsg("Client started")
 
 	return nil
 }
 
 func stopClient() error {
 	if !clientActive {
-		ErrorMsg("ERROR: Cannot stop an already stopped client, first start it")
 		return nil
 	}
 
 	if err := stopClientProcess(); err != nil {
-		ErrorMsg("Could not stop process gracefully (%v)n", err)
+		notify.ErrorMsg("Could not stop process gracefully (%v)n", err)
 		return err
 	}
 
 	clientActive = false
 	shared.SetSystemProxy(false)
-	InfoMsg("Client stopped")
+	notify.InfoMsg("Client stopped")
 	return nil
 }
 
@@ -74,7 +72,13 @@ func startClientProcess() error {
 	if err != nil {
 		return err
 	}
-	return cmd.Wait()
+	err = cmd.Wait()
+	if err != nil {
+		logger.Error("Full command: %v", cmd.String())
+		out, _ := cmd.CombinedOutput()
+		logger.Error("Full error: %v", string(out))
+	}
+	return err
 }
 
 func stopClientProcess() error {

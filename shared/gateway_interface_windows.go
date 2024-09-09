@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/windivert"
+	"net"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 const (
@@ -34,15 +36,20 @@ var (
 	usersRegistryKeys = make([]string, 0, 8)
 )
 
-// RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
-// an error if there was any issue with the command executed
-func RunCommand(name string, cmd ...string) ([]byte, error, int) {
-	routeCmd := exec.Command(name, cmd...)
-	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	result, err := routeCmd.CombinedOutput()
-	code := routeCmd.ProcessState.ExitCode()
+func init() {
+	_, _, code := RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
+	if code != 0 {
+		return
+	}
 
-	return result, err, code
+	_, _, _ = RunCommand("sc.exe", "stop", "WinDivert") // Stop orphaned instances of WinDivert
+	<-time.After(1 * time.Second)
+	_, _, code = RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
+	if code != 0 {
+		return
+	}
+
+	panic("Tried to stop the WinDivert orphan instance but it did not terminate, unable to continue")
 }
 
 // getRouteGatewayInterfaces method extracts routing information using the "netsh" utility and returns specifically:
@@ -264,6 +271,31 @@ func preloadRegistryKeysForUsers() {
 			usersRegistryKeys = append(usersRegistryKeys, fmt.Sprintf(PROXY_KEY_2, key))
 		}
 	}
+}
+
+func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) bool {
+	if active {
+		logger.Info("Initializing WinDivert: %v %v %v %v %v %v\n", gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface)
+		code := windivert.InitializeWinDivertEngine(gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface)
+		logger.Info("WinDivert code: %v\n", code)
+		if code != windivert.DIVERT_OK {
+			logger.Error("Could not initialize WinDivert engine, code %d\n", code)
+		}
+		return code == windivert.DIVERT_OK
+	}
+
+	logger.Info("Closing WinDivert...\n")
+	code := windivert.CloseWinDivertEngine()
+	logger.Info("WinDivert code: %v\n", code)
+	return code == windivert.DIVERT_OK
+}
+
+func GetConnectionDivertedState(local, remote *net.TCPAddr) (bool, int, int, string, string) {
+	if remote == nil {
+		return false, -1, -1, "", ""
+	}
+	result, srcPort, dstPort, srcAddress, dstAddress := windivert.GetConnectionStateData(remote.Port)
+	return result == windivert.DIVERT_OK, srcPort, dstPort, srcAddress, dstAddress
 }
 
 // Adapted from github.com/Trisia/gosysproxy

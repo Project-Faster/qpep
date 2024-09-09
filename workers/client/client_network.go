@@ -19,7 +19,6 @@ import (
 	"github.com/parvit/qpep/backend"
 	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/windivert"
 	"golang.org/x/net/context"
 )
 
@@ -71,16 +70,19 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	setLinger(tcpConn)
 
-	logger.Info("Accepting TCP connection: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
-	defer tcpConn.Close()
+	logger.Info("TCP connection START: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
+	defer func() {
+		logger.Debug("TCP connection END: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
+		_ = tcpConn.Close()
+	}()
 
-	tcpSourceAddr := tcpConn.RemoteAddr().(*net.TCPAddr)
+	tcpRemoteAddr := tcpConn.RemoteAddr().(*net.TCPAddr)
 	tcpLocalAddr := tcpConn.LocalAddr().(*net.TCPAddr)
-	diverted, srcPort, dstPort, srcAddress, dstAddress := windivert.GetConnectionStateData(tcpSourceAddr.Port)
+	diverted, srcPort, dstPort, srcAddress, dstAddress := shared.GetConnectionDivertedState(tcpLocalAddr, tcpRemoteAddr)
 
 	var proxyRequest *http.Request
 	var errProxy error
-	if diverted != windivert.DIVERT_OK {
+	if !diverted {
 		// proxy open connection
 		proxyRequest, errProxy = handleProxyOpenConnection(tcpConn)
 		if errProxy == shared.ErrProxyCheckRequest {
@@ -105,14 +107,14 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	//Set our custom header to the QUIC session so the server can generate the correct TCP handshake on the other side
 	sessionHeader := shared.QPepHeader{
-		SourceAddr: tcpSourceAddr,
+		SourceAddr: tcpRemoteAddr,
 		DestAddr:   tcpLocalAddr,
 		Flags:      0,
 	}
 
 	// divert check
-	if diverted == windivert.DIVERT_OK {
-		logger.Info("Diverted connection: %v:%v %v:%v", srcAddress, srcPort, dstAddress, dstPort)
+	if diverted {
+		logger.Info("Diverted connection: %v:%v -> %v:%v", srcAddress, srcPort, dstAddress, dstPort)
 
 		sessionHeader.SourceAddr = &net.TCPAddr{
 			IP:   net.ParseIP(srcAddress),

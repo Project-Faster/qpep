@@ -1,9 +1,9 @@
-package main
+package common
 
 import (
 	"errors"
-	"log"
-
+	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/qpep-tray/notify"
 	"github.com/parvit/qpep/shared"
 )
 
@@ -11,7 +11,6 @@ var serverActive bool = false
 
 func startServer() error {
 	if serverActive {
-		log.Println("ERROR: Cannot start an already running server, first stop it")
 		return shared.ErrFailed
 	}
 
@@ -19,7 +18,7 @@ func startServer() error {
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {
 			shared.QPepConfig.ListenHost = addressList[idx]
-			log.Printf("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
+			logger.Error("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
 			break
 		}
 	}
@@ -29,29 +28,28 @@ func startServer() error {
 	})
 
 	if err := startServerProcess(); err != nil {
-		ErrorMsg("Could not start server program: %v", err)
+		notify.ErrorMsg("Could not start server program: %v", err)
 		serverActive = false
 		return shared.ErrCommandNotStarted
 	}
 	serverActive = true
-	InfoMsg("Server started")
+	notify.InfoMsg("Server started")
 
 	return nil
 }
 
 func stopServer() error {
 	if !serverActive {
-		log.Println("ERROR: Cannot stop an already stopped server, first start it")
 		return nil
 	}
 
 	if err := stopServerProcess(); err != nil {
-		log.Printf("Could not stop process gracefully (%v)\n", err)
+		logger.Error("Could not stop process gracefully (%v)\n", err)
 		return err
 	}
 
 	serverActive = false
-	InfoMsg("Server stopped")
+	notify.InfoMsg("Server stopped")
 	return nil
 }
 

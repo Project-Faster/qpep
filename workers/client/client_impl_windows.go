@@ -1,9 +1,7 @@
 package client
 
 import (
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/windivert"
 	"net"
 	"strings"
 )
@@ -32,18 +30,12 @@ func initDiverter() bool {
 		}
 	}
 
-	logger.Info("WinDivert: %v %v %v %v %v %v\n", gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
-	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
-	logger.Info("WinDivert code: %v\n", code)
-	if code != windivert.DIVERT_OK {
-		logger.Info("ERROR: Could not initialize WinDivert engine, code %d\n", code)
-	}
-	return code == windivert.DIVERT_OK
+	return shared.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
 }
 
 // stopDiverter method wraps the calls for stopping the diverter
 func stopDiverter() {
-	windivert.CloseWinDivertEngine()
+	shared.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
 	redirected = false
 }
 

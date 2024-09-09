@@ -1,16 +1,30 @@
 package shared
 
-/**
-* Parts of the code similar to the github.com/jackpal/gateway module
-* but the command output parse is different to allow extract also the
-* interface ID for interface filtering in the divert engine
- */
-
 import (
+	"fmt"
 	"github.com/jackpal/gateway"
 	"github.com/parvit/qpep/logger"
+	"net"
 	"net/url"
 )
+
+const (
+	// 25       smtp
+	// 21       ftp
+	// 22       ssh
+	// 23       telnet
+	// 53       dns
+	// 67, 68.  dhcp
+	// 80, 443  http/https
+	// 143      imap
+	// 161, 162 snmp
+	// 636      ldap
+	// 989, 990 sftp
+	// 1025:65535  other tcp
+	PROTOCOLS_PORTS_LIST = `21:25,53,67,68,80,443,143,636,161:162,989:990,1025:65535`
+)
+
+var redirectOn = false
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	defaultIP, err := gateway.DiscoverInterface()
@@ -22,14 +36,64 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	return []int64{}, []string{defaultIP.String()}, nil
 }
 
-func SetSystemProxy(active bool) {
-	if !active {
-		logger.Info("Clearing system proxy settings\n")
-		return
-	}
-	logger.Info("Setting system proxy not yet supported\n")
-}
+func SetSystemProxy(active bool) {}
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
 	return false, nil
+}
+
+func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) bool {
+	redirectOn = active
+
+	if active {
+		logger.Info("Setting system iptables\n")
+
+		_, err, _ := RunCommand("bash", "-c", "iptables -P FORWARD ACCEPT")
+		if err != nil {
+			logger.Error("%v\n", err)
+			return false
+		}
+
+		_, err, _ = RunCommand("bash", "-c",
+			fmt.Sprintf("iptables -t nat -A OUTPUT -j DNAT -p tcp --to-destination %s:%d -m multiport --destination-ports %s", listenAddr, listenPort, PROTOCOLS_PORTS_LIST))
+		if err != nil {
+			logger.Error("%v\n", err)
+			return false
+		}
+
+		_, err, _ = RunCommand("bash", "-c",
+			fmt.Sprintf("iptables -t nat -A POSTROUTING -j MASQUERADE -p tcp -m multiport --destination-ports %s", PROTOCOLS_PORTS_LIST))
+		if err != nil {
+			logger.Error("%v\n", err)
+			return false
+		}
+		return true
+	}
+
+	logger.Info("Clearing system iptables settings\n")
+	_, err, _ := RunCommand("bash", "-c", "iptables -F FORWARD")
+	if err != nil {
+		logger.Error("%v\n", err)
+		return false
+	}
+
+	_, err, _ = RunCommand("bash", "-c", "iptables -t nat -F OUTPUT")
+	if err != nil {
+		logger.Error("%v\n", err)
+		return false
+	}
+
+	_, err, _ = RunCommand("bash", "-c", "iptables -t nat -F POSTROUTING")
+	if err != nil {
+		logger.Error("%v\n", err)
+		return false
+	}
+	return true
+}
+
+func GetConnectionDivertedState(local, remote *net.TCPAddr) (bool, int, int, string, string) {
+	if local == nil || remote == nil {
+		return false, -1, -1, "", ""
+	}
+	return redirectOn, local.Port, remote.Port, local.IP.String(), remote.IP.String()
 }
