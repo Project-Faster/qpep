@@ -2,8 +2,8 @@ package notify
 
 import (
 	"fmt"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/qpep-tray/notify/toast"
+	"github.com/parvit/qpep/shared/logger"
 	"github.com/project-faster/dialog"
 )
 

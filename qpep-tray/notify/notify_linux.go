@@ -5,7 +5,7 @@ package notify
 import (
 	"fmt"
 	platformnotify "github.com/martinlindhe/notify"
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/logger"
 	"github.com/project-faster/dialog"
 )
 
