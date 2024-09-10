@@ -94,9 +94,16 @@ jobs:
           cd backend/
           go generate
 
-      - name: Build Executable
+      - name: Build QPep
         run: |
           go build -v -o build/qpep
+
+      - name: Build QPep Tray
+        run: |
+          pushd qpep-tray
+          set CGO_ENABLED=0
+          go build -o ../build/qpep-tray
+          popd
 
       - uses: actions/upload-artifact@v4
         with:

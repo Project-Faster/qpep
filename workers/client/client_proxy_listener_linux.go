@@ -3,7 +3,7 @@
 package client
 
 import (
-	"errors"
+	stderr "errors"
 	"fmt"
 	"github.com/parvit/qpep/shared/errors"
 	"net"
@@ -90,13 +90,13 @@ const (
 
 func getOriginalDst(clientConn *net.TCPConn) (*net.TCPAddr, *net.TCPConn, error) {
 	if clientConn == nil {
-		return nil, nil, errors.New("ERR: clientConn is nil")
+		return nil, nil, stderr.New("ERR: clientConn is nil")
 	}
 
 	// test if the underlying fd is nil
 	remoteAddr := clientConn.RemoteAddr()
 	if remoteAddr == nil {
-		return nil, nil, errors.New("ERR: clientConn.fd is nil")
+		return nil, nil, stderr.New("ERR: clientConn.fd is nil")
 	}
 
 	fmt.Printf(">> %v\n", clientConn.RemoteAddr())
@@ -128,7 +128,7 @@ func getOriginalDst(clientConn *net.TCPConn) (*net.TCPAddr, *net.TCPConn, error)
 		clientConnFile.Close()
 	} else {
 		errmsg := fmt.Sprintf("ERR: newConn is not a *net.TCPConn, instead it is: %T (%v)", newConn, newConn)
-		return nil, nil, errors.New(errmsg)
+		return nil, nil, stderr.New(errmsg)
 	}
 
 	// attention: IPv4 only!!!

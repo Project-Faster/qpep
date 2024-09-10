@@ -353,8 +353,6 @@ Usage
 
 ### Client
 
-> The following instructions apply to Windows OS installation
-
 After installing successfully, use the desktop icon to launch the QPep tray application.
 
 ![Tray Launch Icon](resources/5.png){ width=100pt }
