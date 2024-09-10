@@ -3,11 +3,10 @@ package common
 import (
 	"errors"
 	"github.com/parvit/qpep/qpep-tray/notify"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/shared/logger"
 	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/workers/gateway"
 	stderr "github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 )
 
 var clientActive bool = false
@@ -18,7 +17,7 @@ func startClient() error {
 		return stderr.ErrFailed
 	}
 
-	outAddress := configuration2.QPepConfig.Client.LocalListeningAddress
+	outAddress := configuration.QPepConfig.Client.LocalListeningAddress
 	addressList, _ := gateway.GetLanListeningAddresses()
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {
@@ -62,7 +61,7 @@ func stopClient() error {
 
 	clientActive = false
 	gateway.SetSystemProxy(false)
-	InfoMsg("Client stopped")
+	notify.InfoMsg("Client stopped")
 	return nil
 }
 

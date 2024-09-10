@@ -2,10 +2,10 @@ package common
 
 import (
 	"fmt"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
 	"github.com/parvit/qpep/qpep-tray/icons"
 	"github.com/parvit/qpep/qpep-tray/notify"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -53,4 +53,30 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 	cmd.Dir, _ = filepath.Abs(ExeDir)
 	cmd.SysProcAttr = attr
 	return cmd
+}
+
+// fakeAPICallCheckProxy executes a "fake" api call to the local server to check for the connection running through
+// the global proxy, this is checked by the client that adds the "X-QPEP-PROXY" header with value "true", a missing or
+// "false" value means the proxy is not running correctly
+func fakeAPICallCheckProxy() bool {
+	data, err, _ := shared.RunCommand("powershell.exe", "-ExecutionPolicy", "ByPass", "-Command",
+		"Invoke-WebRequest -Uri \"http://192.168.1.40:444/qpep-client-proxy-check\" -UseBasicParsing -TimeoutSec 1",
+	)
+	logger.Info("proxy check data: %s", data)
+	logger.Info("proxy check error: %v", err)
+	if err != nil {
+		return false
+	}
+	if strings.Contains(string(data), "X-QPEP-PROXY, true") {
+		logger.Info("proxy is working")
+		return true
+	}
+	return false
+}
+
+func getWaitingIcons() [][]byte {
+	return [][]byte{
+		icons.MainIconWaiting,
+		icons.MainIconData,
+	}
 }

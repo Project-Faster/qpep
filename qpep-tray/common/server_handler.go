@@ -2,11 +2,11 @@ package common
 
 import (
 	"errors"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	stderr "github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/workers/gateway"
 	"github.com/parvit/qpep/qpep-tray/notify"
+	"github.com/parvit/qpep/shared/configuration"
+	stderr "github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 )
 
 var serverActive bool = false
@@ -16,7 +16,7 @@ func startServer() error {
 		return stderr.ErrFailed
 	}
 
-	outAddress := configuration2.QPepConfig.Server.LocalListeningAddress
+	outAddress := configuration.QPepConfig.Server.LocalListeningAddress
 	addressList, _ := gateway.GetLanListeningAddresses()
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {

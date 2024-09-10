@@ -5,8 +5,6 @@ import (
 	"github.com/parvit/qpep/qpep-tray/notify"
 	"github.com/parvit/qpep/shared/configuration"
 	"github.com/parvit/qpep/workers/gateway"
-	"io"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"

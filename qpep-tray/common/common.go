@@ -15,11 +15,8 @@ import (
 
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/qpep-tray/icons"
-	"github.com/parvit/qpep/qpep-tray/toast"
 	"github.com/parvit/qpep/qpep-tray/notify"
 	"github.com/project-faster/systray"
-	
-	. "github.com/sqweek/dialog"
 )
 
 const (
