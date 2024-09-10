@@ -3,17 +3,17 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
 	"github.com/parvit/qpep/qpep-tray/notify"
 	"os"
 	"time"
 
-	"github.com/parvit/qpep/shared"
 	"github.com/skratchdot/open-golang/open"
 )
 
 func openConfigurationWithOSEditor() {
-	_, baseConfigPath, _ := shared.GetConfigurationPaths()
+	_, baseConfigPath, _ := configuration.GetConfigurationPaths()
 
 	if err := open.Run(baseConfigPath); err != nil {
 		notify.ErrorMsg("Editor configuration failed with error: %v", err)
@@ -23,7 +23,7 @@ func openConfigurationWithOSEditor() {
 
 func openWebguiWithOSBrowser(clientMode, serverMode bool) {
 	mode := "server"
-	port := shared.QPepConfig.GatewayAPIPort
+	port := configuration.QPepConfig.General.APIPort
 	if (clientMode && serverMode) || (!clientMode && !serverMode) {
 		notify.ErrorMsg("Webgui can start with just one mode between server and client!")
 		return
@@ -35,7 +35,7 @@ func openWebguiWithOSBrowser(clientMode, serverMode bool) {
 		mode = "server"
 	}
 
-	guiurl := fmt.Sprintf(shared.WEBGUI_URL, port, mode, port)
+	guiurl := fmt.Sprintf(configuration.WEBGUI_URL, port, mode, port)
 	if err := open.Run(guiurl); err != nil {
 		notify.ErrorMsg("Webgui startup failed with error: %v", err)
 		return
@@ -46,7 +46,7 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		_, baseConfigFile, _ := shared.GetConfigurationPaths()
+		_, baseConfigFile, _ := configuration.GetConfigurationPaths()
 
 		var lastModTime time.Time
 		if stat, err := os.Stat(baseConfigFile); err == nil {
@@ -74,7 +74,7 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 					continue
 				}
 				lastModTime = stat.ModTime()
-				if shared.ReadConfiguration(true) == nil {
+				if configuration.ReadConfiguration(true) == nil {
 					reloadClientIfRunning()
 					reloadServerIfRunning()
 				}

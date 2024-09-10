@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/logger"
 	"os/exec"
 	"strings"
 	"syscall"

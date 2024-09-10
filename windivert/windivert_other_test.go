@@ -3,7 +3,8 @@
 package windivert
 
 import (
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"testing"
@@ -25,11 +26,11 @@ func (s *WinDivertSuite) BeforeTest(_, _ string) {}
 func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	t := s.T()
 
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
-		shared.QPepConfig.GatewayAPIPort, 445,
+		configuration.QPepConfig.GatewayAPIPort, 445,
 		4, 0)
 
 	assert.Equal(t, DIVERT_OK, code)
@@ -38,7 +39,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 	t := s.T()
 
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
@@ -51,11 +52,11 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 func (s *WinDivertSuite) TestCloseWinDivertEngine() {
 	t := s.T()
 
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
-		shared.QPepConfig.GatewayAPIPort, 445,
+		configuration.QPepConfig.GatewayAPIPort, 445,
 		4, 0)
 
 	assert.Equal(t, DIVERT_OK, code)

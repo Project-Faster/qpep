@@ -7,7 +7,7 @@ package service
 import (
 	"bou.ke/monkey"
 	"errors"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"
@@ -72,7 +72,7 @@ func (s *ServiceWinSuite) TestSetCurrentWorkingDir_FailPathNotExist() {
 }
 
 func (s *ServiceWinSuite) TestSetServiceUserPermissions() {
-	monkey.Patch(shared.RunCommand, func(name string, params ...string) ([]byte, error, int) {
+	monkey.Patch(gateway.RunCommand, func(name string, params ...string) ([]byte, error, int) {
 		assert.Equal(s.T(), "sc.exe", name)
 		assert.Len(s.T(), params, 3)
 		assert.Equal(s.T(), "sdset", params[0])
@@ -87,7 +87,7 @@ func (s *ServiceWinSuite) TestSetServiceUserPermissions() {
 }
 
 func (s *ServiceWinSuite) TestSetServiceUserPermissions_Error() {
-	monkey.Patch(shared.RunCommand, func(string, ...string) ([]byte, error, int) {
+	monkey.Patch(gateway.RunCommand, func(string, ...string) ([]byte, error, int) {
 		return nil, errors.New("test-error"), 1
 	})
 
@@ -97,7 +97,7 @@ func (s *ServiceWinSuite) TestSetServiceUserPermissions_Error() {
 }
 
 func (s *ServiceWinSuite) TestInstallDirectoryPermissions() {
-	monkey.Patch(shared.RunCommand, func(name string, params ...string) ([]byte, error, int) {
+	monkey.Patch(gateway.RunCommand, func(name string, params ...string) ([]byte, error, int) {
 		assert.Equal(s.T(), "icacls", name)
 		switch len(params) {
 		case 5:
@@ -126,7 +126,7 @@ func (s *ServiceWinSuite) TestInstallDirectoryPermissions() {
 }
 
 func (s *ServiceWinSuite) TestInstallDirectoryPermissions_ErrorFirstCmd() {
-	monkey.Patch(shared.RunCommand, func(string, ...string) ([]byte, error, int) {
+	monkey.Patch(gateway.RunCommand, func(string, ...string) ([]byte, error, int) {
 		return nil, errors.New("test-error"), 1
 	})
 
@@ -136,7 +136,7 @@ func (s *ServiceWinSuite) TestInstallDirectoryPermissions_ErrorFirstCmd() {
 }
 
 func (s *ServiceWinSuite) TestInstallDirectoryPermissions_ErrorSecondCmd() {
-	monkey.Patch(shared.RunCommand, func(_ string, params ...string) ([]byte, error, int) {
+	monkey.Patch(gateway.RunCommand, func(_ string, params ...string) ([]byte, error, int) {
 		if params[len(params)-1] == "/reset" {
 			return nil, nil, 0
 		}
@@ -150,7 +150,7 @@ func (s *ServiceWinSuite) TestInstallDirectoryPermissions_ErrorSecondCmd() {
 
 func (s *ServiceWinSuite) TestSendProcessInterrupt() {
 	var proxyWasReset = false
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.False(s.T(), active)
 		if !active {
 			proxyWasReset = true
@@ -174,7 +174,7 @@ func (s *ServiceWinSuite) TestSendProcessInterrupt() {
 
 func (s *ServiceWinSuite) TestSendProcessInterrupt_ErrorKill() {
 	var proxyWasReset = false
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.False(s.T(), active)
 		if !active {
 			proxyWasReset = true

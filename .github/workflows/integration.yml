@@ -8,6 +8,49 @@ on:
 run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] rev.${{ github.sha }}
 
 jobs:
+  docs:
+    if: true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      GO_VERSION: 1.20.14
+      PANDOC_VERSION: 3.3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: false
+
+      - name: Install Pandoc
+        uses: pandoc/actions/setup@v1.0.0
+        with:
+          version: ${{ env.PANDOC_VERSION }}
+
+      - name: Install TeXlive
+        run: sudo apt-get update && sudo apt-get install texlive-full
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Generate PDF
+        run: |
+          cd docs/
+          CURDATE=$(date '+%x %T')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -b -8)
+          sed -i -E -e "s|subtitle:.+|subtitle: \"User Manual - rev. $SHORT_SHA\"|" -e "s|date:.+|date: \"$CURDATE\"|" user-manual.md
+          go generate
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_user_manual
+          path: "docs/*.pdf"
+
   build-linux:
     if: true
     runs-on: ubuntu-latest
@@ -201,8 +244,8 @@ jobs:
       - name: Build QPep Installer
         run: |
           sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > installer/installer.wxs
-          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
-          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
+          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' shared/version/versioninfo.json > shared/version/versioninfo.json
+          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' shared/version/versioninfo.json > shared/version/versioninfo.json
           set PATH=${{ github.workspace }}\wix\tools;%PATH%
           msbuild installer\installer.sln
 

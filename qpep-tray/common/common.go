@@ -3,8 +3,10 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/qpep-tray/notify"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/version"
+	"github.com/parvit/qpep/workers/gateway"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
@@ -13,10 +15,11 @@ import (
 
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/qpep-tray/icons"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
-
+	"github.com/parvit/qpep/qpep-tray/toast"
+	"github.com/parvit/qpep/qpep-tray/notify"
 	"github.com/project-faster/systray"
+	
+	. "github.com/sqweek/dialog"
 )
 
 const (
@@ -57,7 +60,7 @@ var mServer *systray.MenuItem
 func OnReady() {
 	// Setup tray menu
 	systray.SetTemplateIcon(icons.MainIconData, icons.MainIconData)
-	if runtime.GOOS != "darwin" {
+	if runtime.GOOS == "windows" {
 		systray.SetTitle("QPep Connection Accelerator")
 	}
 	systray.SetTooltip("QPep Connection Accelerator")
@@ -69,7 +72,7 @@ func OnReady() {
 	mConfigRefresh := systray.AddMenuItem("Reload Configuration", "Reload configuration from disk and restart the service")
 	systray.AddSeparator()
 	mListeningAddress := systray.AddMenuItem("Listen Address", "Force a listening address on the fly")
-	addressList, _ := shared.GetLanListeningAddresses()
+	addressList, _ := gateway.GetLanListeningAddresses()
 	for _, addr := range addressList {
 		box := mListeningAddress.AddSubMenuItemCheckbox(addr, "Force listening address to be "+addr, false)
 		addressCheckBoxList = append(addressCheckBoxList, box)
@@ -139,7 +142,7 @@ func OnReady() {
 				continue
 
 			case <-mConfigRefresh.ClickedCh:
-				shared.ReadConfiguration(true)
+				configuration.ReadConfiguration(true)
 				notify.NotifyUser("Reload finished", "Info", false)
 				continue
 
@@ -326,15 +329,15 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 				// All else false so url contains "/client"
 				var clientToServer = (!serverActive && clientActive) || (serverActive && !clientActive)
 
-				listenHost := shared.QPepConfig.ListenHost
-				gatewayHost := shared.QPepConfig.GatewayHost
-				gatewayAPIPort := shared.QPepConfig.GatewayAPIPort
+				listenHost := configuration.QPepConfig.Client.LocalListeningAddress
+				gatewayHost := configuration.QPepConfig.Client.GatewayHost
+				gatewayAPIPort := configuration.QPepConfig.General.APIPort
 
-				shared.UsingProxy, shared.ProxyAddress = shared.GetSystemProxyEnabled()
-				if shared.UsingProxy {
-					shared.QPepConfig.ListenHost = shared.ProxyAddress.Hostname()
+				gateway.UsingProxy, gateway.ProxyAddress = gateway.GetSystemProxyEnabled()
+				if gateway.UsingProxy {
+					listenHost = gateway.ProxyAddress.Hostname()
 				}
-				logger.Info("Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
+				logger.Info("Proxy: %v %v\n", gateway.UsingProxy, gateway.ProxyAddress)
 
 				if !fakeAPICallCheckProxy() {
 					notify.NotifyUser("Detected issue with setting the proxy values, terminating...", "Error", false)

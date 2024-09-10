@@ -1,7 +1,8 @@
-package shared
+package configuration
 
 import (
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
 	"net"
 	"sort"
 	"strconv"
@@ -15,11 +16,11 @@ import (
 func AssertParamNumeric(name string, value, min, max int) {
 	if max < min {
 		logger.Error("Validation on parameter '%s' is not possible as numeric [%d:%d]: %d\n", name, min, max, value)
-		panic(ErrImpossibleValidationRequested)
+		panic(errors.ErrImpossibleValidationRequested)
 	}
 	if value < min || value > max {
 		logger.Error("Invalid parameter '%s' validated as numeric [%d:%d]: %d\n", name, min, max, value)
-		panic(ErrConfigurationValidationFailed)
+		panic(errors.ErrConfigurationValidationFailed)
 	}
 }
 
@@ -27,7 +28,7 @@ func AssertParamNumeric(name string, value, min, max int) {
 func AssertParamString(name, value string) {
 	if strings.TrimSpace(value) == "" {
 		logger.Error("Validation on parameter '%s' is not possible as it empty string: %s\n", name, value)
-		panic(ErrConfigurationValidationFailed)
+		panic(errors.ErrConfigurationValidationFailed)
 	}
 }
 
@@ -36,7 +37,7 @@ func AssertParamString(name, value string) {
 func AssertParamChoice(name, value string, choices []string) {
 	if len(choices) == 0 {
 		logger.Error("No valid choices provided for parameter '%s'", name)
-		panic(ErrImpossibleValidationRequested)
+		panic(errors.ErrImpossibleValidationRequested)
 	}
 	for _, c := range choices {
 		if strings.EqualFold(value, c) {
@@ -44,7 +45,7 @@ func AssertParamChoice(name, value string, choices []string) {
 		}
 	}
 	logger.Error("Validation on parameter '%s' is not possible as it is an allowed choice: %s - %s\n", name, value, strings.Join(choices, ","))
-	panic(ErrConfigurationValidationFailed)
+	panic(errors.ErrConfigurationValidationFailed)
 }
 
 // AssertParamIP panics with ErrConfigurationValidationFailed if the value does not represent
@@ -58,7 +59,7 @@ func AssertParamIP(name, value string) {
 		}
 
 		logger.Error("Invalid parameter '%s' validated as ip address: %s\n", name, value)
-		panic(ErrConfigurationValidationFailed)
+		panic(errors.ErrConfigurationValidationFailed)
 	}
 }
 
@@ -67,7 +68,7 @@ func AssertParamIP(name, value string) {
 func AssertParamPort(name string, value int) {
 	if value < 1 || value > 65536 {
 		logger.Error("Invalid parameter '%s' validated as port [1-65536]: %d\n", name, value)
-		panic(ErrConfigurationValidationFailed)
+		panic(errors.ErrConfigurationValidationFailed)
 	}
 }
 
@@ -84,7 +85,7 @@ func AssertParamPortsDifferent(name string, values ...int) {
 	case 2:
 		if values[0] == values[1] {
 			logger.Error("Ports '%s' must all be different: %v\n", name, values)
-			panic(ErrConfigurationValidationFailed)
+			panic(errors.ErrConfigurationValidationFailed)
 		}
 		AssertParamPort(name, values[0])
 		AssertParamPort(name, values[1])
@@ -96,7 +97,7 @@ func AssertParamPortsDifferent(name string, values ...int) {
 		for i := 1; i < len(values); i++ {
 			if values[i-1] == values[i] {
 				logger.Error("Ports '%s' must all be different: %v\n", name, values)
-				panic(ErrConfigurationValidationFailed)
+				panic(errors.ErrConfigurationValidationFailed)
 			}
 			AssertParamPort(name, values[i])
 		}
@@ -116,7 +117,7 @@ func AssertParamHostsDifferent(name string, values ...string) {
 	case 2:
 		if values[0] == values[1] {
 			logger.Error("Addresses '%s' must all be different: %v\n", name, values)
-			panic(ErrConfigurationValidationFailed)
+			panic(errors.ErrConfigurationValidationFailed)
 		}
 		AssertParamIP(name, values[0])
 		AssertParamIP(name, values[1])
@@ -128,7 +129,7 @@ func AssertParamHostsDifferent(name string, values ...string) {
 		for i := 1; i < len(values); i++ {
 			if values[i-1] == values[i] {
 				logger.Error("Addresses '%s' must all be different: %v\n", name, values)
-				panic(ErrConfigurationValidationFailed)
+				panic(errors.ErrConfigurationValidationFailed)
 			}
 			AssertParamIP(name, values[i])
 		}
@@ -138,10 +139,10 @@ func AssertParamHostsDifferent(name string, values ...string) {
 // addressRangesChecker struct organizes the logic for checking the speed limits
 // for a certain address / range / domain
 type addressRangesChecker struct {
-	// incomingRanges cached ip ranges of Clients map
+	// incomingRanges cached ip ranges of Incoming map
 	incomingRanges map[string]*net.IPNet
 
-	// outgoingRanges cached ip ranges of Destinations map
+	// outgoingRanges cached ip ranges of Outgoing map
 	outgoingRanges map[string]*net.IPNet
 
 	// limitsCache cached values parsed from definitions
@@ -165,10 +166,10 @@ func GetAddressSpeedLimit(address net.IP, incoming bool) (int64, bool) {
 
 	if incoming {
 		cached = addrState.incomingRanges
-		definesMap = QPepConfig.Limits.Clients
+		definesMap = QPepConfig.Limits.Incoming
 	} else {
 		cached = addrState.outgoingRanges
-		definesMap = QPepConfig.Limits.Destinations
+		definesMap = QPepConfig.Limits.Outgoing
 	}
 	for k, ipnet := range cached {
 		if ipnet == nil {

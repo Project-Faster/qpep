@@ -7,8 +7,9 @@ package windivert
 import (
 	"context"
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/flags"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"
@@ -49,9 +50,9 @@ func (s *WinDivertSuite) BeforeTest(_, _ string) {
 	}
 
 	flags.Globals.Client = false
-	shared.QPepConfig.Verbose = true
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.GatewayAPIPort = 9443
+	configuration.QPepConfig.Verbose = true
+	configuration.QPepConfig.ListenHost = "127.0.0.1"
+	configuration.QPepConfig.GatewayAPIPort = 9443
 	s.finished = false
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
@@ -71,11 +72,11 @@ func (s *WinDivertSuite) SetupSuite() {
 func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	t := s.T()
 
-	addr, itFaces := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, itFaces := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
-		shared.QPepConfig.GatewayAPIPort, 445,
+		configuration.QPepConfig.GatewayAPIPort, 445,
 		4, itFaces[0])
 
 	assert.Equal(t, DIVERT_OK, code)
@@ -84,7 +85,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 	t := s.T()
 
-	addr, itFaces := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, itFaces := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
@@ -97,11 +98,11 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 func (s *WinDivertSuite) TestCloseWinDivertEngine() {
 	t := s.T()
 
-	addr, itFaces := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, itFaces := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	code := InitializeWinDivertEngine(
 		addr, addr,
-		shared.QPepConfig.GatewayAPIPort, 445,
+		configuration.QPepConfig.GatewayAPIPort, 445,
 		4, itFaces[0])
 
 	assert.Equal(t, DIVERT_OK, code)

@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -13,8 +15,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/parvit/qpep/shared"
 )
 
 // getClientForAPI method returns a correctly configured http client to be able to
@@ -30,9 +30,9 @@ func getClientForAPI(localAddr net.Addr) *http.Client {
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			Proxy: func(*http.Request) (*url.URL, error) {
-				logger.Info("API Proxy: %v %v\n", shared.UsingProxy, shared.ProxyAddress)
-				if shared.UsingProxy {
-					return shared.ProxyAddress, nil
+				logger.Info("API Proxy: %v %v\n", gateway.UsingProxy, gateway.ProxyAddress)
+				if gateway.UsingProxy {
+					return gateway.ProxyAddress, nil
 				}
 				return nil, nil
 			},
@@ -111,7 +111,8 @@ func RequestEcho(localAddress, address string, apiPort int, toServer bool) *Echo
 		return nil
 	}
 
-	if shared.QPepConfig.Verbose {
+	config := configuration.QPepConfig.General
+	if config.Verbose {
 		logger.Info("%s\n", str.String())
 	}
 
@@ -170,7 +171,8 @@ func RequestStatus(localAddress, gatewayAddress string, apiPort int, publicAddre
 		return nil
 	}
 
-	if shared.QPepConfig.Verbose {
+	config := configuration.QPepConfig.General
+	if config.Verbose {
 		logger.Info("%s\n", str.String())
 	}
 
@@ -224,7 +226,8 @@ func RequestStatistics(localAddress, gatewayAddress string, apiPort int, publicA
 		return nil
 	}
 
-	if shared.QPepConfig.Verbose {
+	config := configuration.QPepConfig.General
+	if config.Verbose {
 		logger.Info("%s\n", str.String())
 	}
 

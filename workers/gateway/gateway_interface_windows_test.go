@@ -1,11 +1,13 @@
 //go:build windows
 
-package shared
+package gateway
 
 import (
 	"bou.ke/monkey"
 	"errors"
 	"fmt"
+	"github.com/parvit/qpep/shared/configuration"
+	stderr "github.com/parvit/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net/url"
@@ -22,7 +24,14 @@ type GatewayConfigSuite struct {
 	suite.Suite
 }
 
-func (s *GatewayConfigSuite) BeforeTest() {
+func (s *GatewayConfigSuite) BeforeTest(_, _ string) {
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
+
+	configuration.QPepConfig.Client.GatewayHost = "127.0.0.1"
+	configuration.QPepConfig.Client.GatewayPort = 9443
+	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Client.LocalListenPort = 9090
 }
 
 func (s *GatewayConfigSuite) AfterTest(_, _ string) {
@@ -176,7 +185,9 @@ func (s *GatewayConfigSuite) TestSetSystemProxy_Active() {
 
 	assert.True(t, UsingProxy)
 
-	u, _ := url.Parse(fmt.Sprintf("http://%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort))
+	u, _ := url.Parse(fmt.Sprintf("http://%s:%d",
+		configuration.QPepConfig.Client.LocalListeningAddress,
+		configuration.QPepConfig.Client.LocalListenPort))
 	assert.Equal(t, u, ProxyAddress)
 }
 
@@ -192,7 +203,7 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorRoute() {
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, ErrFailedGatewayDetect, err)
+	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
 }
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorRouteEmpty() {
@@ -207,7 +218,7 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorRouteEmpty() {
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, ErrFailedGatewayDetect, err)
+	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
 }
 
 var cmdTestDataRoute = []byte(`
@@ -275,7 +286,7 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorInterface() {
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, ErrFailedGatewayDetect, err)
+	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
 }
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorConfig() {
@@ -293,7 +304,7 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorConfig() {
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, ErrFailedGatewayDetect, err)
+	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
 }
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces() {
@@ -312,6 +323,6 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces() {
 
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, err)
-	assertArrayEqualsInt64(t, []int64{18}, interfacesList)
-	assertArrayEqualsString(t, []string{"192.168.1.46"}, addressList)
+	assert.Equal(t, int64(18), interfacesList[0])
+	assert.Equal(t, "192.168.1.46", addressList[0])
 }

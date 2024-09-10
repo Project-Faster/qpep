@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/version"
 	"github.com/rs/zerolog"
 	"golang.org/x/net/context"
 	"os"
@@ -183,7 +183,7 @@ func (c *analyticsClient) publishEventsBuffer(client mqtt.Client, events []Analy
 }
 
 // launchAnalyticsBrokerClient starts the analytics client
-func (s *statistics) launchAnalyticsBrokerClient(brokerConfig *shared.AnalyticsDefinition) {
+func (s *statistics) launchAnalyticsBrokerClient(brokerConfig *configuration.AnalyticsDefinition) {
 	if !brokerConfig.Enabled {
 		logger.Error("Broker client startup was disabled, check the configuration")
 		return

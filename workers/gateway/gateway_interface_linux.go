@@ -1,9 +1,10 @@
-package shared
+package gateway
 
 import (
 	"fmt"
 	"github.com/jackpal/gateway"
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/logger"
 	"net"
 	"net/url"
 )
@@ -48,20 +49,20 @@ func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayP
 	if active {
 		logger.Info("Setting system iptables\n")
 
-		_, err, _ := RunCommand("bash", "-c", "iptables -P FORWARD ACCEPT")
+		_, err, _ := shared.RunCommand("bash", "-c", "iptables -P FORWARD ACCEPT")
 		if err != nil {
 			logger.Error("%v\n", err)
 			return false
 		}
 
-		_, err, _ = RunCommand("bash", "-c",
+		_, err, _ = shared.RunCommand("bash", "-c",
 			fmt.Sprintf("iptables -t nat -A OUTPUT -j DNAT -p tcp --to-destination %s:%d -m multiport --destination-ports %s", listenAddr, listenPort, PROTOCOLS_PORTS_LIST))
 		if err != nil {
 			logger.Error("%v\n", err)
 			return false
 		}
 
-		_, err, _ = RunCommand("bash", "-c",
+		_, err, _ = shared.RunCommand("bash", "-c",
 			fmt.Sprintf("iptables -t nat -A POSTROUTING -j MASQUERADE -p tcp -m multiport --destination-ports %s", PROTOCOLS_PORTS_LIST))
 		if err != nil {
 			logger.Error("%v\n", err)
@@ -71,19 +72,19 @@ func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayP
 	}
 
 	logger.Info("Clearing system iptables settings\n")
-	_, err, _ := RunCommand("bash", "-c", "iptables -F FORWARD")
+	_, err, _ := shared.RunCommand("bash", "-c", "iptables -F FORWARD")
 	if err != nil {
 		logger.Error("%v\n", err)
 		return false
 	}
 
-	_, err, _ = RunCommand("bash", "-c", "iptables -t nat -F OUTPUT")
+	_, err, _ = shared.RunCommand("bash", "-c", "iptables -t nat -F OUTPUT")
 	if err != nil {
 		logger.Error("%v\n", err)
 		return false
 	}
 
-	_, err, _ = RunCommand("bash", "-c", "iptables -t nat -F POSTROUTING")
+	_, err, _ = shared.RunCommand("bash", "-c", "iptables -t nat -F POSTROUTING")
 	if err != nil {
 		logger.Error("%v\n", err)
 		return false

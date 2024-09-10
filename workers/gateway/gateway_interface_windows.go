@@ -1,9 +1,12 @@
-package shared
+package gateway
 
 import (
 	"bufio"
 	"fmt"
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
 	"github.com/parvit/qpep/windivert"
 	"net"
 	"net/url"
@@ -37,14 +40,14 @@ var (
 )
 
 func init() {
-	_, _, code := RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
+	_, _, code := shared.RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
 	if code != 0 {
 		return
 	}
 
-	_, _, _ = RunCommand("sc.exe", "stop", "WinDivert") // Stop orphaned instances of WinDivert
+	_, _, _ = shared.RunCommand("sc.exe", "stop", "WinDivert") // Stop orphaned instances of WinDivert
 	<-time.After(1 * time.Second)
-	_, _, code = RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
+	_, _, code = shared.RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
 	if code != 0 {
 		return
 	}
@@ -72,10 +75,10 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	// No       Sistema   256  192.168.1.255/32           18  Wi-Fi
 
 	// get interfaces with default routes set
-	output, err, _ := RunCommand("netsh", "interface", "ip", "show", "route")
+	output, err, _ := shared.RunCommand("netsh", "interface", "ip", "show", "route")
 	if err != nil {
 		logger.Error("ERR: %v", err)
-		return nil, nil, ErrFailedGatewayDetect
+		return nil, nil, errors.ErrFailedGatewayDetect
 	}
 
 	var routeInterfaceMap = make(map[string]int64)
@@ -95,13 +98,13 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	}
 	if len(routeInterfaceMap) == 0 {
 		logger.Error("ERR: %v", err)
-		return nil, nil, ErrFailedGatewayDetect
+		return nil, nil, errors.ErrFailedGatewayDetect
 	}
 
 	// get the associated names of the interfaces
-	output, err, _ = RunCommand("netsh", "interface", "ip", "show", "interface")
+	output, err, _ = shared.RunCommand("netsh", "interface", "ip", "show", "interface")
 	if err != nil {
-		return nil, nil, ErrFailedGatewayDetect
+		return nil, nil, errors.ErrFailedGatewayDetect
 	}
 
 	lines = strings.Split(string(output), "\n")
@@ -122,10 +125,10 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	}
 
 	// parse the configuration of the interfaces to extract the addresses
-	output, err, _ = RunCommand("netsh", "interface", "ip", "show", "config")
+	output, err, _ = shared.RunCommand("netsh", "interface", "ip", "show", "config")
 	if err != nil {
 		logger.Error("ERR: %v", err)
-		return nil, nil, ErrFailedGatewayDetect
+		return nil, nil, errors.ErrFailedGatewayDetect
 	}
 
 	rx := regexp.MustCompile(`.+"([^"]+)"`)
@@ -182,14 +185,14 @@ func SetSystemProxy(active bool) {
 	preloadRegistryKeysForUsers()
 
 	if !active {
-		if !DEBUG_MASK_REDIRECT {
+		if !shared.DEBUG_MASK_REDIRECT {
 			for _, userKey := range usersRegistryKeys {
 				logger.Info("Clearing system proxy settings\n")
-				_, _, _ = RunCommand("reg", "add", userKey,
+				_, _, _ = shared.RunCommand("reg", "add", userKey,
 					"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
 					"", "/f")
 
-				_, _, _ = RunCommand("reg", "add", userKey,
+				_, _, _ = shared.RunCommand("reg", "add", userKey,
 					"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d", "0", "/f")
 			}
 		}
@@ -199,14 +202,15 @@ func SetSystemProxy(active bool) {
 		return
 	}
 
-	logger.Info("Setting system proxy to '%s:%d'\n", QPepConfig.ListenHost, QPepConfig.ListenPort)
-	if !DEBUG_MASK_REDIRECT {
+	config := configuration.QPepConfig.Client
+	logger.Info("Setting system proxy to '%s:%d'\n", config.LocalListeningAddress, config.LocalListenPort)
+	if !shared.DEBUG_MASK_REDIRECT {
 		for _, userKey := range usersRegistryKeys {
-			_, _, _ = RunCommand("reg", "add", userKey,
+			_, _, _ = shared.RunCommand("reg", "add", userKey,
 				"/v", PROXY_KEY_HOST, "/t", PROXY_TYPE_SZ, "/d",
-				fmt.Sprintf("%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort), "/f")
+				fmt.Sprintf("%s:%d", config.LocalListeningAddress, config.LocalListenPort), "/f")
 
-			_, _, _ = RunCommand("reg", "add", userKey,
+			_, _, _ = shared.RunCommand("reg", "add", userKey,
 				"/v", PROXY_KEY_ENABLE, "/t", PROXY_TYPE_DWORD, "/d",
 				"1", "/f")
 		}
@@ -214,7 +218,7 @@ func SetSystemProxy(active bool) {
 		Flush()
 	}
 
-	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort))
+	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", config.LocalListeningAddress, config.LocalListenPort))
 	if err != nil {
 		panic(err)
 	}
@@ -223,14 +227,14 @@ func SetSystemProxy(active bool) {
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
-	data, err, _ := RunCommand("reg", "query", PROXY_KEY_1,
+	data, err, _ := shared.RunCommand("reg", "query", PROXY_KEY_1,
 		"/v", PROXY_KEY_ENABLE)
 	if err != nil {
 		logger.Info("ERR: %v\n", err)
 		return false, nil
 	}
 	if strings.Index(string(data), "0x1") != -1 {
-		data, err, _ = RunCommand("reg", "query", PROXY_KEY_1,
+		data, err, _ = shared.RunCommand("reg", "query", PROXY_KEY_1,
 			"/v", PROXY_KEY_HOST)
 		if err != nil {
 			logger.Info("ERR: %v\n", err)
@@ -251,7 +255,7 @@ func preloadRegistryKeysForUsers() {
 		return
 	}
 
-	data, err, _ := RunCommand("wmic", "useraccount", "get", "sid")
+	data, err, _ := shared.RunCommand("wmic", "useraccount", "get", "sid")
 	if err != nil {
 		logger.Info("ERR: %v\n", err)
 		panic(fmt.Sprintf("ERR: %v", err))

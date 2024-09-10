@@ -2,7 +2,7 @@ package api
 
 import (
 	"bou.ke/monkey"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"reflect"
@@ -27,7 +27,7 @@ func (s *StatisticsSuite) BeforeTest(_, testName string) {
 	if testName == "TestParallelExecution" {
 		return
 	}
-	Statistics.Start(&shared.AnalyticsDefinition{
+	Statistics.Start(&configuration.AnalyticsDefinition{
 		Enabled:        true,
 		BrokerAddress:  "127.0.0.1",
 		BrokerPort:     1883,
@@ -53,7 +53,7 @@ func (s *StatisticsSuite) TestReset() {
 }
 
 func (s *StatisticsSuite) TestStartStop() {
-	Statistics.Start(&shared.AnalyticsDefinition{
+	Statistics.Start(&configuration.AnalyticsDefinition{
 		Enabled:        true,
 		BrokerAddress:  "127.0.0.1",
 		BrokerPort:     1883,

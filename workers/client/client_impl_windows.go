@@ -1,7 +1,8 @@
 package client
 
 import (
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/workers/gateway"
 	"net"
 	"strings"
 )
@@ -9,12 +10,15 @@ import (
 // initDiverter method wraps the logic for initializing the windiverter engine, returns true if the diverter
 // succeeded initialization and false otherwise
 func initDiverter() bool {
-	gatewayHost := ClientConfiguration.GatewayHost
-	gatewayPort := ClientConfiguration.GatewayPort
-	listenPort := ClientConfiguration.ListenPort
-	threads := ClientConfiguration.WinDivertThreads
-	listenHost := ClientConfiguration.ListenHost
-	redirectedInterfaces := ClientConfiguration.RedirectedInterfaces
+	generalConfig := configuration.QPepConfig.General
+	clientConfig := configuration.QPepConfig.Client
+
+	gatewayHost := clientConfig.GatewayHost
+	gatewayPort := clientConfig.GatewayPort
+	listenPort := clientConfig.LocalListenPort
+	listenHost := clientConfig.LocalListeningAddress
+	threads := generalConfig.WinDivertThreads
+	redirectedInterfaces := clientAdditional.RedirectedInterfaces
 
 	// select an appropriate interface
 	var redirectedInetID int64 = 0
@@ -30,24 +34,24 @@ func initDiverter() bool {
 		}
 	}
 
-	return shared.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
+	return gateway.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
 }
 
 // stopDiverter method wraps the calls for stopping the diverter
 func stopDiverter() {
-	shared.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
+	gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
 	redirected = false
 }
 
 // initProxy method wraps the calls for initializing the proxy
 func initProxy() {
-	shared.UsingProxy = true
-	shared.SetSystemProxy(true)
+	gateway.UsingProxy = true
+	gateway.SetSystemProxy(true)
 }
 
 // stopProxy method wraps the calls for stopping the proxy
 func stopProxy() {
 	redirected = false
-	shared.UsingProxy = false
-	shared.SetSystemProxy(false)
+	gateway.UsingProxy = false
+	gateway.SetSystemProxy(false)
 }

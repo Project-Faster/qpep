@@ -1,7 +1,8 @@
-package shared
+package configuration
 
 import (
 	"fmt"
+	"github.com/parvit/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/rand"
@@ -21,6 +22,8 @@ func (s *ParamsValidationSuite) BeforeTest(_, _ string) {
 	addrState = addressRangesChecker{
 		limitsCache: map[string]int64{},
 	}
+
+	QPepConfig.Limits = &LimitsDefinition{}
 }
 
 func (s *ParamsValidationSuite) TestParamsValidation_Numeric() {
@@ -28,17 +31,17 @@ func (s *ParamsValidationSuite) TestParamsValidation_Numeric() {
 	assert.NotPanics(t, func() {
 		AssertParamNumeric("test", 1, 0, 10)
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamNumeric("test", 100, 0, 10)
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamNumeric("test", -100, 0, 10)
 	})
 }
 
 func (s *ParamsValidationSuite) TestParamsValidation_Numeric_Invalid() {
 	t := s.T()
-	assert.PanicsWithValue(t, ErrImpossibleValidationRequested, func() {
+	assert.PanicsWithValue(t, errors.ErrImpossibleValidationRequested, func() {
 		AssertParamNumeric("test", 100, 10, 0)
 	})
 }
@@ -51,10 +54,10 @@ func (s *ParamsValidationSuite) TestParamsValidation_IP() {
 	assert.NotPanics(t, func() {
 		AssertParamIP("test", "localhost")
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamIP("test", "")
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamIP("test", "ABCDEFG")
 	})
 }
@@ -64,13 +67,13 @@ func (s *ParamsValidationSuite) TestParamsValidation_Port() {
 	assert.NotPanics(t, func() {
 		AssertParamPort("test", 9443)
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPort("test", -200)
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPort("test", 0)
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPort("test", 65537)
 	})
 }
@@ -83,11 +86,11 @@ func (s *ParamsValidationSuite) TestParamsValidation_String() {
 
 	assert.Panics(t, func() {
 		AssertParamString("test", "  ")
-	}, ErrConfigurationValidationFailed)
+	}, errors.ErrConfigurationValidationFailed)
 
 	assert.Panics(t, func() {
 		AssertParamString("test", "")
-	}, ErrConfigurationValidationFailed)
+	}, errors.ErrConfigurationValidationFailed)
 }
 
 func (s *ParamsValidationSuite) TestParamsValidation_Choice() {
@@ -104,15 +107,15 @@ func (s *ParamsValidationSuite) TestParamsValidation_Choice() {
 
 	assert.Panics(t, func() {
 		AssertParamChoice("test", "not-value", []string{"v1", "value"})
-	}, ErrConfigurationValidationFailed)
+	}, errors.ErrConfigurationValidationFailed)
 
 	assert.Panics(t, func() {
 		AssertParamChoice("test", "", []string{"v1", "value"})
-	}, ErrConfigurationValidationFailed)
+	}, errors.ErrConfigurationValidationFailed)
 
 	assert.Panics(t, func() {
 		AssertParamChoice("test", "v2", []string{})
-	}, ErrImpossibleValidationRequested)
+	}, errors.ErrImpossibleValidationRequested)
 }
 
 func (s *ParamsValidationSuite) TestParamsValidation_PortsDifferent_Valid() {
@@ -139,7 +142,7 @@ func (s *ParamsValidationSuite) TestParamsValidation_PortsDifferent_Valid() {
 
 func (s *ParamsValidationSuite) TestParamsValidation_PortsDifferent_Fail() {
 	t := s.T()
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPortsDifferent("test", 443, 443)
 	})
 	values := []int{8080}
@@ -148,21 +151,21 @@ func (s *ParamsValidationSuite) TestParamsValidation_PortsDifferent_Fail() {
 		values = append(values, randNum)
 		randNum++
 	}
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPortsDifferent("test", values...)
 	})
 }
 
 func (s *ParamsValidationSuite) TestParamsValidation_PortsDifferent_Invalid() {
 	t := s.T()
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPortsDifferent("test", 0)
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPortsDifferent("test", 0, 0)
 	})
 	values := []int{-100, 0, 70000}
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamPortsDifferent("test", values...)
 	})
 }
@@ -190,7 +193,7 @@ func (s *ParamsValidationSuite) TestParamsValidation_HostsDifferent_Valid() {
 
 func (s *ParamsValidationSuite) TestParamsValidation_HostsDifferent_Fail() {
 	t := s.T()
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamHostsDifferent("test", "127.0.0.1", "127.0.0.1")
 	})
 	randHost := "10.0.1.%d"
@@ -198,21 +201,21 @@ func (s *ParamsValidationSuite) TestParamsValidation_HostsDifferent_Fail() {
 	for i := 0; i < 1+rand.Intn(10); i++ {
 		values = append(values, fmt.Sprintf(randHost, i+1))
 	}
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamHostsDifferent("test", values...)
 	})
 }
 
 func (s *ParamsValidationSuite) TestParamsValidation_HostsDifferent_Invalid() {
 	t := s.T()
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamHostsDifferent("test", "ABCD")
 	})
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamHostsDifferent("test", "ABCD", "EFGH")
 	})
 	values := []string{"ABCD", "XXXX", "1234"}
-	assert.PanicsWithValue(t, ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
 		AssertParamHostsDifferent("test", values...)
 	})
 }
@@ -317,11 +320,13 @@ func (s *ParamsValidationSuite) TestGetAddressSpeedLimit() {
 		"127.0.0.1": "200k",
 	}, false)
 
-	QPepConfig.Limits.Clients = map[string]string{
-		"127.0.0.1": "100k",
-	}
-	QPepConfig.Limits.Destinations = map[string]string{
-		"127.0.0.1": "200k",
+	QPepConfig.Limits = &LimitsDefinition{
+		Incoming: map[string]string{
+			"127.0.0.1": "100k",
+		},
+		Outgoing: map[string]string{
+			"127.0.0.1": "200k",
+		},
 	}
 
 	value, found := GetAddressSpeedLimit(net.ParseIP("127.0.0.1"), true)

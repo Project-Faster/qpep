@@ -255,8 +255,51 @@ jobs:
           check_name: "Unit Tests - Windows Platform"
           junit_files: "unit/*.xml"
 
+  docs:
+    if: true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      GO_VERSION: 1.20.14
+      PANDOC_VERSION: 3.3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: false
+
+      - name: Install Pandoc
+        uses: pandoc/actions/setup@v1.0.0
+        with:
+          version: ${{ env.PANDOC_VERSION }}
+
+      - name: Install TeXlive
+        run: sudo apt-get update && sudo apt-get install texlive-full
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Generate PDF
+        run: |
+          cd docs/
+          CURDATE=$(date '+%x %T')
+          sed -i -E -e 's|subtitle:.+|subtitle: "User Manual - version ${{ github.event.inputs.version_tag }}"|' -e "s|date:.+|date: \"$CURDATE\"|" user-manual.md
+          sed -i -E -e 's|page-background:\s*resources/draft.png||' user-manual.md
+          go generate
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_user_manual
+          path: "docs/*.pdf"
+
   create-release-tag:
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, docs]
     runs-on: ubuntu-latest
     defaults:
       run: 

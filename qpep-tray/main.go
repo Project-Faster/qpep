@@ -3,18 +3,21 @@ package main
 import (
 	"github.com/parvit/qpep/qpep-tray/common"
 	"github.com/parvit/qpep/qpep-tray/notify"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/workers/gateway"
+	"io"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/parvit/qpep/shared"
 	"github.com/project-faster/systray"
 )
 
 func main() {
 	defer func() {
 		// clear the proxy in case a orphaned client cannot
-		shared.SetSystemProxy(false)
+		gateway.SetSystemProxy(false)
 	}()
 
 	// note: channel is never dequeued as to stop the ctrl-c signal from stopping also
@@ -25,7 +28,7 @@ func main() {
 	common.Init(os.Args[0])
 
 	// read configuration
-	if err := shared.ReadConfiguration(true); err != nil {
+	if err := configuration.ReadConfiguration(true); err != nil {
 		notify.ErrorMsg("Could not load configuration file, please edit: %v", err)
 	}
 

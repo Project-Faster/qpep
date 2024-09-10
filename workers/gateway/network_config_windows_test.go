@@ -2,7 +2,7 @@
 
 // NOTE: requires flag '-gcflags=-l' to go test to work with monkey patching
 
-package shared
+package gateway
 
 import (
 	"github.com/stretchr/testify/assert"

@@ -3,11 +3,12 @@
  * of the qpep header, used to instantiate new outer connections through
  * the quic connections.
  */
-package shared
+package protocol
 
 import (
 	"encoding/binary"
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
 	"io"
 	"net"
 	"time"
@@ -120,7 +121,7 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 	timeoutReader.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
 	ipBytesNum, err := stream.Read(preamble)
 	if ipBytesNum != 2 || err != nil {
-		return nil, ErrInvalidHeader
+		return nil, errors.ErrInvalidHeader
 	}
 	logger.Debug("PREAMBLE: %v", preamble)
 
@@ -130,7 +131,7 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 	} else if preamble[0] == IPV6 {
 		sourceIpEnd = net.IPv6len
 	} else {
-		return nil, ErrInvalidHeaderAddressType
+		return nil, errors.ErrInvalidHeaderAddressType
 	}
 
 	sourcePortEnd := sourceIpEnd + 2
@@ -141,7 +142,7 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 	} else if preamble[1] == IPV6 {
 		destIpEnd = sourcePortEnd + net.IPv6len
 	} else {
-		return nil, ErrInvalidHeaderAddressType
+		return nil, errors.ErrInvalidHeaderAddressType
 	}
 	destPortEnd := destIpEnd + 2
 
@@ -155,7 +156,7 @@ func QPepHeaderFromBytes(stream io.Reader) (*QPepHeader, error) {
 		sourceIpEnd, sourcePortEnd, destIpEnd, destPortEnd, flagsEnd, readDataBytes,
 		byteInput)
 	if readDataBytes != flagsEnd || err != nil {
-		return nil, ErrInvalidHeaderDataLength
+		return nil, errors.ErrInvalidHeaderDataLength
 	}
 
 	srcIPAddr := net.IP(byteInput[0:sourceIpEnd])

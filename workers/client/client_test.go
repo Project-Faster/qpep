@@ -12,8 +12,11 @@ import (
 	"fmt"
 	"github.com/Project-Faster/quic-go"
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/protocol"
 	"github.com/parvit/qpep/windivert"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/big"
@@ -37,29 +40,29 @@ type ClientSuite struct {
 }
 
 func (s *ClientSuite) BeforeTest(_, testName string) {
-	shared.SetSystemProxy(false)
+	gateway.SetSystemProxy(false)
 	api.Statistics.Reset()
 	proxyListener = nil
 
-	shared.UsingProxy = false
-	shared.ProxyAddress = nil
+	gateway.UsingProxy = false
+	gateway.ProxyAddress = nil
 
-	shared.QPepConfig.GatewayHost = "127.0.0.1"
-	shared.QPepConfig.GatewayPort = 9443
-	shared.QPepConfig.GatewayAPIPort = 445
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.ListenPort = 9090
+	configuration.QPepConfig.Client.GatewayHost = "127.0.0.1"
+	configuration.QPepConfig.Client.GatewayPort = 9443
+	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Client.LocalListenPort = 9090
 
-	shared.QPepConfig.MaxConnectionRetries = 15
-	shared.QPepConfig.MultiStream = true
-	shared.QPepConfig.WinDivertThreads = 4
-	shared.QPepConfig.PreferProxy = true
-	shared.QPepConfig.Verbose = true
+	configuration.QPepConfig.General.APIPort = 445
+	configuration.QPepConfig.General.MaxConnectionRetries = 15
+	configuration.QPepConfig.General.MultiStream = true
+	configuration.QPepConfig.General.WinDivertThreads = 4
+	configuration.QPepConfig.General.PreferProxy = true
+	configuration.QPepConfig.General.Verbose = true
 }
 
 func (s *ClientSuite) AfterTest(_, testName string) {
 	monkey.UnpatchAll()
-	shared.SetSystemProxy(false)
+	gateway.SetSystemProxy(false)
 }
 
 func (s *ClientSuite) TestValidateConfiguration() {
@@ -69,8 +72,8 @@ func (s *ClientSuite) TestValidateConfiguration() {
 }
 
 func (s *ClientSuite) TestValidateConfiguration_BadGatewayHost() {
-	shared.QPepConfig.GatewayHost = ""
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed,
+	configuration.QPepConfig.Client.GatewayHost = ""
+	assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed,
 		func() {
 			validateConfiguration()
 		})
@@ -78,8 +81,8 @@ func (s *ClientSuite) TestValidateConfiguration_BadGatewayHost() {
 
 func (s *ClientSuite) TestValidateConfiguration_BadGatewayPort() {
 	for _, val := range []int{0, -1, 99999} {
-		shared.QPepConfig.GatewayPort = val
-		assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed,
+		configuration.QPepConfig.Client.GatewayPort = val
+		assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed,
 			func() {
 				validateConfiguration()
 			})
@@ -87,8 +90,8 @@ func (s *ClientSuite) TestValidateConfiguration_BadGatewayPort() {
 }
 
 func (s *ClientSuite) TestValidateConfiguration_BadListenHost() {
-	shared.QPepConfig.ListenHost = ""
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed,
+	configuration.QPepConfig.Client.LocalListeningAddress = ""
+	assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed,
 		func() {
 			validateConfiguration()
 		})
@@ -96,8 +99,8 @@ func (s *ClientSuite) TestValidateConfiguration_BadListenHost() {
 
 func (s *ClientSuite) TestValidateConfiguration_BadListenPort() {
 	for _, val := range []int{0, -1, 99999} {
-		shared.QPepConfig.ListenPort = val
-		assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed,
+		configuration.QPepConfig.Client.LocalListenPort = val
+		assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed,
 			func() {
 				validateConfiguration()
 			})
@@ -106,8 +109,8 @@ func (s *ClientSuite) TestValidateConfiguration_BadListenPort() {
 
 func (s *ClientSuite) TestValidateConfiguration_BadConnectionRetries() {
 	for _, val := range []int{0, -1, 99999} {
-		shared.QPepConfig.MaxConnectionRetries = val
-		assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed,
+		configuration.QPepConfig.General.MaxConnectionRetries = val
+		assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed,
 			func() {
 				validateConfiguration()
 			})
@@ -116,8 +119,8 @@ func (s *ClientSuite) TestValidateConfiguration_BadConnectionRetries() {
 
 func (s *ClientSuite) TestValidateConfiguration_BadDiverterThreads() {
 	for _, val := range []int{0, -1, 64} {
-		shared.QPepConfig.WinDivertThreads = val
-		assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed,
+		configuration.QPepConfig.General.WinDivertThreads = val
+		assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed,
 			func() {
 				validateConfiguration()
 			})
@@ -156,11 +159,11 @@ func (s *ClientSuite) TestRunClient() {
 func (s *ClientSuite) TestRunClient_ErrorListener() {
 	validateConfiguration()
 	proxyListener, _ = NewClientProxyListener("tcp", &net.TCPAddr{
-		IP:   net.ParseIP(ClientConfiguration.ListenHost),
-		Port: ClientConfiguration.ListenPort,
+		IP:   net.ParseIP(configuration.QPepConfig.Client.LocalListeningAddress),
+		Port: configuration.QPepConfig.Client.LocalListenPort,
 	})
 
-	ClientConfiguration.ListenPort = 0
+	configuration.QPepConfig.Client.LocalListenPort = 0
 
 	ctx, cancel := context.WithCancel(context.Background())
 	assert.NotPanics(s.T(), func() {
@@ -396,35 +399,35 @@ func (s *ClientSuite) TestHandleServices_FailStatistics() {
 }
 
 func (s *ClientSuite) TestInitProxy() {
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.True(s.T(), active)
-		shared.UsingProxy = true
-		shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+		gateway.UsingProxy = true
+		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
 
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	initProxy()
-	assert.True(s.T(), shared.UsingProxy)
+	assert.True(s.T(), gateway.UsingProxy)
 
-	assert.NotNil(s.T(), shared.ProxyAddress)
+	assert.NotNil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientSuite) TestStopProxy() {
-	shared.UsingProxy = true
-	shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+	gateway.UsingProxy = true
+	gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.False(s.T(), active)
-		shared.UsingProxy = false
-		shared.ProxyAddress = nil
+		gateway.UsingProxy = false
+		gateway.ProxyAddress = nil
 	})
 
-	assert.True(s.T(), shared.UsingProxy)
+	assert.True(s.T(), gateway.UsingProxy)
 	stopProxy()
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	assert.False(s.T(), redirected)
 
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientSuite) TestInitDiverter() {
@@ -462,23 +465,23 @@ func (s *ClientSuite) TestStopDiverter() {
 }
 
 func (s *ClientSuite) TestInitialCheckConnection() {
-	shared.QPepConfig.PreferProxy = false
+	configuration.QPepConfig.General.PreferProxy = false
 	validateConfiguration()
 
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.True(s.T(), active)
-		shared.UsingProxy = true
-		shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+		gateway.UsingProxy = true
+		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
 
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	initialCheckConnection()
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 
 	initialCheckConnection()
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientSuite) TestGatewayStatusCheck() {
@@ -600,14 +603,14 @@ func fakeQuicListener(ctx context.Context, cancel context.CancelFunc, t *testing
 		DisablePathMTUDiscovery: true,
 		MaxIdleTimeout:          3 * time.Second,
 
-		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
+		HandshakeIdleTimeout: gateway.GetScaledTimeout(10, time.Second),
 		KeepAlivePeriod:      0,
 
 		EnableDatagrams: false,
 	}
 
 	listener, _ := quic.ListenAddr(
-		fmt.Sprintf("%s:%d", shared.QPepConfig.GatewayHost, shared.QPepConfig.GatewayPort),
+		fmt.Sprintf("%s:%d", configuration.QPepConfig.Client.GatewayHost, configuration.QPepConfig.Client.GatewayPort),
 		tlsConfig, quicClientConfig)
 	defer func() {
 		_ = listener.Close()
@@ -621,7 +624,7 @@ func fakeQuicListener(ctx context.Context, cancel context.CancelFunc, t *testing
 		}
 
 		stream, _ := session.AcceptStream(context.Background())
-		qpepHeader, err := shared.QPepHeaderFromBytes(stream)
+		qpepHeader, err := protocol.QPepHeaderFromBytes(stream)
 		if err != nil {
 			_ = stream.Close()
 			return

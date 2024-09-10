@@ -2,35 +2,42 @@ package common
 
 import (
 	"errors"
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
+	stderr "github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/parvit/qpep/qpep-tray/notify"
-	"github.com/parvit/qpep/shared"
 )
 
 var serverActive bool = false
 
 func startServer() error {
 	if serverActive {
-		return shared.ErrFailed
+		return stderr.ErrFailed
 	}
 
-	addressList, _ := shared.GetLanListeningAddresses()
+	outAddress := configuration2.QPepConfig.Server.LocalListeningAddress
+	addressList, _ := gateway.GetLanListeningAddresses()
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {
-			shared.QPepConfig.ListenHost = addressList[idx]
-			logger.Error("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
+			outAddress = addressList[idx]
+			logger.Error("Forced Listening address to %v\n", outAddress)
 			break
 		}
 	}
 
-	shared.WriteConfigurationOverrideFile(map[string]string{
-		"listenaddress": shared.QPepConfig.ListenHost,
-	})
+	override := configuration.QPepConfigType{
+		Server: &configuration.ServerDefinition{
+			LocalListeningAddress: outAddress,
+			LocalListenPort:       configuration.QPepConfig.Server.LocalListenPort,
+		},
+	}
+	configuration.WriteConfigurationOverrideFile(override)
 
 	if err := startServerProcess(); err != nil {
 		notify.ErrorMsg("Could not start server program: %v", err)
 		serverActive = false
-		return shared.ErrCommandNotStarted
+		return stderr.ErrCommandNotStarted
 	}
 	serverActive = true
 	notify.InfoMsg("Server started")

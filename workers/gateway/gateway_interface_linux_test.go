@@ -1,6 +1,6 @@
 //go:build !windows
 
-package shared
+package gateway
 
 import (
 	"github.com/stretchr/testify/assert"

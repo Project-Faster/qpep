@@ -1,12 +1,11 @@
-package shared
+package gateway
 
 import (
 	"github.com/jackpal/gateway"
+	"github.com/parvit/qpep/shared/logger"
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/parvit/qpep/logger"
 )
 
 var (

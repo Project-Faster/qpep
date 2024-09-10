@@ -3,8 +3,12 @@ package service
 import (
 	"context"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/parvit/qpep/version"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/flags"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/version"
 	"github.com/parvit/qpep/workers/client"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/parvit/qpep/workers/server"
 	log "github.com/rs/zerolog"
 	"os"
@@ -18,8 +22,6 @@ import (
 	kservice "github.com/parvit/kardianos-service"
 
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
 )
@@ -159,7 +161,7 @@ func ServiceMain() int {
 		}
 
 		if svcCommand == "install" {
-			_ = shared.ReadConfiguration(false)
+			_ = configuration.ReadConfiguration(false)
 			setServiceUserPermissions(serviceName)
 			setInstallDirectoryPermissions(workingDir)
 			logger.Info("Service installed correctly")
@@ -237,7 +239,7 @@ func (p *QPepService) Stop() error {
 		if err := recover(); err != nil {
 			logger.Error("PANIC: %v\n", err)
 		}
-		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
+		gateway.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
 	logger.Info("Stop")
@@ -268,13 +270,13 @@ func (p *QPepService) Main() error {
 			p.exitValue = 1
 		}
 		// be sure to clear proxy and diverter settings on exit
-		shared.SetSystemProxy(false)
-		shared.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
+		gateway.SetSystemProxy(false)
+		gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
 	}()
 
 	logger.Info("Main")
 
-	if err := shared.ReadConfiguration(false); err != nil {
+	if err := configuration.ReadConfiguration(false); err != nil {
 		return err
 	}
 
@@ -326,7 +328,7 @@ func (p *QPepService) Logger(errs chan<- error) (kservice.Logger, error) {
 // runAsClient method wraps the logic to setup the system as client mode
 func runAsClient(execContext context.Context, cancel context.CancelFunc) {
 	logger.Info("Running Client")
-	windivert.EnableDiverterLogging(shared.QPepConfig.Verbose)
+	windivert.EnableDiverterLogging(configuration.QPepConfig.General.Verbose)
 	go client.RunClient(execContext, cancel)
 }
 

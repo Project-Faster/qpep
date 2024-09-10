@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/rand"
@@ -75,7 +75,7 @@ func (s *AnalyticsSuite) TestBrokerNotEnabled() {
 		results = s.getMessagesDispatchedByBroker(5 * time.Second)
 	}()
 
-	Statistics.Start(&shared.AnalyticsDefinition{
+	Statistics.Start(&configuration.AnalyticsDefinition{
 		Enabled:        false,
 		BrokerAddress:  s.brokerAddress,
 		BrokerPort:     s.brokerPort,
@@ -108,7 +108,7 @@ func (s *AnalyticsSuite) TestBrokerCannotConnect() {
 		results = s.getMessagesDispatchedByBroker(5 * time.Second)
 	}()
 
-	Statistics.Start(&shared.AnalyticsDefinition{
+	Statistics.Start(&configuration.AnalyticsDefinition{
 		Enabled:        true,
 		BrokerAddress:  "9.9.9.9",
 		BrokerPort:     s.brokerPort,
@@ -141,7 +141,7 @@ func (s *AnalyticsSuite) TestBrokerSendEvents() {
 		results = s.getMessagesDispatchedByBroker(5 * time.Second)
 	}()
 
-	Statistics.Start(&shared.AnalyticsDefinition{
+	Statistics.Start(&configuration.AnalyticsDefinition{
 		Enabled:        true,
 		BrokerAddress:  s.brokerAddress,
 		BrokerPort:     s.brokerPort,
@@ -184,7 +184,7 @@ func (s *AnalyticsSuite) TestBrokerSendEventsFromDataRoutines() {
 		results = s.getMessagesDispatchedByBroker(5 * time.Second)
 	}()
 
-	Statistics.Start(&shared.AnalyticsDefinition{
+	Statistics.Start(&configuration.AnalyticsDefinition{
 		Enabled:        true,
 		BrokerAddress:  s.brokerAddress,
 		BrokerPort:     s.brokerPort,

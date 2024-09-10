@@ -3,6 +3,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/flags"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 	"mime"
 	"net"
 	"net/http"
@@ -12,9 +16,6 @@ import (
 	"sync"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/webgui"
 	"github.com/rs/cors"
 )
@@ -47,14 +48,19 @@ const (
 // by using the provided context and cancel function
 func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 	// update configuration from flags
-	host := shared.QPepConfig.ListenHost
+	config := configuration.QPepConfig
+
+	host := config.Server.LocalListeningAddress
+	if flags.Globals.Client {
+		host = config.Client.LocalListeningAddress
+	}
 	if localMode {
 		host = "127.0.0.1"
 		logger.Info("Listening address for local api server set to 127.0.0.1")
 	} else {
-		host, _ = shared.GetDefaultLanListeningAddress(host, "")
+		host, _ = gateway.GetDefaultLanListeningAddress(host, "")
 	}
-	apiPort := shared.QPepConfig.GatewayAPIPort
+	apiPort := config.General.APIPort
 
 	listenAddr := fmt.Sprintf("%s:%d", host, apiPort)
 	logger.Info("Opening API Server on: %s", listenAddr)

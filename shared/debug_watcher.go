@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const (
+var (
 	DEBUG_DUMP_PACKETS  = false
 	DEBUG_MASK_REDIRECT = false
 

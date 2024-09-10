@@ -1,7 +1,8 @@
-package shared
+package protocol
 
 import (
 	"bytes"
+	"github.com/parvit/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"net"
@@ -333,7 +334,7 @@ func TestQPepHeader_FromBytes_NilSrcDst(t *testing.T) {
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
-	assert.Equal(t, ErrInvalidHeaderAddressType, err)
+	assert.Equal(t, errors.ErrInvalidHeaderAddressType, err)
 }
 
 func TestQPepHeader_FromBytes_NilSrc(t *testing.T) {
@@ -354,7 +355,7 @@ func TestQPepHeader_FromBytes_NilSrc(t *testing.T) {
 
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
-	assert.Equal(t, ErrInvalidHeaderAddressType, err)
+	assert.Equal(t, errors.ErrInvalidHeaderAddressType, err)
 }
 
 func TestQPepHeader_FromBytes_NilDst(t *testing.T) {
@@ -374,7 +375,7 @@ func TestQPepHeader_FromBytes_NilDst(t *testing.T) {
 	}
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
-	assert.Equal(t, ErrInvalidHeaderAddressType, err)
+	assert.Equal(t, errors.ErrInvalidHeaderAddressType, err)
 }
 
 // Malformed packets read
@@ -386,7 +387,7 @@ func TestQPepHeader_FromBytes_MalformedPreamble(t *testing.T) {
 	}
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
-	assert.Equal(t, ErrInvalidHeader, err)
+	assert.Equal(t, errors.ErrInvalidHeader, err)
 
 	var testValue_len1 = []byte{0x04}
 	buf = &TimeoutReader{
@@ -394,7 +395,7 @@ func TestQPepHeader_FromBytes_MalformedPreamble(t *testing.T) {
 	}
 	decodeHeader, err = QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
-	assert.Equal(t, ErrInvalidHeader, err)
+	assert.Equal(t, errors.ErrInvalidHeader, err)
 }
 
 func TestQPepHeader_FromBytes_MalformedDataTruncated(t *testing.T) {
@@ -412,7 +413,7 @@ func TestQPepHeader_FromBytes_MalformedDataTruncated(t *testing.T) {
 	}
 	decodeHeader, err := QPepHeaderFromBytes(buf)
 	assert.Nil(t, decodeHeader)
-	assert.Equal(t, ErrInvalidHeaderDataLength, err)
+	assert.Equal(t, errors.ErrInvalidHeaderDataLength, err)
 }
 
 // Base conversions

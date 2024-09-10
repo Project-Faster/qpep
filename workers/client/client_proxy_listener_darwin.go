@@ -4,6 +4,7 @@ package client
 
 import (
 	"fmt"
+	"github.com/parvit/qpep/shared/errors"
 	"net"
 	"syscall"
 
@@ -18,7 +19,7 @@ type ClientProxyListener struct {
 // Accept method accepts the connections from generic connection types
 func (listener *ClientProxyListener) Accept() (net.Conn, error) {
 	if listener.base == nil {
-		return nil, shared.ErrFailed
+		return nil, errors.ErrFailed
 	}
 	tcpConn, err := listener.base.(*net.TCPListener).AcceptTCP()
 	if err != nil {

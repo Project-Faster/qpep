@@ -2,35 +2,47 @@ package common
 
 import (
 	"errors"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/qpep-tray/notify"
 	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/workers/gateway"
+	stderr "github.com/parvit/qpep/shared/errors"
 )
 
 var clientActive bool = false
 
 func startClient() error {
 	if clientActive {
-		return shared.ErrFailed
+		logger.Error("Cannot start an already running client, first stop it")
+		return stderr.ErrFailed
 	}
 
-	addressList, _ := shared.GetLanListeningAddresses()
+	outAddress := configuration2.QPepConfig.Client.LocalListeningAddress
+	addressList, _ := gateway.GetLanListeningAddresses()
 	for idx, addr := range addressCheckBoxList {
 		if addr.Checked() {
-			shared.QPepConfig.ListenHost = addressList[idx]
-			logger.Info("Forced Listening address to %v\n", shared.QPepConfig.ListenHost)
+			outAddress = addressList[idx]
+			logger.Info("Forced Listening address to %v\n", outAddress)
 			break
 		}
 	}
 
-	shared.WriteConfigurationOverrideFile(map[string]string{
-		"listenaddress": shared.QPepConfig.ListenHost,
-	})
+	override := configuration.QPepConfigType{
+		Client: &configuration.ClientDefinition{
+			LocalListeningAddress: outAddress,
+			LocalListenPort:       configuration.QPepConfig.Client.LocalListenPort,
+			GatewayHost:           configuration.QPepConfig.Client.GatewayHost,
+			GatewayPort:           configuration.QPepConfig.Client.GatewayPort,
+		},
+	}
+
+	configuration.WriteConfigurationOverrideFile(override)
 
 	if err := startClientProcess(); err != nil {
 		notify.ErrorMsg("Could not start client program: %v", err)
 		clientActive = false
-		return shared.ErrCommandNotStarted
+		return stderr.ErrCommandNotStarted
 	}
 	clientActive = true
 	notify.InfoMsg("Client started")
@@ -49,8 +61,8 @@ func stopClient() error {
 	}
 
 	clientActive = false
-	shared.SetSystemProxy(false)
-	notify.InfoMsg("Client stopped")
+	gateway.SetSystemProxy(false)
+	InfoMsg("Client stopped")
 	return nil
 }
 
