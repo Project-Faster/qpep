@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/parvit/qpep/qpep-tray/icons"
 	"github.com/parvit/qpep/qpep-tray/notify"
+	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/shared/configuration"
 	"github.com/parvit/qpep/shared/logger"
 	"os/exec"
