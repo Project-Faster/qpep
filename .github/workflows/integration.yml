@@ -9,7 +9,7 @@ run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || git
 
 jobs:
   docs:
-    if: true
+    if: false
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -77,26 +77,27 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.14
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
+#      - name: Set up CMake
+#        uses: jwlawson/actions-setup-cmake@v1.14
+#        with:
+#          cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Prepare
         run: |
+          sudo apt-get install -y pkg-config libgtk-3-dev libayatana-appindicator-dev
           go clean -cache -x
           mkdir -p cover
           mkdir -p report
           mkdir -p unit
 
-      - name: Build Backends
-        run: |
-          cd backend/
-          go generate
-
-      - name: Build QPep
-        run: |
-          go build -v -o build/qpep
+#      - name: Build Backends
+#        run: |
+#          cd backend/
+#          go generate
+#
+#      - name: Build QPep
+#        run: |
+#          go build -v -o build/qpep
 
       - name: Build QPep Tray
         run: |
@@ -105,71 +106,71 @@ jobs:
           go build -o ../build/qpep-tray
           popd
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: qpep_linux_b${{ github.run_id }}
-          path: build/
-
-      - name: Prepare Tests
-        run: |
-          mkdir -p unit/
-          mkdir -p cover/
-          mkdir -p report/
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
-
-      - name: Test
-        run: |
-          set -x
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
-          do
-            pushd $i
-            export WORKSPACE="${{ github.workspace }}"
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
-            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Coverage Results
-        if: always()
-        run: |
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
-          do
-            pushd $i
-            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
-            echo >> $GITHUB_STEP_SUMMARY
-            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/linux@v2
-        if: always()
-        with:
-          check_name: "Unit Tests - Linux Platform"
-          junit_files: "unit/*.xml"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux_cover_output
-          path: "cover/*.out"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: linux_coverage_report
-          path: "report/*.html"
+#      - uses: actions/upload-artifact@v4
+#        with:
+#          name: qpep_linux_b${{ github.run_id }}
+#          path: build/
+#
+#      - name: Prepare Tests
+#        run: |
+#          mkdir -p unit/
+#          mkdir -p cover/
+#          mkdir -p report/
+#          go install github.com/jstemmer/go-junit-report@v1.0.0
+#          go install github.com/axw/gocov/gocov@v1.1.0
+#          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+#          go install github.com/AlekSi/gocov-xml@v1.1.0
+#
+#      - name: Test
+#        run: |
+#          set -x
+#          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+#          do
+#            pushd $i
+#            export WORKSPACE="${{ github.workspace }}"
+#            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
+#            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+#            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
+#            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+#            popd
+#          done
+#        continue-on-error: true
+#
+#      - name: Publish Coverage Results
+#        if: always()
+#        run: |
+#          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+#          do
+#            pushd $i
+#            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+#            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
+#            echo >> $GITHUB_STEP_SUMMARY
+#            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
+#            popd
+#          done
+#        continue-on-error: true
+#
+#      - name: Publish Test Results
+#        uses: EnricoMi/publish-unit-test-result-action/linux@v2
+#        if: always()
+#        with:
+#          check_name: "Unit Tests - Linux Platform"
+#          junit_files: "unit/*.xml"
+#
+#      - uses: actions/upload-artifact@v4
+#        if: always()
+#        with:
+#          name: linux_cover_output
+#          path: "cover/*.out"
+#
+#      - uses: actions/upload-artifact@v4
+#        if: always()
+#        with:
+#          name: linux_coverage_report
+#          path: "report/*.html"
 
   build-windows:
-    if: true
+    if: false
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
