@@ -8,8 +8,8 @@ var strVersion string
 
 var (
 	VERSION_MAJOR = 0
-	VERSION_MINOR = 4
-	VERSION_PATCH = 1
+	VERSION_MINOR = 5
+	VERSION_PATCH = 0
 )
 
 func init() {
