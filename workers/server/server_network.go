@@ -3,14 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/shared/flags"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/shared/protocol"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/backend"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/flags"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/protocol"
 	"io"
 	"net"
 	"runtime/debug"
@@ -62,6 +62,8 @@ func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address s
 
 	if err != nil {
 		logger.Error("Unrecoverable error while listening for Protocol connections: %s\n", err)
+		var errPtr = ctx.Value("lastError").(*error)
+		*errPtr = err
 		return
 	}
 
@@ -76,6 +78,8 @@ func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address s
 		quicSession, err := quicListener.AcceptConnection(ctx)
 		if err != nil {
 			logger.Error("Unrecoverable error while accepting Protocol session: %s\n", err)
+			var errPtr = ctx.Value("lastError").(*error)
+			*errPtr = err
 			return
 		}
 		go func() {

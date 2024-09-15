@@ -109,14 +109,14 @@ func (q *QPepConfigType) Merge(r *QPepConfigType) {
 }
 
 // GetConfigurationPaths returns the current paths for handling the configuration files, creating them if those don't exist:
-// configuration directory, configuration filename and the configuration user filename
-func GetConfigurationPaths() (confDir string, confFile string, confUserFile string) {
+// configuration directory, configuration filename and the configuration override filename
+func GetConfigurationPaths() (string, string, string, string) {
 	basedir, err := os.Executable()
 	if err != nil {
 		logger.Panic("Could not find executable: %s", err)
 	}
 
-	confDir = filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
+	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
 	if _, err := os.Stat(confDir); err != nil {
 		err = os.Mkdir(confDir, 0777)
 		if err != nil {
@@ -124,7 +124,7 @@ func GetConfigurationPaths() (confDir string, confFile string, confUserFile stri
 		}
 	}
 
-	confFile = filepath.Join(confDir, CONFIG_FILENAME)
+	confFile := filepath.Join(confDir, CONFIG_FILENAME)
 	if _, err := os.Stat(confFile); err != nil {
 		defaultData, _ := yaml.Marshal(&DefaultConfig)
 
@@ -134,15 +134,23 @@ func GetConfigurationPaths() (confDir string, confFile string, confUserFile stri
 		}
 	}
 
-	confUserFile = filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
+	confUserFile := filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
 	if _, err := os.Stat(confUserFile); err != nil {
-		err = os.WriteFile(confUserFile, []byte(``), 0777)
+		err = os.WriteFile(confUserFile, []byte(`\n`), 0777)
 		if err != nil {
 			logger.Error("Error creating user configuration file: %v\n", err)
 		}
 	}
 
-	return confDir, confFile, confUserFile
+	logsDir := filepath.Join(filepath.Dir(basedir), LOGS_PATH)
+	if _, err := os.Stat(logsDir); err != nil {
+		err = os.Mkdir(logsDir, 0777)
+		if err != nil {
+			logger.Panic("Error creating logs folder: %v\n", err)
+		}
+	}
+
+	return confDir, confFile, confUserFile, logsDir
 }
 
 // ReadConfiguration method loads the global configuration from the yaml files, if the _ignoreCustom_ value is true
@@ -162,7 +170,7 @@ func ReadConfiguration(ignoreCustom bool) (outerr error) {
 	QPepConfig = QPepConfigType{}
 	QPepConfig.Merge(&DefaultConfig)
 
-	_, confFile, userConfFile := GetConfigurationPaths()
+	_, confFile, userConfFile, _ := GetConfigurationPaths()
 
 	// Read base config
 	f, err := createFileIfAbsent(confFile, false)
@@ -227,7 +235,7 @@ func WriteConfigurationOverrideFile(override QPepConfigType) {
 		}
 	}()
 
-	_, _, userConfFile := GetConfigurationPaths()
+	_, _, userConfFile, _ := GetConfigurationPaths()
 
 	// create base config if it does not exist
 	f, _ := createFileIfAbsent(userConfFile, true)
@@ -237,6 +245,9 @@ func WriteConfigurationOverrideFile(override QPepConfigType) {
 		}
 	}()
 
+	if len(values) == 0 {
+		return
+	}
 	data, err := yaml.Marshal(override)
 	if err != nil {
 		logger.Error("Could not read expected configuration file: %v", err)

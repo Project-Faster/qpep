@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/workers/gateway"
 )
 
 func main() {

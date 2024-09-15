@@ -7,8 +7,8 @@ import (
 	"github.com/Project-Faster/quicly-go"
 	"github.com/Project-Faster/quicly-go/quiclylib/errors"
 	"github.com/Project-Faster/quicly-go/quiclylib/types"
-	errors2 "github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/shared/logger"
+	stderr "github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"net"
 	"os"
 	"strings"
@@ -80,7 +80,7 @@ func (q *quiclyGoBackend) init(isClient, traceOn bool, certPath, certKeyPath, cc
 	}
 
 	if err := quicly.Initialize(quicConfig); err != errors.QUICLY_OK {
-		return errors2.ErrFailed
+		return stderr.ErrFailed
 	}
 	q.initialized = true
 
@@ -131,7 +131,7 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, remoteAddress string, port i
 	if session == nil {
 		logger.Error("Unable to Dial Protocol Session\n")
 		q.opLock.Unlock()
-		return nil, errors2.ErrFailedGatewayConnect
+		return nil, stderr.ErrFailedGatewayConnect
 	}
 
 	sessionAdapter := &cliConnectionAdapter{
@@ -186,7 +186,7 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int, 
 func (q *quiclyGoBackend) Close() error {
 	if !q.initialized {
 		logger.Error("Protocol was not initialized")
-		return errors2.ErrFailed
+		return stderr.ErrFailed
 	}
 	q.opLock.Lock()
 	defer q.opLock.Unlock()
@@ -232,15 +232,15 @@ func (c *srvListenerAdapter) AcceptConnection(ctx context.Context) (QuicBackendC
 			connection: conn,
 		}, nil
 	}
-	return nil, errors2.ErrInvalidBackendOperation
+	return nil, stderr.ErrInvalidBackendOperation
 }
 
 func (c *srvListenerAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *srvListenerAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *srvListenerAdapter) Close(code int, message string) error {
@@ -280,7 +280,7 @@ func (c *srvConnectionAdapter) RemoteAddr() net.Addr {
 }
 
 func (c *srvConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *srvConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
@@ -295,11 +295,11 @@ func (c *srvConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStr
 			id:        stream.ID(),
 		}, err
 	}
-	return nil, errors2.ErrInvalidBackendOperation
+	return nil, stderr.ErrInvalidBackendOperation
 }
 
 func (c *srvConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *srvConnectionAdapter) Close(code int, message string) error {
@@ -341,11 +341,11 @@ func (c *cliConnectionAdapter) RemoteAddr() net.Addr {
 }
 
 func (c *cliConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *cliConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *cliConnectionAdapter) Close(code int, message string) error {
@@ -362,7 +362,7 @@ func (c *cliConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 	if c.connection != nil {
 		stream := c.connection.OpenStream()
 		if stream == nil {
-			return nil, errors2.ErrFailed
+			return nil, stderr.ErrFailed
 		}
 
 		return &streamAdapter{
@@ -371,7 +371,7 @@ func (c *cliConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 			id:        stream.ID(),
 		}, nil
 	}
-	return nil, errors2.ErrFailed
+	return nil, stderr.ErrFailed
 }
 
 func (c *cliConnectionAdapter) IsClosed() bool {

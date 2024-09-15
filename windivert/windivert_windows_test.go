@@ -6,10 +6,10 @@ package windivert
 
 import (
 	"context"
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/flags"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/flags"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"

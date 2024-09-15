@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+rm -f /tmp/qpep-preinstall.log
+touch /tmp/qpep-preinstall.log
+
+{
+echo "[QPep pre-install script]"
+date
+
+rm -rf /tmp/qpep-config || true
+
+if [[ -d /Applications/QPep.app/Contents/MacOS/config ]]; then
+  echo ">> Saving previous configuration"
+  mkdir -p /tmp/qpep-config
+  cp -r /Applications/QPep.app/Contents/MacOS/config/* /tmp/qpep-config/
+else
+  echo ">> No previous configuration to save"
+fi
+
+if [[ -d /Applications/QPep.app ]]; then
+  echo ">> Removing previous installed version"
+  rm -rf /Applications/QPep.app
+else
+  echo ">> No previous installed version to remove"
+fi
+
+echo "Done"
+}  &> /tmp/qpep-preinstall.log
+
+exit 0

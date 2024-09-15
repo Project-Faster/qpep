@@ -16,7 +16,7 @@ func Register(key string, backend QuicBackend) {
 	}
 	key = strings.ToLower(key)
 	if _, ok := bcRegister[key]; !ok {
-		bcRegister[key] = backend
+		bcRegister[strings.ToLower(key)] = backend
 		bcList = append(bcList, key)
 		return
 	}
@@ -25,7 +25,7 @@ func Register(key string, backend QuicBackend) {
 func Get(key string) (QuicBackend, bool) {
 	val, ok := bcRegister[key]
 	if !ok {
-		return bcRegister[bcDefaultBackend], false
+		return bcRegister[bcDefaultBackend], true
 	}
 	return val, ok
 }

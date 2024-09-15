@@ -1,7 +1,7 @@
 package backend
 
 import (
-	"bou.ke/monkey"
+	"github.com/Project-Faster/monkey"
 	"context"
 	"github.com/stretchr/testify/suite"
 	"testing"

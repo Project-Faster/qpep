@@ -3,7 +3,7 @@
 package windivert
 
 import (
-	. "github.com/parvit/qpep/shared/logger"
+	. "github.com/Project-Faster/qpep/shared/logger"
 	"log"
 )
 

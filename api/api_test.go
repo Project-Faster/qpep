@@ -1,14 +1,14 @@
 package api
 
 import (
-	"bou.ke/monkey"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/version"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net/http"

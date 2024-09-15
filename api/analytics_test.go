@@ -1,13 +1,13 @@
 package api
 
 import (
-	"bou.ke/monkey"
 	"encoding/json"
 	"fmt"
+	"github.com/Project-Faster/monkey"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/shared/version"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/rand"

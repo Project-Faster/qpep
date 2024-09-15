@@ -1,13 +1,13 @@
 package api
 
 import (
-	"bou.ke/monkey"
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/flags"
-	"github.com/parvit/qpep/shared/version"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/flags"
+	"github.com/Project-Faster/qpep/shared/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"
@@ -40,7 +40,10 @@ func (s *APIClientSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.General.APIPort = 9443
 	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
 	s.finished = false
+
+	var err error
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.ctx = context.WithValue(s.ctx, "lastError", &err)
 
 	go func() {
 		RunServer(s.ctx, s.cancel, true)

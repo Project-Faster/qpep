@@ -51,6 +51,150 @@ jobs:
           name: qpep_user_manual
           path: "docs/*.pdf"
 
+  build-mac-os:
+    if: true
+    runs-on: macos-latest
+    env:
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GOARCH: arm64
+      GOOS: darwin
+      CGO_ENABLED: 1
+      GOPATH: ${{ github.workspace }}/.go
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prepare
+        run: |
+          go clean -cache -x
+          mkdir -p cover
+          mkdir -p report
+          mkdir -p unit
+          mkdir -p $GOPATH/bin
+          pip install dmgbuild
+
+      - name: Build Backends
+        run: |
+          export CPP=${CXX}
+          export PATH=$GOPATH/bin:$GOPATH/bin/${GOOS}_${GOARCH}:$PATH
+          cd backend/
+          go generate
+
+      - name: Build Executable
+        run: |
+          go build -v -o build/qpep
+
+      - name: Build QPep Tray 64bits
+        run: |
+          pushd qpep-tray
+          go build -v -o ../build/qpep-tray
+          popd
+
+      - name: Build MacOS installer
+        run: |
+          bash ./installer_osx.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_macos_b${{ github.run_id }}
+          path: installer-osx/QPep*.pkg
+
+      - name: Prepare Tests
+        run: |
+          mkdir -p unit/
+          mkdir -p cover/
+          mkdir -p report/
+          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
+
+      - name: Test
+        run: |
+          set -x
+          go list ./... | grep -E -v "${IGNORE_PACKAGES}"
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            export WORKSPACE="${{ github.workspace }}"
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
+            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Coverage Results
+        if: always()
+        run: |
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
+            echo >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action/macos@v2
+        if: always()
+        with:
+          check_name: "Unit Tests - MacOS Platform"
+          junit_files: "unit/*.xml"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos_cover_output
+          path: "cover/*.out"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos_coverage_report
+          path: "report/*.html"
+
+      - name: Fail build on test error
+        run: |
+          set +e
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            grep -E "FAIL:" unit_tests.out
+            if [ $? -eq 0 ]; then
+              exit /b 1
+            fi
+            popd
+          done
+
   build-linux:
     if: true
     runs-on: ubuntu-latest
@@ -117,7 +261,7 @@ jobs:
       - name: Test
         run: |
           set -x
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             export WORKSPACE="${{ github.workspace }}"
@@ -132,7 +276,7 @@ jobs:
       - name: Publish Coverage Results
         if: always()
         run: |
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
@@ -161,6 +305,21 @@ jobs:
         with:
           name: linux_coverage_report
           path: "report/*.html"
+
+      - name: Fail build on test error
+        run: |
+          set +e
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            ls | grep out
+            cat unit_tests.out
+            grep -E "FAIL:" unit_tests.out
+            if [ $? -eq 0 ]; then
+              exit /b 1
+            fi
+            popd
+          done
 
   build-windows:
     if: true
@@ -268,10 +427,9 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          go generate github.com/parvit/qpep/windivert
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          go generate github.com/Project-Faster/qpep/windivert
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             cp -r $WORKSPACE/windivert/x64/* .
@@ -287,9 +445,8 @@ jobs:
         shell: bash
         if: always()
         run: |
-          set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
@@ -318,3 +475,17 @@ jobs:
         with:
           name: windows_coverage_report
           path: report/*.html
+
+      - name: Fail build on test error
+        shell: bash
+        run: |
+          set +e
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            grep -E "FAIL:" unit_tests.out
+            if [ $? -eq 0 ]; then
+              exit /b 1
+            fi
+            popd
+          done

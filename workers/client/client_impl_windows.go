@@ -1,8 +1,8 @@
 package client
 
 import (
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"net"
 	"strings"
 )

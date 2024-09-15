@@ -2,28 +2,28 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/flags"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/shared/version"
-	"github.com/parvit/qpep/workers/client"
-	"github.com/parvit/qpep/workers/gateway"
-	"github.com/parvit/qpep/workers/server"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/flags"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/version"
+	"github.com/Project-Faster/qpep/workers/client"
+	"github.com/Project-Faster/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/workers/server"
 	log "github.com/rs/zerolog"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
 	kservice "github.com/parvit/kardianos-service"
 
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/windivert"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/windivert"
 )
 
 const (
@@ -43,13 +43,10 @@ const (
 	// WIN32_UNKNOWN_CODE Win32 exit code for not installed status of service
 	WIN32_UNKNOWN_CODE = 255
 
-	// serverService server service name
-	serverService = "qpep-server"
-	// clientService client service name
-	clientService = "qpep-client"
-
 	// defaultLinuxWorkDir default working directory for linux platform
-	defaultLinuxWorkDir = "/var/run/qpep"
+	defaultLinuxWorkDir = "/opt/qpep"
+	// defaultDarwinWorkDir default working directory for darwin platform
+	defaultDarwinWorkDir = "/Applications/QPep.app/Contents/MacOS/"
 )
 
 type qpepServiceStarter struct {
@@ -95,8 +92,13 @@ func ServiceMain() int {
 		logger.Error("Could not find executable: %s", err)
 	}
 
-	workingDir := defaultLinuxWorkDir
-	if runtime.GOOS == "windows" {
+	workingDir := "./"
+	switch runtime.GOOS {
+	case "darwin":
+		workingDir = defaultDarwinWorkDir
+	case "linux":
+		workingDir = defaultLinuxWorkDir
+	case "windows":
 		workingDir = filepath.Dir(execPath)
 		if !setCurrentWorkingDir(workingDir) {
 			return 1
@@ -110,19 +112,20 @@ func ServiceMain() int {
 		cancelFunc: cancel,
 	}
 
-	serviceName := serverService
+	serviceName := PLATFORM_SERVICE_SERVER_NAME
 	if flags.Globals.Client {
-		serviceName = clientService
+		serviceName = PLATFORM_SERVICE_CLIENT_NAME
 	}
 	svcConfig := &kservice.Config{
 		Name:        serviceName,
-		DisplayName: strings.ToTitle(serviceName),
+		DisplayName: "QPep",
 		Description: "QPep - high-latency network accelerator",
 
-		Executable: "qpep.exe",
+		Executable: PLATFORM_EXE_NAME,
 		Option:     make(kservice.KeyValue),
 
 		WorkingDirectory: workingDir,
+		UserName:         os.Getenv("USER"),
 
 		EnvVars:   make(map[string]string),
 		Arguments: []string{},
@@ -130,9 +133,15 @@ func ServiceMain() int {
 
 	svcConfig.Option["StartType"] = "manual"
 	svcConfig.Option["OnFailure"] = "noaction"
+	if runtime.GOOS == "darwin" {
+		svcConfig.Option["UserService"] = true
+		svcConfig.Option["KeepAlive"] = false
+		svcConfig.Option["RunAtLoad"] = true
+		svcConfig.Option["LogDirectory"] = "/tmp"
+	}
 
 	path, _ := os.LookupEnv("PATH")
-	svcConfig.EnvVars["PATH"] = workingDir + ";" + path
+	svcConfig.EnvVars["PATH"] = fmt.Sprintf("%s%c%s", workingDir, PLATFORM_PATHVAR_SEP, path)
 
 	if flags.Globals.Client {
 		svcConfig.Arguments = append(svcConfig.Arguments, `--client`)
@@ -275,6 +284,8 @@ func (p *QPepService) Main() error {
 	}()
 
 	logger.Info("Main")
+	var lastError error
+	p.context = context.WithValue(p.context, "lastError", &lastError)
 
 	if err := configuration.ReadConfiguration(false); err != nil {
 		return err
@@ -298,15 +309,16 @@ func (p *QPepService) Main() error {
 	interruptListener := make(chan os.Signal, 1)
 	signal.Notify(interruptListener, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	var wasInterrupted = false
+
 TERMINATIONLOOP:
 	for {
 		select {
 		case <-interruptListener:
+			wasInterrupted = true
 			break TERMINATIONLOOP
 		case <-p.context.Done():
 			break TERMINATIONLOOP
-		case <-time.After(100 * time.Millisecond):
-			continue
 		}
 	}
 
@@ -317,6 +329,14 @@ TERMINATIONLOOP:
 	<-time.After(1 * time.Second)
 
 	p.exitValue = 0
+
+	var errPtr = p.context.Value("lastError").(*error)
+	logger.Info("Exiting %v (%d / %v)", wasInterrupted, p.exitValue, *errPtr)
+
+	if !wasInterrupted && *errPtr != nil {
+		p.exitValue = 1
+		return *errPtr
+	}
 
 	return nil
 }

@@ -1,7 +1,7 @@
 package configuration
 
 import (
-	"bou.ke/monkey"
+	"github.com/Project-Faster/monkey"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

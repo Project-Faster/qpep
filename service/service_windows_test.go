@@ -5,9 +5,9 @@
 package service
 
 import (
-	"bou.ke/monkey"
 	"errors"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"

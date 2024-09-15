@@ -1,6 +1,6 @@
-module github.com/parvit/qpep
+module github.com/Project-Faster/qpep
 
-go 1.18
+go 1.20
 
 replace github.com/Project-Faster/quicly-go => ./backend/quicly-go
 
@@ -8,8 +8,8 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/jackpal/gateway v1.0.7
 	github.com/julienschmidt/httprouter v1.3.0
-	github.com/kardianos/service v1.2.1 // indirect
-	github.com/parvit/kardianos-service v0.0.0-20220822101756-89fc969969b8
+	github.com/parvit/kardianos-service v1.0.1
+	github.com/project-faster/systray v1.4.0
 	github.com/rs/cors v1.8.2
 	github.com/rs/zerolog v1.29.1
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
@@ -19,7 +19,7 @@ require (
 )
 
 require (
-	bou.ke/monkey v1.0.2
+	github.com/Project-Faster/monkey v1.0.4
 	github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d
 	github.com/Project-Faster/quicly-go v0.3.0
 	github.com/eclipse/paho.mqtt.golang v1.4.2
@@ -28,13 +28,13 @@ require (
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 	github.com/nyaosorg/go-windows-dbg v0.0.0-20210914123807-2acba179a4e5
 	github.com/project-faster/dialog v1.1.0
-	github.com/project-faster/systray v1.4.0
 	github.com/segmentio/fasthash v1.0.3
 	github.com/stretchr/testify v1.8.2
 	gonum.org/v1/plot v0.12.0
 )
 
 require (
+	bou.ke/monkey v1.0.2 // indirect
 	git.sr.ht/~sbinet/gg v0.3.1 // indirect
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
@@ -54,6 +54,7 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/kardianos/service v1.2.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

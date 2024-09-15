@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -107,19 +107,19 @@ func RequestEcho(localAddress, address string, apiPort int, toServer bool) *Echo
 	}
 
 	if scanner.Err() != nil {
-		logger.Error("%v\n", scanner.Err())
+		logger.Error("API ERROR: %v\n", scanner.Err())
 		return nil
 	}
 
 	config := configuration.QPepConfig.General
 	if config.Verbose {
-		logger.Info("%s\n", str.String())
+		logger.Info("API RESP: %s\n", str.String())
 	}
 
 	respData := &EchoResponse{}
 	jsonErr := json.Unmarshal(str.Bytes(), &respData)
 	if jsonErr != nil {
-		logger.Error("%v\n", jsonErr)
+		logger.Error("API ERROR: %v\n", jsonErr)
 		return nil
 	}
 

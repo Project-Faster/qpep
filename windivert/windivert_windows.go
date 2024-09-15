@@ -11,7 +11,7 @@ import "C"
 import (
 	"unsafe"
 
-	. "github.com/parvit/qpep/shared/logger"
+	. "github.com/Project-Faster/qpep/shared/logger"
 )
 
 // InitializeWinDivertEngine method invokes the initialization of the WinDivert library, specifying that:

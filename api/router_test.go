@@ -1,11 +1,11 @@
 package api
 
 import (
-	"bou.ke/monkey"
 	"context"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/flags"
-	"github.com/parvit/qpep/webgui"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/flags"
+	"github.com/Project-Faster/qpep/webgui"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"
@@ -39,6 +39,8 @@ func (s *RouterSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.General.APIPort = 9443
 	s.finished = false
 	s.ctx, s.cancel = context.WithCancel(context.Background())
+	var err error
+	s.ctx = context.WithValue(s.ctx, "lastError", &err)
 	var local = true
 
 	switch testName {
@@ -53,6 +55,9 @@ func (s *RouterSuite) BeforeTest(_, testName string) {
 			flags.Globals.Client = true
 		}
 		go func() {
+			defer func() {
+				_ = recover()
+			}()
 			RunServer(s.ctx, s.cancel, local)
 			s.finished = true
 		}()

@@ -3,8 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/version"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/version"
 	"net/http"
 	"net/http/httputil"
 	"runtime"

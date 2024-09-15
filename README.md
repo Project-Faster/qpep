@@ -17,7 +17,7 @@ Following here are instructions for manual building the additional parts on wind
 ### Main module
 For building the qpep package you'll need:
 - Go 1.20.x
-- CMake 3.22+ [Installer](https://github.com/Kitware/CMake/releases/tag/v3.22.3)
+- CMake 3.22 [Installer](https://github.com/Kitware/CMake/releases/tag/v3.22.3)
 - (Windows) A C/C++ complier compatible with CGO eg. [MinGW64](https://www.mingw-w64.org/). Specifically, download [this](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-posix/seh/x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z), extract the files, and add the "bin" directory to the PATH.
 - (Linux) A C/C++ complier compatible with CGO eg. GCC
 

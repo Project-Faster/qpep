@@ -3,19 +3,19 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/shared/version"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/version"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"time"
 
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/qpep-tray/icons"
-	"github.com/parvit/qpep/qpep-tray/notify"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/qpep-tray/icons"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"github.com/project-faster/systray"
 )
 
@@ -67,6 +67,7 @@ func OnReady() {
 	mStatus := systray.AddMenuItem("Status Interface", "Open the status web gui")
 	mConfig := systray.AddMenuItem("Edit Configuration", "Open configuration for next client / server executions")
 	mConfigRefresh := systray.AddMenuItem("Reload Configuration", "Reload configuration from disk and restart the service")
+	mLogs := systray.AddMenuItem("Open Logs Folder", "Opens the logs folder for checking")
 	systray.AddSeparator()
 	mListeningAddress := systray.AddMenuItem("Listen Address", "Force a listening address on the fly")
 	addressList, _ := gateway.GetLanListeningAddresses()
@@ -86,6 +87,7 @@ func OnReady() {
 	mStatus.SetIcon(icons.ConfigIconData)
 	mConfig.SetIcon(icons.ConfigIconData)
 	mConfigRefresh.SetIcon(icons.RefreshIconData)
+	mLogs.SetIcon(icons.ConfigIconData)
 
 	// launch the watchdog routines
 	contextConfigWatchdog, cancelConfigWatchdog = startReloadConfigurationWatchdog()
@@ -141,6 +143,10 @@ func OnReady() {
 			case <-mConfigRefresh.ClickedCh:
 				configuration.ReadConfiguration(true)
 				notify.NotifyUser("Reload finished", "Info", false)
+				continue
+
+			case <-mLogs.ClickedCh:
+				openLogsFolder()
 				continue
 
 			case <-mClient.ClickedCh:

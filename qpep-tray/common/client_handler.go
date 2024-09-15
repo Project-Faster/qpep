@@ -2,11 +2,11 @@ package common
 
 import (
 	"errors"
-	"github.com/parvit/qpep/qpep-tray/notify"
-	"github.com/parvit/qpep/shared/configuration"
-	stderr "github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	stderr "github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/workers/gateway"
 )
 
 var clientActive bool = false

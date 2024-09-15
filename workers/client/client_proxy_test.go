@@ -1,12 +1,11 @@
 package client
 
 import (
-	"bou.ke/monkey"
-	"github.com/parvit/qpep/shared/errors"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -104,21 +103,33 @@ func (s *ClientProxyListenerSuite) TestProxyListener_AcceptConn() {
 }
 
 func (s *ClientProxyListenerSuite) TestProxyListener_FailAccept() {
-	listener, err := NewClientProxyListener("tcp", &net.TCPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
-		Port: 9090,
-	})
+	listener := &ClientProxyListener{
+		base: &fakeListener{},
+	}
 
-	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), listener)
 
-	clListener := listener.(*ClientProxyListener)
-	monkey.PatchInstanceMethod(reflect.TypeOf(clListener.base), "AcceptTCP",
-		func(_ *net.TCPListener) (*net.TCPConn, error) {
-			return nil, errors.ErrFailed
-		})
-
-	conn, errConn := clListener.AcceptTProxy()
+	conn, errConn := listener.AcceptTProxy()
 	assert.Nil(s.T(), conn)
 	assert.Equal(s.T(), errors.ErrFailed, errConn)
+}
+
+type fakeListener struct {
+	net.Listener
+}
+
+func (l *fakeListener) AcceptTCP() (*net.TCPConn, error) {
+	return nil, shared.ErrFailed
+}
+
+var _ net.Listener = &fakeListener{}
+
+func (l *fakeListener) Accept() (net.Conn, error) {
+	return nil, shared.ErrFailed
+}
+func (l *fakeListener) Addr() net.Addr {
+	return nil
+}
+func (l *fakeListener) Close() error {
+	return nil
 }

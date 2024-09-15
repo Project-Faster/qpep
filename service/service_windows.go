@@ -1,9 +1,9 @@
 package service
 
 import (
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +19,11 @@ const (
 	// to be able to start and stop services while allowing the actual service to run with elevated privileges
 	// One can use `ConvertFrom-SddlString -Sddl "<sd-descriptor>"` in a powershell shell to see the contents of the descriptor
 	USER_ACCESS_LIST = `D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPCR;;;S-1-1-0)S:(AU;FA;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;WD)`
+
+	PLATFORM_EXE_NAME            = "qpep.exe"
+	PLATFORM_PATHVAR_SEP         = ';'
+	PLATFORM_SERVICE_CLIENT_NAME = "qpep-client"
+	PLATFORM_SERVICE_SERVER_NAME = "qpep-server"
 )
 
 // setCurrentWorkingDir method allows to change the working directory of the current executable, because the default

@@ -16,9 +16,9 @@ import (
 	"fmt"
 	"github.com/Project-Faster/quic-go"
 	"github.com/Project-Faster/quic-go/logging"
-	errors2 "github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/workers/gateway"
+	stderr "github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -53,7 +53,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int
 	session, err = quic.DialAddr(gatewayPath, tlsConf, quicConfig)
 	if err != nil {
 		logger.Error("Unable to Dial Protocol Session: %v\n", err)
-		return nil, errors2.ErrFailedGatewayConnect
+		return nil, stderr.ErrFailedGatewayConnect
 	}
 
 	sessionAdapter := &qgoConnectionAdapter{
@@ -73,7 +73,7 @@ func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, se
 	conn, err := quic.ListenAddr(fmt.Sprintf("%s:%d", address, port), tlsConf, quicConfig)
 	if err != nil {
 		logger.Error("Failed to listen on Protocol session: %v\n", err)
-		return nil, errors2.ErrFailedGatewayConnect
+		return nil, stderr.ErrFailedGatewayConnect
 	}
 
 	return &qgoConnectionAdapter{
@@ -126,7 +126,7 @@ func (c *qgoConnectionAdapter) LocalAddr() net.Addr {
 	if c.listener != nil {
 		return c.listener.Addr()
 	}
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
@@ -136,7 +136,7 @@ func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
 	if c.listener != nil {
 		return c.listener.Addr()
 	}
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
@@ -153,7 +153,7 @@ func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBacken
 		}
 		return cNew, nil
 	}
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
@@ -166,7 +166,7 @@ func (c *qgoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStr
 			Stream: stream,
 		}, err
 	}
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
@@ -176,7 +176,7 @@ func (c *qgoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 			Stream: stream,
 		}, err
 	}
-	panic(errors2.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) Close(code int, message string) error {
