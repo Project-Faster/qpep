@@ -34,7 +34,8 @@ func initDiverter() bool {
 		}
 	}
 
-	return gateway.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
+	redirected = gateway.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
+	return redirected
 }
 
 // stopDiverter method wraps the calls for stopping the diverter
