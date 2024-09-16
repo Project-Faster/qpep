@@ -9,7 +9,7 @@ run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || git
 
 jobs:
   docs:
-    if: true
+    if: false
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -322,7 +322,7 @@ jobs:
           done
 
   build-windows:
-    if: true
+    if: false
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14

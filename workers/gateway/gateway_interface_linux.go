@@ -2,9 +2,9 @@ package gateway
 
 import (
 	"fmt"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/jackpal/gateway"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/shared/logger"
 	"net"
 	"net/url"
 )

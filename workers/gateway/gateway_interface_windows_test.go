@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Project-Faster/monkey"
-	stderr "github.com/parvit/qpep/shared/errors"
+	stderr "github.com/Project-Faster/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net/url"

@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Project-Faster/qpep/logger"
+	"github.com/Project-Faster/qpep/shared/logger"
 )
 
 const (
