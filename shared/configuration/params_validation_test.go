@@ -2,7 +2,7 @@ package configuration
 
 import (
 	"fmt"
-	"github.com/parvit/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/rand"

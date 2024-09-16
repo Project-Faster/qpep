@@ -1,6 +1,6 @@
 //go:build !arm64
 
-package shared
+package configuration
 
 import (
 	"errors"
@@ -79,7 +79,7 @@ func (s *QPepConfigSuite) TestWriteConfigurationOverrideFile_PanicError() {
 	})
 	defer guard.Unpatch()
 
-	WriteConfigurationOverrideFile(nil)
+	WriteConfigurationOverrideFile(QPepConfigType{})
 }
 
 func (s *QPepConfigSuite) TestWriteConfigurationOverrideFile_MarshalError() {
@@ -92,9 +92,10 @@ func (s *QPepConfigSuite) TestWriteConfigurationOverrideFile_MarshalError() {
 	})
 	defer guard.Unpatch()
 
-	WriteConfigurationOverrideFile(map[string]string{
-		"test": "10",
-	})
+	config := QPepConfigType{}
+	config.Merge(&DefaultConfig)
+
+	WriteConfigurationOverrideFile(config)
 	_, err := os.Stat(expectUserFile)
 	assert.Nil(s.T(), err)
 }

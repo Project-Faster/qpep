@@ -1,24 +1,17 @@
-package shared
-
-/**
-* Parts of the code similar to the github.com/jackpal/gateway module
-* but the command output parse is different to allow extract also the
-* interface ID for interface filtering in the divert engine
- */
+package gateway
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/jackpal/gateway"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
-
-	"github.com/Project-Faster/qpep/logger"
-	"github.com/jackpal/gateway"
 )
 
 // notes
@@ -39,17 +32,6 @@ var (
 	ipRegexp = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
 )
 
-// RunCommand method abstracts the execution of a system command and returns the combined stdout,stderr streams and
-// an error if there was any issue with the command executed
-func RunCommand(name string, cmd ...string) ([]byte, error, int) {
-	routeCmd := exec.Command(name, cmd...)
-	routeCmd.SysProcAttr = &syscall.SysProcAttr{}
-	result, err := routeCmd.CombinedOutput()
-	code := routeCmd.ProcessState.ExitCode()
-
-	return result, err, code
-}
-
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	defaultIP, err := gateway.DiscoverGateway()
 	if err != nil {
@@ -61,7 +43,7 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 }
 
 func getRouteListeningAddresses() []string {
-	output, err, code := RunCommand("networksetup", "-listallnetworkservices")
+	output, err, code := shared.RunCommand("networksetup", "-listallnetworkservices")
 	if err != nil || code != 0 {
 		logger.Error("Could not set system proxy, error (code: %d): %v", code, err)
 		return []string{}
@@ -79,7 +61,7 @@ func getRouteListeningAddresses() []string {
 		}
 
 		// http proxy values
-		output, _, _ := RunCommand("networksetup", "-getinfo", iface)
+		output, _, _ := shared.RunCommand("networksetup", "-getinfo", iface)
 
 		if idx := bytes.Index(output, ipSep); idx != 0 {
 			start := idx + len(ipSep)
@@ -95,8 +77,9 @@ func getRouteListeningAddresses() []string {
 }
 
 func SetSystemProxy(active bool) {
+	config := configuration.QPepConfig.Client
 	if !active {
-		setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort), false)
+		setAllInterfacesToProxy(config.LocalListeningAddress, int64(config.LocalListenPort), false)
 
 		logger.Info("Clearing system proxy settings\n")
 		ProxyAddress = nil
@@ -104,9 +87,9 @@ func SetSystemProxy(active bool) {
 		return
 	}
 
-	setAllInterfacesToProxy(QPepConfig.ListenHost, int64(QPepConfig.ListenPort), true)
+	setAllInterfacesToProxy(config.LocalListeningAddress, int64(config.LocalListenPort), true)
 
-	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", QPepConfig.ListenHost, QPepConfig.ListenPort))
+	urlValue, err := url.Parse(fmt.Sprintf("http://%s:%d", config.LocalListeningAddress, config.LocalListenPort))
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +98,7 @@ func SetSystemProxy(active bool) {
 }
 
 func setAllInterfacesToProxy(address string, port int64, active bool) {
-	output, err, code := RunCommand("networksetup", "-listallnetworkservices")
+	output, err, code := shared.RunCommand("networksetup", "-listallnetworkservices")
 	if err != nil || code != 0 {
 		logger.Error("Could not set system proxy, error (code: %d): %v", code, err)
 		return
@@ -140,21 +123,21 @@ func setAllInterfacesToProxy(address string, port int64, active bool) {
 		}
 
 		// http proxy values
-		_, _, _ = RunCommand("networksetup", "-setwebproxy", iface, address, strPort)
+		_, _, _ = shared.RunCommand("networksetup", "-setwebproxy", iface, address, strPort)
 
 		// https proxy values
-		_, _, _ = RunCommand("networksetup", "-setsecurewebproxy", iface, address, strPort)
+		_, _, _ = shared.RunCommand("networksetup", "-setsecurewebproxy", iface, address, strPort)
 
 		// proxy enabled
-		_, _, _ = RunCommand("networksetup", "-setwebproxystate", iface, state)
+		_, _, _ = shared.RunCommand("networksetup", "-setwebproxystate", iface, state)
 
-		_, _, _ = RunCommand("networksetup", "-setsecurewebproxystate", iface, state)
+		_, _, _ = shared.RunCommand("networksetup", "-setsecurewebproxystate", iface, state)
 
 	}
 }
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
-	output, err, code := RunCommand("networksetup", "-listallnetworkservices")
+	output, err, code := shared.RunCommand("networksetup", "-listallnetworkservices")
 	if err != nil || code != 0 {
 		logger.Error("Could not get system proxy, error (code: %d): %v", code, err)
 		return false, nil
@@ -172,13 +155,13 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 		}
 
 		// proxy enabled
-		output, _, _ := RunCommand("networksetup", "-getwebproxy", iface)
+		output, _, _ := shared.RunCommand("networksetup", "-getwebproxy", iface)
 		if !bytes.Contains(output, enabledSep) {
 			return false, nil
 		}
 		httpProxy := parseProxyUrlFromOutput(output)
 
-		output, _, _ = RunCommand("networksetup", "-getsecurewebproxy", iface)
+		output, _, _ = shared.RunCommand("networksetup", "-getsecurewebproxy", iface)
 		if !bytes.Contains(output, enabledSep) {
 			return false, nil
 		}

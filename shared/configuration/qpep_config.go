@@ -11,7 +11,7 @@ package configuration
 import (
 	"errors"
 	"fmt"
-	"github.com/parvit/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"gopkg.in/yaml.v3"
 	"io"
 	"os"
@@ -245,9 +245,6 @@ func WriteConfigurationOverrideFile(override QPepConfigType) {
 		}
 	}()
 
-	if len(values) == 0 {
-		return
-	}
 	data, err := yaml.Marshal(override)
 	if err != nil {
 		logger.Error("Could not read expected configuration file: %v", err)
