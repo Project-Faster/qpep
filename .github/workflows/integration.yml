@@ -62,7 +62,7 @@ jobs:
       CGO_ENABLED: 1
       GOPATH: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
-      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
     defaults:
       run:
         shell: bash
@@ -188,6 +188,9 @@ jobs:
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
+            if [ ! -f unit_tests.out ]; then
+              exit 1
+            fi
             grep -E "FAIL:" unit_tests.out
             if [ $? -eq 0 ]; then
               exit 1
@@ -205,7 +208,7 @@ jobs:
       GOOS: linux
       CGO_ENABLED: 1
       CMAKE_BUILD_PARALLEL_LEVEL: 4
-      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
     defaults:
       run:
         shell: bash
@@ -312,7 +315,9 @@ jobs:
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
-            ls | grep out
+            if [ ! -f unit_tests.out ]; then
+              exit 1
+            fi
             cat unit_tests.out
             grep -E "FAIL:" unit_tests.out
             if [ $? -eq 0 ]; then
@@ -332,7 +337,7 @@ jobs:
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
       CMAKE_BUILD_PARALLEL_LEVEL: 4
-      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
       MINGW_BASEDIR: 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
     defaults:
       run:
@@ -482,6 +487,9 @@ jobs:
           set +e
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
+            if [ ! -f unit_tests.out ]; then
+              exit 1
+            fi
             pushd $i
             grep -E "FAIL:" unit_tests.out
             if [ $? -eq 0 ]; then
