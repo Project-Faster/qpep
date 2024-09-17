@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"net"
 )
 
@@ -40,7 +40,7 @@ func (listener *ClientProxyListener) Accept() (net.Conn, error) {
 // AcceptTProxy method accepts the connections and casts those to a tcp connection type
 func (listener *ClientProxyListener) AcceptTProxy() (*net.TCPConn, error) {
 	if listener.base == nil {
-		return nil, shared.ErrFailed
+		return nil, errors.ErrFailed
 	}
 	tcpConn, err := listener.base.AcceptTCP()
 	if err != nil {

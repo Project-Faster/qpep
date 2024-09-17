@@ -215,3 +215,11 @@ func parseProxyUrlFromOutput(output []byte) string {
 
 	return fmt.Sprintf("%s:%s", proxyHost, proxyPort)
 }
+
+func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) bool {
+	return true
+}
+
+func GetConnectionDivertedState(local, remote *net.TCPAddr) (bool, int, int, string, string) {
+	return false, -1, -1, "", ""
+}
