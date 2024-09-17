@@ -25,7 +25,7 @@ func Register(key string, backend QuicBackend) {
 func Get(key string) (QuicBackend, bool) {
 	val, ok := bcRegister[key]
 	if !ok {
-		return bcRegister[bcDefaultBackend], true
+		return bcRegister[bcDefaultBackend], false
 	}
 	return val, ok
 }

@@ -5,12 +5,12 @@ package service
 import (
 	"context"
 	"github.com/Project-Faster/monkey"
-	service "github.com/parvit/kardianos-service"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/Project-Faster/qpep/workers/client"
 	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/Project-Faster/qpep/workers/server"
+	service "github.com/parvit/kardianos-service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"
@@ -43,6 +43,11 @@ func (s *ServiceSuite) AfterTest(_, _ string) {
 func (s *ServiceSuite) BeforeTest(_, _ string) {
 	configuration.QPepConfig = configuration.QPepConfigType{}
 	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
+
+	// this to stop requiring admin rights to start tests
+	configuration.QPepConfig.General.APIPort = 9443
+	configuration.QPepConfig.Client.LocalListenPort = 9444
+	configuration.QPepConfig.Server.LocalListenPort = 9444
 }
 
 func (s *ServiceSuite) TestServiceMain_Server() {

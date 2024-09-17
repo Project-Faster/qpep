@@ -119,13 +119,13 @@ type fakeListener struct {
 }
 
 func (l *fakeListener) AcceptTCP() (*net.TCPConn, error) {
-	return nil, shared.ErrFailed
+	return nil, errors.ErrFailed
 }
 
 var _ net.Listener = &fakeListener{}
 
 func (l *fakeListener) Accept() (net.Conn, error) {
-	return nil, shared.ErrFailed
+	return nil, errors.ErrFailed
 }
 func (l *fakeListener) Addr() net.Addr {
 	return nil
