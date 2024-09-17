@@ -27,6 +27,13 @@ const (
 
 var redirectOn = false
 
+func getRouteListeningAddresses() []string {
+	if defaultListeningAddress == "" {
+		defaultListeningAddress = "127.0.0.1"
+	}
+	return []string{defaultListeningAddress}
+}
+
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	defaultIP, err := gateway.DiscoverInterface()
 	if err != nil {

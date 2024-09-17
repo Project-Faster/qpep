@@ -55,6 +55,13 @@ func init() {
 	panic("Tried to stop the WinDivert orphan instance but it did not terminate, unable to continue")
 }
 
+func getRouteListeningAddresses() []string {
+	if defaultListeningAddress == "" {
+		defaultListeningAddress = "127.0.0.1"
+	}
+	return []string{defaultListeningAddress}
+}
+
 // getRouteGatewayInterfaces method extracts routing information using the "netsh" utility and returns specifically:
 // * Network Interface IDs list of all network interfaces configured
 // * Network Address List for every configured interface

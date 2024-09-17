@@ -1,8 +1,8 @@
 package gateway
 
 import (
-	"github.com/Project-Faster/qpep/shared/logger"
 	"errors"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"net/url"
 	"runtime"
 	"strings"
@@ -33,6 +33,10 @@ var (
 const (
 	MAX_TIMEOUT_MULTIPLER = 16
 	QPEP_PROXY_HEADER     = "X-QPEP-PROXY"
+)
+
+var (
+	errNotImplemented = errors.New("not implemented for OS: " + runtime.GOOS)
 )
 
 // init method executes the static initialization for detecting the current system's interfaces and addresses
