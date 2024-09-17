@@ -128,7 +128,7 @@ jobs:
           mkdir -p unit/
           mkdir -p cover/
           mkdir -p report/
-          go install github.com/jstemmer/go-junit-report@v2.1.0
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
@@ -233,7 +233,7 @@ jobs:
           mkdir -p cover
           mkdir -p report
           mkdir -p unit
-          go install github.com/jstemmer/go-junit-report@v2.1.0
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
@@ -419,7 +419,7 @@ jobs:
           MKDIR unit
           MKDIR cover
           MKDIR report
-          go install github.com/jstemmer/go-junit-report@v2.1.0
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
