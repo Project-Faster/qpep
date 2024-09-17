@@ -3,8 +3,6 @@ package service
 import (
 	"github.com/Project-Faster/qpep/shared/logger"
 	"os"
-
-	"github.com/Project-Faster/qpep/logger"
 )
 
 const (

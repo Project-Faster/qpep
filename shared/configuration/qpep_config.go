@@ -28,6 +28,8 @@ const (
 	CONFIG_OVERRIDE_FILENAME = "qpep.user.yml"
 	// CONFIG_PATH Directory name for the configuration files
 	CONFIG_PATH = "config"
+	// LOGS_PATH Directory name for the log files
+	LOGS_PATH = "log"
 	// WEBGUI_URL URL of the web gui served by the service
 	WEBGUI_URL = "http://127.0.0.1:%d/index?mode=%s&port=%d"
 )
