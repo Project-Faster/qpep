@@ -3,9 +3,9 @@ package common
 import (
 	"context"
 	"fmt"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/Project-Faster/qpep/shared/logger"
-	"github.com/Project-Faster/qpep/qpep-tray/notify"
 	"os"
 	"time"
 
@@ -22,7 +22,7 @@ func openConfigurationWithOSEditor() {
 }
 
 func openLogsFolder() {
-	_, _, _, logsPath := shared.GetConfigurationPaths()
+	_, _, _, logsPath := configuration.GetConfigurationPaths()
 
 	if err := open.Run(logsPath); err != nil {
 		notify.ErrorMsg("Editor configuration failed with error: %v", err)
