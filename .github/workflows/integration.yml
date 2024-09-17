@@ -128,7 +128,7 @@ jobs:
           mkdir -p unit/
           mkdir -p cover/
           mkdir -p report/
-          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/jstemmer/go-junit-report@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
@@ -141,8 +141,8 @@ jobs:
           do
             pushd $i
             export WORKSPACE="${{ github.workspace }}"
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> unit_tests.out || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &>> unit_tests.out || true
             grep -E "PASS|FAIL|SKIP" unit_tests.out || true
             cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
             popd
@@ -190,7 +190,7 @@ jobs:
             pushd $i
             grep -E "FAIL:" unit_tests.out
             if [ $? -eq 0 ]; then
-              exit /b 1
+              exit 1
             fi
             popd
           done
@@ -233,7 +233,7 @@ jobs:
           mkdir -p cover
           mkdir -p report
           mkdir -p unit
-          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/jstemmer/go-junit-report@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
@@ -316,7 +316,7 @@ jobs:
             cat unit_tests.out
             grep -E "FAIL:" unit_tests.out
             if [ $? -eq 0 ]; then
-              exit /b 1
+              exit 1
             fi
             popd
           done
@@ -419,7 +419,7 @@ jobs:
           MKDIR unit
           MKDIR cover
           MKDIR report
-          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/jstemmer/go-junit-report@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
@@ -485,7 +485,7 @@ jobs:
             pushd $i
             grep -E "FAIL:" unit_tests.out
             if [ $? -eq 0 ]; then
-              exit /b 1
+              exit 1
             fi
             popd
           done
