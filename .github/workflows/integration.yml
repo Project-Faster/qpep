@@ -30,7 +30,7 @@ run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || git
 
 jobs:
   docs:
-    if: ${{ inputs.run_docs || true }}
+    if: ${{ inputs.run_docs == true }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -73,7 +73,7 @@ jobs:
           path: "docs/*.pdf"
 
   build-mac-os:
-    if: ${{ inputs.run_macos || true }}
+    if: ${{ inputs.run_macos == true }}
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -220,7 +220,7 @@ jobs:
           done
 
   build-linux:
-    if: ${{ inputs.run_linux || true }}
+    if: ${{ inputs.run_linux == true }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -348,7 +348,7 @@ jobs:
           done
 
   build-windows:
-    if: ${{ inputs.run_windows || true }}
+    if: ${{ inputs.run_windows == true }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
