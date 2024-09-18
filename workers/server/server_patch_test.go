@@ -4,10 +4,13 @@ package server
 
 import (
 	"crypto/tls"
-	"errors"
+	stderr "errors"
 	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
-	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/protocol"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/Project-Faster/quic-go"
 	"github.com/stretchr/testify/assert"
 	"net"
@@ -23,38 +26,38 @@ func (s *ServerSuite) TestValidateConfiguration() {
 }
 
 func (s *ServerSuite) TestValidateConfiguration_BadListenAddress() {
-	shared.QPepConfig.ListenHost = "ABCD"
-	shared.QPepConfig.ListenPort = 9090
-	shared.QPepConfig.GatewayAPIPort = 9443
+	configuration.QPepConfig.Server.LocalListeningAddress = "ABCD"
+	configuration.QPepConfig.Server.LocalListenPort = 9090
+	configuration.QPepConfig.General.APIPort = 9443
 
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed, func() {
 		validateConfiguration()
 	})
 }
 
 func (s *ServerSuite) TestValidateConfiguration_BadListenPort() {
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.ListenPort = 0
-	shared.QPepConfig.GatewayAPIPort = 9443
+	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Server.LocalListenPort = 0
+	configuration.QPepConfig.General.APIPort = 9443
 
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed, func() {
 		validateConfiguration()
 	})
 }
 
 func (s *ServerSuite) TestValidateConfiguration_BadAPIPort() {
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.ListenPort = 9090
-	shared.QPepConfig.GatewayAPIPort = 99999
+	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Server.LocalListenPort = 9090
+	configuration.QPepConfig.General.APIPort = 99999
 
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(s.T(), errors.ErrConfigurationValidationFailed, func() {
 		validateConfiguration()
 	})
 }
 
 func (s *ServerSuite) TestRunServer_BadListener() {
 	monkey.Patch(quic.ListenAddr, func(string, *tls.Config, *quic.Config) (quic.Listener, error) {
-		return nil, errors.New("test-error")
+		return nil, stderr.New("test-error")
 	})
 
 	s.runServerTest()
@@ -63,7 +66,7 @@ func (s *ServerSuite) TestRunServer_BadListener() {
 func (s *ServerSuite) TestRunServer_APIConnection() {
 	ctx, cancel := newContext()
 
-	monkey.Patch(shared.GetDefaultLanListeningAddress, func(current, gateway string) (string, []int64) {
+	monkey.Patch(gateway.GetDefaultLanListeningAddress, func(current, gateway string) (string, []int64) {
 		return "127.0.0.1", nil
 	})
 
@@ -78,7 +81,7 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 		api.RunServer(ctx, cancel, false)
 	}()
 
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	conn, err := openQuicSession_test("127.0.0.1", 9090)
 	assert.Nil(s.T(), err)
@@ -86,7 +89,7 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},

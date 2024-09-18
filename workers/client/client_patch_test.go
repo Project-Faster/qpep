@@ -6,8 +6,9 @@ import (
 	"context"
 	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
-	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/Project-Faster/qpep/windivert"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"net/url"
@@ -271,35 +272,35 @@ func (s *ClientSuite) TestHandleServices_FailStatistics() {
 }
 
 func (s *ClientSuite) TestInitProxy() {
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.True(s.T(), active)
-		shared.UsingProxy = true
-		shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+		gateway.UsingProxy = true
+		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
 
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	initProxy()
-	assert.True(s.T(), shared.UsingProxy)
+	assert.True(s.T(), gateway.UsingProxy)
 
-	assert.NotNil(s.T(), shared.ProxyAddress)
+	assert.NotNil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientSuite) TestStopProxy() {
-	shared.UsingProxy = true
-	shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+	gateway.UsingProxy = true
+	gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.False(s.T(), active)
-		shared.UsingProxy = false
-		shared.ProxyAddress = nil
+		gateway.UsingProxy = false
+		gateway.ProxyAddress = nil
 	})
 
-	assert.True(s.T(), shared.UsingProxy)
+	assert.True(s.T(), gateway.UsingProxy)
 	stopProxy()
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	assert.False(s.T(), redirected)
 
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientSuite) TestInitDiverter() {
@@ -337,23 +338,23 @@ func (s *ClientSuite) TestStopDiverter() {
 }
 
 func (s *ClientSuite) TestInitialCheckConnection() {
-	shared.QPepConfig.PreferProxy = false
+	configuration.QPepConfig.General.PreferProxy = false
 	validateConfiguration()
 
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.True(s.T(), active)
-		shared.UsingProxy = true
-		shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+		gateway.UsingProxy = true
+		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
 
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	initialCheckConnection()
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 
 	initialCheckConnection()
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientSuite) TestGatewayStatusCheck() {

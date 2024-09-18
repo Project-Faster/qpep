@@ -3,10 +3,12 @@
 package gateway
 
 import (
-	"errors"
+	stderr "errors"
 	"fmt"
 	"github.com/Project-Faster/monkey"
-	stderr "github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net/url"
@@ -40,7 +42,7 @@ func (s *GatewayConfigSuite) AfterTest(_, _ string) {
 
 func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_False() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(string, ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(string, ...string) ([]byte, error, int) {
 		return []byte("0x0"), nil, 0
 	})
 
@@ -51,8 +53,8 @@ func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_False() {
 
 func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_False_Error() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(string, ...string) ([]byte, error, int) {
-		return nil, errors.New("test-error"), 1
+	monkey.Patch(shared.RunCommand, func(string, ...string) ([]byte, error, int) {
+		return nil, stderr.New("test-error"), 1
 	})
 
 	active, url := GetSystemProxyEnabled()
@@ -62,7 +64,7 @@ func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_False_Error() {
 
 func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_True() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if data[len(data)-1] == "ProxyEnable" {
 			return []byte("0x1"), nil, 0
 		}
@@ -78,11 +80,11 @@ func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_True() {
 
 func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_True_Error() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if data[len(data)-1] == "ProxyEnable" {
 			return []byte("0x1"), nil, 0
 		}
-		return nil, errors.New("test-error"), 1
+		return nil, stderr.New("test-error"), 1
 	})
 
 	active, url := GetSystemProxyEnabled()
@@ -92,7 +94,7 @@ func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_True_Error() {
 
 func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_True_ErrorParse() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if data[len(data)-1] == "ProxyEnable" {
 			return []byte("0x1"), nil, 0
 		}
@@ -106,7 +108,7 @@ func (s *GatewayConfigSuite) TestGetSystemProxyEnabled_True_ErrorParse() {
 
 func (s *GatewayConfigSuite) TestPreloadRegistryKeysForUsers() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		return []byte("SID\nS-1-5-21-4227727717-1300533570-3298936513-500\n" +
 			"S-1-5-21-4227727717-1300533570-3298936513-503\n" +
 			"S-1-5-21-4227727717-1300533570-3298936513-501\n" +
@@ -139,8 +141,8 @@ func (s *GatewayConfigSuite) TestPreloadRegistryKeysForUsers() {
 
 func (s *GatewayConfigSuite) TestPreloadRegistryKeysForUsers_Error() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
-		return nil, errors.New("test-error"), 1
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
+		return nil, stderr.New("test-error"), 1
 	})
 
 	assert.Panics(t, func() {
@@ -150,7 +152,7 @@ func (s *GatewayConfigSuite) TestPreloadRegistryKeysForUsers_Error() {
 
 func (s *GatewayConfigSuite) TestSetSystemProxy_Disabled() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if name == "wmic" {
 			return []byte("SID\nS-1-5-21-4227727717-1300533570-3298936513-500\n" +
 				"S-1-5-21-4227727717-1300533570-3298936513-503\n" +
@@ -169,7 +171,7 @@ func (s *GatewayConfigSuite) TestSetSystemProxy_Disabled() {
 
 func (s *GatewayConfigSuite) TestSetSystemProxy_Active() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if name == "wmic" {
 			return []byte("SID\nS-1-5-21-4227727717-1300533570-3298936513-500\n" +
 				"S-1-5-21-4227727717-1300533570-3298936513-503\n" +
@@ -192,9 +194,9 @@ func (s *GatewayConfigSuite) TestSetSystemProxy_Active() {
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorRoute() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if data[len(data)-1] == "route" {
-			return nil, errors.New("test-error"), 1
+			return nil, stderr.New("test-error"), 1
 		}
 		return nil, nil, 0 // ignored just don't execute the real command
 	})
@@ -202,12 +204,12 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorRoute() {
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
+	assert.Equal(t, errors.ErrFailedGatewayDetect, err)
 }
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorRouteEmpty() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if data[len(data)-1] == "route" {
 			return []byte(``), nil, 0
 		}
@@ -217,7 +219,7 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorRouteEmpty() {
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
+	assert.Equal(t, errors.ErrFailedGatewayDetect, err)
 }
 
 var cmdTestDataRoute = []byte(`
@@ -275,40 +277,40 @@ Configurazione per l'interfaccia "Loopback Pseudo-Interface 1"
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorInterface() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		if data[len(data)-1] == "route" {
 			return cmdTestDataRoute, nil, 0
 		}
-		return nil, errors.New("test-error"), 1
+		return nil, stderr.New("test-error"), 1
 	})
 
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
+	assert.Equal(t, errors.ErrFailedGatewayDetect, err)
 }
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces_ErrorConfig() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		switch data[len(data)-1] {
 		case "route":
 			return cmdTestDataRoute, nil, 0
 		case "interface":
 			return cmdTestDataInterfaces, nil, 0
 		}
-		return nil, errors.New("test-error"), 1
+		return nil, stderr.New("test-error"), 1
 	})
 
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
 	assert.Nil(t, interfacesList)
 	assert.Nil(t, addressList)
-	assert.Equal(t, stderr.ErrFailedGatewayDetect, err)
+	assert.Equal(t, errors.ErrFailedGatewayDetect, err)
 }
 
 func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces() {
 	t := s.T()
-	monkey.Patch(RunCommand, func(name string, data ...string) ([]byte, error, int) {
+	monkey.Patch(shared.RunCommand, func(name string, data ...string) ([]byte, error, int) {
 		switch data[len(data)-1] {
 		case "route":
 			return cmdTestDataRoute, nil, 0
@@ -317,7 +319,7 @@ func (s *GatewayConfigSuite) TestGetRouteGatewayInterfaces() {
 		case "config":
 			return cmdTestDataConfig, nil, 0
 		}
-		return nil, errors.New("test-error"), 1
+		return nil, stderr.New("test-error"), 1
 	})
 
 	interfacesList, addressList, err := getRouteGatewayInterfaces()
