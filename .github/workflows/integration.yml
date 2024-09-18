@@ -2,6 +2,27 @@ name: CodeIntegration
 
 on:
   workflow_dispatch:
+    inputs:
+      run_docs:
+        description: 'generates the documentation'
+        type: boolean
+        default: true
+        required: true
+      run_windows:
+        description: 'runs the Windows job'
+        type: boolean
+        default: true
+        required: true
+      run_linux:
+        description: 'runs the Linux job'
+        type: boolean
+        default: true
+        required: true
+      run_macos:
+        description: 'runs the MacOS job'
+        type: boolean
+        default: true
+        required: true
   push:
     branches: [ "main", "testing-*", "issue*" ]
 
@@ -9,7 +30,7 @@ run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || git
 
 jobs:
   docs:
-    if: true
+    if: ${{ inputs.run_docs || true }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -52,7 +73,7 @@ jobs:
           path: "docs/*.pdf"
 
   build-mac-os:
-    if: true
+    if: ${{ inputs.run_macos || true }}
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -199,7 +220,7 @@ jobs:
           done
 
   build-linux:
-    if: true
+    if: ${{ inputs.run_linux || true }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -327,7 +348,7 @@ jobs:
           done
 
   build-windows:
-    if: true
+    if: ${{ inputs.run_windows || true }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
