@@ -21,7 +21,20 @@ type WinDivertSuite struct {
 
 func (s *WinDivertSuite) AfterTest(_, _ string) {}
 
-func (s *WinDivertSuite) BeforeTest(_, _ string) {}
+func (s *WinDivertSuite) BeforeTest(_, _ string) {
+	if value := os.Getenv("QPEP_CI_ENV"); len(value) > 0 {
+		s.T().Skip("Skipping because CI environment does not support windivert execution")
+		return
+	}
+
+	flags.Globals.Client = false
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
+
+	configuration.QPepConfig.General.Verbose = true
+	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.General.APIPort = 9443
+}
 
 func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	t := s.T()

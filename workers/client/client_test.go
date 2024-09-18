@@ -10,13 +10,12 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/Project-Faster/monkey"
-	"github.com/Project-Faster/quic-go"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/Project-Faster/qpep/shared/protocol"
-	"github.com/Project-Faster/qpep/windivert"
 	"github.com/Project-Faster/qpep/workers/gateway"
+	"github.com/Project-Faster/quic-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/big"
@@ -44,6 +43,9 @@ func (s *ClientSuite) BeforeTest(_, testName string) {
 
 	gateway.UsingProxy = false
 	gateway.ProxyAddress = nil
+
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
 
 	configuration.QPepConfig.Client.GatewayHost = "127.0.0.1"
 	configuration.QPepConfig.Client.GatewayPort = 9443
