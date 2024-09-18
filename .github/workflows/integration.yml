@@ -459,8 +459,8 @@ jobs:
           do
             pushd $i
             cp -r $WORKSPACE/windivert/x64/* .
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> NUL || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test > unit_tests.out 2>&1 || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out >> unit_tests.out 2>&1 || true
             grep -E "PASS|FAIL|SKIP" unit_tests.out || true
             cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
             popd
