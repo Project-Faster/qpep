@@ -111,14 +111,14 @@ func (q *QPepConfigType) Merge(r *QPepConfigType) {
 }
 
 // GetConfigurationPaths returns the current paths for handling the configuration files, creating them if those don't exist:
-// configuration directory, configuration filename and the configuration override filename
-func GetConfigurationPaths() (string, string, string, string) {
+// configuration directory, configuration filename and the configuration user filename
+func GetConfigurationPaths() (confDir string, confFile string, confUserFile, logsDir string) {
 	basedir, err := os.Executable()
 	if err != nil {
 		logger.Panic("Could not find executable: %s", err)
 	}
 
-	confDir := filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
+	confDir = filepath.Join(filepath.Dir(basedir), CONFIG_PATH)
 	if _, err := os.Stat(confDir); err != nil {
 		err = os.Mkdir(confDir, 0777)
 		if err != nil {
@@ -126,7 +126,7 @@ func GetConfigurationPaths() (string, string, string, string) {
 		}
 	}
 
-	confFile := filepath.Join(confDir, CONFIG_FILENAME)
+	confFile = filepath.Join(confDir, CONFIG_FILENAME)
 	if _, err := os.Stat(confFile); err != nil {
 		defaultData, _ := yaml.Marshal(&DefaultConfig)
 
@@ -136,15 +136,15 @@ func GetConfigurationPaths() (string, string, string, string) {
 		}
 	}
 
-	confUserFile := filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
+	confUserFile = filepath.Join(confDir, CONFIG_OVERRIDE_FILENAME)
 	if _, err := os.Stat(confUserFile); err != nil {
-		err = os.WriteFile(confUserFile, []byte(`\n`), 0777)
+		err = os.WriteFile(confUserFile, []byte(``), 0777)
 		if err != nil {
 			logger.Error("Error creating user configuration file: %v\n", err)
 		}
 	}
 
-	logsDir := filepath.Join(filepath.Dir(basedir), LOGS_PATH)
+	logsDir = filepath.Join(filepath.Dir(basedir), LOGS_PATH)
 	if _, err := os.Stat(logsDir); err != nil {
 		err = os.Mkdir(logsDir, 0777)
 		if err != nil {

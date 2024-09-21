@@ -197,7 +197,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	}
 	logger.Info("[%d] Opened TCP NetConn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
 
-	proxyAddress := tcpConn.LocalAddr().String()
+	proxySrcAddress := qpepHeader.SourceAddr.String()
 	startTime := time.Now()
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
@@ -207,13 +207,13 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	//setLinger(tcpConn)
 
-	api.Statistics.SetMappedAddress(proxyAddress, srcAddress)
+	api.Statistics.SetMappedAddress(proxySrcAddress, srcAddress)
 	api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS)
 	api.Statistics.IncrementCounter(1.0, api.PERF_CONN, srcAddress)
 	defer func() {
 		api.Statistics.DecrementCounter(1.0, api.PERF_CONN, srcAddress)
 		api.Statistics.DecrementCounter(1.0, api.TOTAL_CONNECTIONS)
-		api.Statistics.DeleteMappedAddress(proxyAddress)
+		api.Statistics.DeleteMappedAddress(proxySrcAddress)
 	}()
 
 	ctx, _ := context.WithCancel(context.Background())

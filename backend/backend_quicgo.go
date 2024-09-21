@@ -309,7 +309,6 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 				return nil
 			}
 			if keyDERBlock.Type == "PRIVATE KEY" || strings.HasSuffix(keyDERBlock.Type, " PRIVATE KEY") {
-				logger.Error("Certificate PEM key parsing in file %s failed", dataKey)
 				break
 			}
 			skippedBlockTypes = append(skippedBlockTypes, keyDERBlock.Type)

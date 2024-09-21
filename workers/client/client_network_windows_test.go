@@ -46,6 +46,7 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 	api.Statistics.Reset()
 	proxyListener = nil
 
+	redirected = false
 	gateway.UsingProxy = false
 	gateway.ProxyAddress = nil
 
@@ -69,9 +70,9 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.General.MultiStream = false
 	configuration.QPepConfig.General.WinDivertThreads = 4
 	configuration.QPepConfig.General.PreferProxy = true
-	configuration.QPepConfig.General.Verbose = true
+	configuration.QPepConfig.General.Verbose = false
 
-	logger.SetupLogger(testName, "debug")
+	logger.SetupLogger(testName, "info")
 }
 
 func (s *ClientNetworkSuite) AfterTest(_, testName string) {
@@ -137,22 +138,20 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirec
 
 	assert.Equal(s.T(), 14, keepRedirectionRetries)
 	assert.True(s.T(), calledInit)
-	assert.True(s.T(), calledStop)
+	assert.False(s.T(), calledStop)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterSwitchToProxy() {
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(initDiverter, func() bool {
 		calledInit = true
-		return windivert.DIVERT_OK
+		return true
 	})
 	var calledStop = false
-	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
+	monkey.Patch(stopDiverter, func() {
 		calledStop = true
-		return windivert.DIVERT_OK
 	})
-	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
-		assert.True(s.T(), active)
+	monkey.Patch(initProxy, func() {
 		gateway.UsingProxy = true
 		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
@@ -278,9 +277,8 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyExhausted() {
 	gateway.UsingProxy = false
 
 	var calledClose = false
-	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
+	monkey.Patch(stopDiverter, func() {
 		calledClose = true
-		return windivert.DIVERT_OK
 	})
 
 	assert.True(s.T(), failedCheckConnection())

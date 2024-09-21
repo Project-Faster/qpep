@@ -105,6 +105,7 @@ func performanceWatcher(ctx context.Context, cancel context.CancelFunc) {
 func validateConfiguration() {
 	configSrv := configuration.QPepConfig.Server
 	configGeneral := configuration.QPepConfig.General
+	configProto := configuration.QPepConfig.Protocol
 	configBroker := configuration.QPepConfig.Analytics
 
 	configuration.AssertParamIP("listen host", configSrv.LocalListeningAddress)
@@ -113,6 +114,7 @@ func validateConfiguration() {
 	configSrv.LocalListeningAddress, _ = gateway.GetDefaultLanListeningAddress(configSrv.LocalListeningAddress, "")
 
 	configuration.AssertParamPort("api port", configGeneral.APIPort)
+	configuration.AssertParamValidTimeout("idle timeout", configProto.IdleTimeout)
 	configuration.AssertParamPortsDifferent("ports", configSrv.LocalListenPort, configGeneral.APIPort)
 
 	if !configBroker.Enabled {

@@ -48,12 +48,12 @@ func (s *APISuite) TestFormatRequest() {
 }
 
 func (s *APISuite) TestFormatRequest_WithBody() {
-	const body = "QPep is a hybrid network accelerator based on the Protocol protocol"
+	const body = "QPep is a hybrid network accelerator based on the QUIC protocol"
 	req, _ := http.NewRequest("POST", "http://localhost:9443", strings.NewReader(body))
 	assert.NotNil(s.T(), req)
 
 	configuration.QPepConfig.General.Verbose = true
-	assert.Equal(s.T(), "POST / HTTP/1.1\r\nHost: localhost:9443\r\n\r\nQPep is a hybrid network accelerator based on the Protocol protocol", formatRequest(req))
+	assert.Equal(s.T(), "POST / HTTP/1.1\r\nHost: localhost:9443\r\n\r\nQPep is a hybrid network accelerator based on the QUIC protocol", formatRequest(req))
 }
 
 func (s *APISuite) TestFormatRequest_Error() {

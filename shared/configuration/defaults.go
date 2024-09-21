@@ -1,5 +1,7 @@
 package configuration
 
+import "time"
+
 var DefaultConfig = QPepConfigType{
 	Client: &ClientDefinition{
 		LocalListeningAddress: "0.0.0.0",
@@ -18,6 +20,7 @@ var DefaultConfig = QPepConfigType{
 	Protocol: &ProtocolDefinition{
 		Backend:         "quic-go",
 		BufferSize:      512,
+		IdleTimeout:     30 * time.Second,
 		CCAlgorithm:     "cubic",
 		CCSlowstartAlgo: "search",
 	},

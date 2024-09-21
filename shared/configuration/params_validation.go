@@ -8,6 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+)
+
+const (
+	MIN_IDLE_TIMEOUT = 1 * time.Second
+	MAX_IDLE_TIMEOUT = 60 * time.Second
 )
 
 // AssertParamNumeric panics with error ErrImpossibleValidationRequested if the min and max values
@@ -133,6 +139,13 @@ func AssertParamHostsDifferent(name string, values ...string) {
 			}
 			AssertParamIP(name, values[i])
 		}
+	}
+}
+
+func AssertParamValidTimeout(name string, value time.Duration) {
+	if value < MIN_IDLE_TIMEOUT || value > MAX_IDLE_TIMEOUT {
+		logger.Error("'%s' parameter not in acceptable range: %v [%v:%v]\n", name, value, MIN_IDLE_TIMEOUT, MAX_IDLE_TIMEOUT)
+		panic(errors.ErrConfigurationValidationFailed)
 	}
 }
 

@@ -47,7 +47,7 @@ func (s *WinDivertSuite) BeforeTest(_, _ string) {
 	configuration.QPepConfig = configuration.QPepConfigType{}
 	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
 
-	configuration.QPepConfig.General.Verbose = true
+	configuration.QPepConfig.General.Verbose = false
 	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
 	configuration.QPepConfig.General.APIPort = 9443
 }
@@ -62,7 +62,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	itFaces, _, _ := getRouteGatewayInterfaces()
 
 	code := InitializeWinDivertEngine(
-		"127.0.0.1", "127.0.0.1",
+		"127.0.0.1", "127.0.0.2",
 		configuration.QPepConfig.General.APIPort, 445,
 		4, itFaces[0])
 
@@ -75,7 +75,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 	itFaces, _, _ := getRouteGatewayInterfaces()
 
 	code := InitializeWinDivertEngine(
-		"127.0.0.1", "127.0.0.1",
+		"127.0.0.1", "127.0.0.2",
 		0, 0,
 		4, itFaces[0])
 
@@ -88,7 +88,7 @@ func (s *WinDivertSuite) TestCloseWinDivertEngine() {
 	itFaces, _, _ := getRouteGatewayInterfaces()
 
 	code := InitializeWinDivertEngine(
-		"127.0.0.1", "127.0.0.1",
+		"127.0.0.1", "127.0.0.2",
 		configuration.QPepConfig.General.APIPort, 445,
 		4, itFaces[0])
 

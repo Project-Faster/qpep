@@ -3,25 +3,25 @@ name: CodeIntegration
 on:
   workflow_dispatch:
     inputs:
-      run_docs:
-        description: 'generates the documentation'
+      skip_docs:
+        description: 'skips generation of the documentation'
         type: boolean
-        default: true
+        default: false
         required: true
-      run_windows:
-        description: 'runs the Windows job'
+      skip_windows:
+        description: 'skips the Windows job'
         type: boolean
-        default: true
+        default: false
         required: true
-      run_linux:
-        description: 'runs the Linux job'
+      skip_linux:
+        description: 'skips the Linux job'
         type: boolean
-        default: true
+        default: false
         required: true
-      run_macos:
-        description: 'runs the MacOS job'
+      skip_macos:
+        description: 'skips the MacOS job'
         type: boolean
-        default: true
+        default: false
         required: true
   push:
     branches: [ "main", "testing-*", "issue*" ]
@@ -30,7 +30,7 @@ run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || git
 
 jobs:
   docs:
-    if: ${{ inputs.run_docs == true }}
+    if: ${{ !inputs.skip_docs }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -73,7 +73,7 @@ jobs:
           path: "docs/*.pdf"
 
   build-mac-os:
-    if: ${{ inputs.run_macos == true }}
+    if: ${{ !inputs.skip_macos }}
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -220,7 +220,7 @@ jobs:
           done
 
   build-linux:
-    if: ${{ inputs.run_linux == true }}
+    if: ${{ !inputs.skip_linux }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -348,7 +348,7 @@ jobs:
           done
 
   build-windows:
-    if: ${{ inputs.run_windows == true }}
+    if: ${{ !inputs.skip_windows }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
@@ -508,10 +508,11 @@ jobs:
           set +e
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
+            pushd $i
             if [ ! -f unit_tests.out ]; then
               exit 1
             fi
-            pushd $i
+            cat unit_tests.out
             grep -E "FAIL:" unit_tests.out
             if [ $? -eq 0 ]; then
               exit 1

@@ -36,7 +36,7 @@ func (s *APIClientSuite) BeforeTest(_, testName string) {
 	flags.Globals.Client = false
 	configuration.QPepConfig = configuration.QPepConfigType{}
 	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
-	configuration.QPepConfig.General.Verbose = true
+	configuration.QPepConfig.General.Verbose = false
 	configuration.QPepConfig.General.APIPort = 9443
 	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
 	s.finished = false

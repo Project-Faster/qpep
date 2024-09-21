@@ -150,8 +150,6 @@ QPep tray application:
 ### Linux
 
 > Before proceding be sure to have Administrator rights for your local machine
-> 
-> QPep currently only supports server mode on linux currently
 
 Once obtained, copy the QPep binary in the directory ```/opt/qpep``` which should be writable
 by the user that will run qpep executable.
@@ -186,6 +184,14 @@ If using Service mode, ```cd``` to the installation directory and use the follow
 
 The execution in this mode can be checked by monitoring the ***qpep-service.log*** and ***qpep-server.log*** files that
 are created in the installation directory.
+
+#### Notes on redirection
+
+On Linux platform, setting the `prefer_proxy: true` value will not work as on the other platforms, proxy settings on Linux cannot
+be set dynamically.
+
+This implies that only `prefer_proxy: false` is actually useful and should be set as such.
+
 
 \newpage
 

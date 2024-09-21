@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -67,10 +68,6 @@ func (s *ClientProxyListenerSuite) TestProxyListener_AcceptNil() {
 	conn, err := listener.Accept()
 	assert.Equal(s.T(), errors.ErrFailed, err)
 	assert.Nil(s.T(), conn)
-
-	conn, err = listener.AcceptTProxy()
-	assert.Equal(s.T(), errors.ErrFailed, err)
-	assert.Nil(s.T(), conn)
 }
 
 func (s *ClientProxyListenerSuite) TestProxyListener_AcceptConn() {
@@ -103,33 +100,21 @@ func (s *ClientProxyListenerSuite) TestProxyListener_AcceptConn() {
 }
 
 func (s *ClientProxyListenerSuite) TestProxyListener_FailAccept() {
-	listener := &ClientProxyListener{
-		base: &fakeListener{},
-	}
+	listener, err := NewClientProxyListener("tcp", &net.TCPAddr{
+		IP:   net.ParseIP("127.0.0.1"),
+		Port: 9090,
+	})
 
+	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), listener)
 
-	conn, errConn := listener.AcceptTProxy()
+	clListener := listener.(*ClientProxyListener)
+	monkey.PatchInstanceMethod(reflect.TypeOf(clListener.base), "AcceptTCP",
+		func(_ *net.TCPListener) (*net.TCPConn, error) {
+			return nil, errors.ErrFailed
+		})
+
+	conn, errConn := clListener.Accept()
 	assert.Nil(s.T(), conn)
 	assert.Equal(s.T(), errors.ErrFailed, errConn)
-}
-
-type fakeListener struct {
-	net.Listener
-}
-
-func (l *fakeListener) AcceptTCP() (*net.TCPConn, error) {
-	return nil, errors.ErrFailed
-}
-
-var _ net.Listener = &fakeListener{}
-
-func (l *fakeListener) Accept() (net.Conn, error) {
-	return nil, errors.ErrFailed
-}
-func (l *fakeListener) Addr() net.Addr {
-	return nil
-}
-func (l *fakeListener) Close() error {
-	return nil
 }

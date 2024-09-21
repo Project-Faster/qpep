@@ -122,6 +122,7 @@ func (q *ProtocolDefinition) merge(r *ProtocolDefinition) {
 	if r != nil {
 		q.Backend = r.Backend
 		q.BufferSize = r.BufferSize
+		q.IdleTimeout = r.IdleTimeout
 		q.CCAlgorithm = r.CCAlgorithm
 		q.CCSlowstartAlgo = r.CCSlowstartAlgo
 	}

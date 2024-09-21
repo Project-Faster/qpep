@@ -33,7 +33,7 @@ func (s *WinDivertSuite) BeforeTest(_, _ string) {
 	configuration.QPepConfig = configuration.QPepConfigType{}
 	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
 
-	configuration.QPepConfig.General.Verbose = true
+	configuration.QPepConfig.General.Verbose = false
 	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
 	configuration.QPepConfig.General.APIPort = 9443
 }

@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestParamsValidation(t *testing.T) {
@@ -43,6 +44,19 @@ func (s *ParamsValidationSuite) TestParamsValidation_Numeric_Invalid() {
 	t := s.T()
 	assert.PanicsWithValue(t, errors.ErrImpossibleValidationRequested, func() {
 		AssertParamNumeric("test", 100, 10, 0)
+	})
+}
+
+func (s *ParamsValidationSuite) TestParamsValidation_ValidTimeout() {
+	t := s.T()
+	assert.NotPanics(t, func() {
+		AssertParamValidTimeout("test", 10*time.Second)
+	})
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
+		AssertParamValidTimeout("test", 500*time.Millisecond)
+	})
+	assert.PanicsWithValue(t, errors.ErrConfigurationValidationFailed, func() {
+		AssertParamValidTimeout("test", 2*time.Minute)
 	})
 }
 

@@ -63,7 +63,7 @@ func (s *ServerSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.Protocol.BufferSize = 32
 	configuration.QPepConfig.General.APIPort = 9443
 
-	logger.SetupLogger(testName, "debug")
+	logger.SetupLogger(testName, "info")
 }
 
 func (s *ServerSuite) AfterTest(_, testName string) {

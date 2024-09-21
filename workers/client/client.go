@@ -21,6 +21,8 @@ const (
 )
 
 var (
+	GATEWAY_CHECK_WAIT = 10 * time.Second
+
 	// redirected indicates if the connections are using the diverter for connection
 	redirected = false
 	// keepRedirectionRetries counter for the number of retries to keep trying to get a connection to server
@@ -123,7 +125,7 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 			}
 			return
 
-		case <-time.After(10 * time.Second):
+		case <-time.After(GATEWAY_CHECK_WAIT):
 			if shared.DEBUG_MASK_REDIRECT || checkIsRunning {
 				continue
 			}
@@ -151,10 +153,10 @@ func initialCheckConnection() {
 		return
 	}
 
-	generalConfig := configuration.QPepConfig.General
+	configGeneral := configuration.QPepConfig.General
 
-	keepRedirectionRetries = generalConfig.MaxConnectionRetries // reset connection tries
-	preferProxy := generalConfig.PreferProxy
+	keepRedirectionRetries = configGeneral.MaxConnectionRetries // reset connection tries
+	preferProxy := configGeneral.PreferProxy
 
 	if preferProxy {
 		logger.Info("Proxy preference set, trying to connect...\n")
@@ -168,10 +170,10 @@ func initialCheckConnection() {
 // failedCheckConnection method handles the logic for switching between diverter and proxy (or viceversa if PreferProxy true)
 // after half connection tries are failed, and stopping altogether if retries are exhausted
 func failedCheckConnection() bool {
-	generalConfig := configuration.QPepConfig.General
+	configGeneral := configuration.QPepConfig.General
 
-	maxRetries := generalConfig.MaxConnectionRetries
-	preferProxy := generalConfig.PreferProxy
+	maxRetries := configGeneral.MaxConnectionRetries
+	preferProxy := configGeneral.PreferProxy
 
 	gateway.ScaleUpTimeout()
 
@@ -246,31 +248,32 @@ func clientStatisticsUpdate(localAddr, apiAddr string, apiPort int, publicAddres
 // validateConfiguration method handles the checking of the configuration values provided in the configuration files
 // for the client mode
 func validateConfiguration() {
-	clientConfig := configuration.QPepConfig.Client
-	generalConfig := configuration.QPepConfig.General
-	protoConfig := configuration.QPepConfig.Protocol
+	configClient := configuration.QPepConfig.Client
+	configGeneral := configuration.QPepConfig.General
+	configProto := configuration.QPepConfig.Protocol
 
-	configuration.AssertParamIP("listen host", clientConfig.LocalListeningAddress)
-	configuration.AssertParamPort("listen port", clientConfig.LocalListenPort)
+	configuration.AssertParamIP("listen host", configClient.LocalListeningAddress)
+	configuration.AssertParamPort("listen port", configClient.LocalListenPort)
 
-	configuration.AssertParamNumeric("buffer size", protoConfig.BufferSize, 1, 1024)
+	configuration.AssertParamNumeric("buffer size", configProto.BufferSize, 1, 1024)
 
 	// resolve local listening address
-	clientConfig.LocalListeningAddress, clientAdditional.RedirectedInterfaces =
-		gateway.GetDefaultLanListeningAddress(clientConfig.LocalListeningAddress, clientConfig.GatewayHost)
+	configClient.LocalListeningAddress, clientAdditional.RedirectedInterfaces =
+		gateway.GetDefaultLanListeningAddress(configClient.LocalListeningAddress, configClient.GatewayHost)
 
 	// panic if configuration is inconsistent
-	configuration.AssertParamIP("gateway host", clientConfig.GatewayHost)
-	configuration.AssertParamPort("gateway port", clientConfig.GatewayPort)
+	configuration.AssertParamIP("gateway host", configClient.GatewayHost)
+	configuration.AssertParamPort("gateway port", configClient.GatewayPort)
 
-	configuration.AssertParamPort("api port", generalConfig.APIPort)
+	configuration.AssertParamPort("api port", configGeneral.APIPort)
 
-	configuration.AssertParamNumeric("max connection retries", generalConfig.MaxConnectionRetries, 1, 300)
-	configuration.AssertParamNumeric("max diverter threads", generalConfig.WinDivertThreads, 1, 32)
+	configuration.AssertParamNumeric("max connection retries", configGeneral.MaxConnectionRetries, 1, 300)
+	configuration.AssertParamNumeric("max diverter threads", configGeneral.WinDivertThreads, 1, 32)
+	configuration.AssertParamValidTimeout("idle timeout", configProto.IdleTimeout)
 
-	configuration.AssertParamHostsDifferent("hosts", clientConfig.GatewayHost, clientConfig.LocalListeningAddress)
-	configuration.AssertParamPortsDifferent("ports", clientConfig.GatewayPort,
-		clientConfig.LocalListenPort, generalConfig.APIPort)
+	configuration.AssertParamHostsDifferent("hosts", configClient.GatewayHost, configClient.LocalListeningAddress)
+	configuration.AssertParamPortsDifferent("ports", configClient.GatewayPort,
+		configClient.LocalListenPort, configGeneral.APIPort)
 
 	configuration.AssertParamNumeric("auto-redirected interfaces", len(clientAdditional.RedirectedInterfaces), 0, 256)
 
