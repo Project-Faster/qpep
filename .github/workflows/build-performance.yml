@@ -111,6 +111,9 @@ jobs:
     steps:
       - name: Pre-Cleanup
         run: |
+          # stop docker randomly disrupting container network
+          sudo systemctl restart docker || true
+          # cleanup previous results if any
           sudo rm -rf docker/server-data-env/output/* || true
 
       - name: Install the github cli
