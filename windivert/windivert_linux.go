@@ -12,7 +12,11 @@ import "C"
 // * _listenPort_ Packets must have source from this port
 // * _numThreads_ Number of threads to use for the packet capturing routines
 // * _gatewayInterfaces_ Only accept divert of packets of this interface id
-func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterfaces int64) int {
+func InitializeWinDivertEngine(gatewayAddr, listenAddr string,
+	gatewayPort, listenPort, numThreads int,
+	gatewayInterface int64,
+	ignoredPorts []int) int {
+
 	return DIVERT_OK
 }
 

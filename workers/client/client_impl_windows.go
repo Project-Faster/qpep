@@ -17,6 +17,7 @@ func initDiverter() bool {
 	threads := ClientConfiguration.WinDivertThreads
 	listenHost := ClientConfiguration.ListenHost
 	redirectedInterfaces := ClientConfiguration.RedirectedInterfaces
+	filteredPorts := shared.QPepConfig.IgnoredPorts
 
 	// select an appropriate interface
 	var redirectedInetID int64 = 0
@@ -32,11 +33,11 @@ func initDiverter() bool {
 		}
 	}
 
-	logger.Info("WinDivert: %v %v %v %v %v %v\n", gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
-	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
+	logger.Info("WinDivert: %v %v %v %v %v %v %v\n", gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID, filteredPorts)
+	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID, filteredPorts)
 	logger.Info("WinDivert code: %v\n", code)
 	if code != windivert.DIVERT_OK {
-		logger.Info("ERROR: Could not initialize WinDivert engine, code %d\n", code)
+		logger.Panic("Could not initialize WinDivert engine, code %d\n", code)
 	}
 	return code == windivert.DIVERT_OK
 }

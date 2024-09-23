@@ -327,7 +327,7 @@ func (p *QPepService) Logger(errs chan<- error) (kservice.Logger, error) {
 // runAsClient method wraps the logic to setup the system as client mode
 func runAsClient(execContext context.Context, cancel context.CancelFunc) {
 	logger.Info("Running Client")
-	windivert.EnableDiverterLogging(shared.QPepConfig.Verbose)
+	windivert.EnableDiverterLogging(flags.Globals.Verbose)
 	go client.RunClient(execContext, cancel)
 }
 

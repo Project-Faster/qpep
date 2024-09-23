@@ -37,7 +37,7 @@ func (listener *ClientProxyListener) Addr() net.Addr {
 	return listener.base.Addr()
 }
 
-// Addr method close the listener
+// Close method close the listener
 func (listener *ClientProxyListener) Close() error {
 	if listener.base == nil {
 		return nil

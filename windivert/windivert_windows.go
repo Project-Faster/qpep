@@ -39,10 +39,25 @@ func init() {
 // * _listenPort_ Packets must have source from this port
 // * _numThreads_ Number of threads to use for the packet capturing routines
 // * _gatewayInterfaces_ Only accept divert of packets of this interface id
-func InitializeWinDivertEngine(gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) int {
+// * _portRanges_ List of ports to ignore
+func InitializeWinDivertEngine(gatewayAddr, listenAddr string,
+	gatewayPort, listenPort, numThreads int,
+	gatewayInterface int64,
+	ignoredPorts []int) int {
+
+	ports := make([]C.int, 0, len(ignoredPorts))
+	ports = append(ports, C.int(53)) // DNS
+
+	for i := 0; i < len(ignoredPorts); i++ {
+		if ignoredPorts[i] < 0 || ignoredPorts[i] >= 65536 {
+			return DIVERT_ERROR_FAILED
+		}
+		ports = append(ports, C.int(ignoredPorts[i]))
+	}
+
 	gatewayStr := C.CString(gatewayAddr)
 	listenStr := C.CString(listenAddr)
-	response := int(C.InitializeWinDivertEngine(gatewayStr, listenStr, C.int(gatewayPort), C.int(listenPort), C.int(numThreads)))
+	response := int(C.InitializeWinDivertEngine(gatewayStr, listenStr, C.int(gatewayPort), C.int(listenPort), C.int(numThreads), (*C.int)(&ports[0]), C.int(len(ports))))
 	if response != DIVERT_OK {
 		return response
 	}

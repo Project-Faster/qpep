@@ -107,6 +107,8 @@ type QPepConfigType struct {
 	// Analytics (yaml:analytics) Declares the configuration for server-side analytics collectìon, ignored for client, default disabled
 	Analytics AnalyticsDefinition `yaml:"analytics"`
 
+	// IgnoredPorts list of network ports to be excluded from redirection
+	IgnoredPorts []int `yaml:"ignored_ports"`
 	// -- Unused values -- //
 
 	// Acks unused currently
