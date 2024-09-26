@@ -2,14 +2,73 @@ name: CodeIntegration
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_docs:
+        description: 'skips generation of the documentation'
+        type: boolean
+        default: false
+        required: true
+      skip_windows:
+        description: 'skips the Windows job'
+        type: boolean
+        default: false
+        required: true
+      skip_linux:
+        description: 'skips the Linux job'
+        type: boolean
+        default: false
+        required: true
   push:
     branches: [ "main", "testing-*", "issue*" ]
 
 run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] rev.${{ github.sha }}
 
 jobs:
+  docs:
+    if: ${{ !inputs.skip_docs }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      GO_VERSION: 1.20.14
+      PANDOC_VERSION: 3.3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: false
+
+      - name: Install Pandoc
+        uses: pandoc/actions/setup@v1.0.0
+        with:
+          version: ${{ env.PANDOC_VERSION }}
+
+      - name: Install TeXlive
+        run: sudo apt-get update && sudo apt-get install texlive-full
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Generate PDF
+        run: |
+          cd docs/
+          CURDATE=$(date '+%x %T')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -b -8)
+          sed -i -E -e "s|subtitle:.+|subtitle: \"User Manual - rev. $SHORT_SHA\"|" -e "s|date:.+|date: \"$CURDATE\"|" user-manual.md
+          go generate
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_user_manual
+          path: "docs/*.pdf"
+
   build-linux:
-    if: true
+    if: ${{ !inputs.skip_linux }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -18,7 +77,7 @@ jobs:
       GOOS: linux
       CGO_ENABLED: 1
       CMAKE_BUILD_PARALLEL_LEVEL: 4
-      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
     defaults:
       run:
         shell: bash
@@ -41,39 +100,40 @@ jobs:
 
       - name: Prepare
         run: |
+          sudo apt-get install -y pkg-config libgtk-3-dev libayatana-appindicator-dev
           go clean -cache -x
           mkdir -p cover
           mkdir -p report
           mkdir -p unit
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
 
       - name: Build Backends
         run: |
           cd backend/
           go generate
 
-      - name: Build Executable
+      - name: Build QPep
         run: |
           go build -v -o build/qpep
+
+      - name: Build QPep Tray
+        run: |
+          pushd qpep-tray
+          go build -o ../build/qpep-tray
+          popd
 
       - uses: actions/upload-artifact@v4
         with:
           name: qpep_linux_b${{ github.run_id }}
           path: build/
 
-      - name: Prepare Tests
-        run: |
-          mkdir -p unit/
-          mkdir -p cover/
-          mkdir -p report/
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
-
       - name: Test
         run: |
           set -x
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             export WORKSPACE="${{ github.workspace }}"
@@ -88,7 +148,7 @@ jobs:
       - name: Publish Coverage Results
         if: always()
         run: |
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
@@ -118,8 +178,25 @@ jobs:
           name: linux_coverage_report
           path: "report/*.html"
 
+      - name: Fail build on test error
+        run: |
+          set +e
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          do
+            pushd $i
+            if [ ! -f unit_tests.out ]; then
+              exit 1
+            fi
+            cat unit_tests.out
+            grep -E "FAIL:" unit_tests.out
+            if [ $? -eq 0 ]; then
+              exit 1
+            fi
+            popd
+          done
+
   build-windows:
-    if: true
+    if: ${{ !inputs.skip_windows }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
@@ -129,7 +206,7 @@ jobs:
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
       CMAKE_BUILD_PARALLEL_LEVEL: 4
-      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
       MINGW_BASEDIR: 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
     defaults:
       run:
@@ -194,15 +271,14 @@ jobs:
       - name: Build QPep Tray
         run: |
           pushd qpep-tray
-          set CGO_ENABLED=0
           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
           popd
 
       - name: Build QPep Installer
         run: |
-          sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > installer/installer.wxs
-          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
-          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' version/versioninfo.json > version/versioninfo.json
+          sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.skip_id}}"/' installer/installer.wxs > installer/installer.wxs
+          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.skip_id}}"/' shared/version/versioninfo.json > shared/version/versioninfo.json
+          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.skip_id}}"/' shared/version/versioninfo.json > shared/version/versioninfo.json
           set PATH=${{ github.workspace }}\wix\tools;%PATH%
           msbuild installer\installer.sln
 
@@ -216,7 +292,7 @@ jobs:
           MKDIR unit
           MKDIR cover
           MKDIR report
-          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
@@ -224,15 +300,14 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          go generate github.com/Project-Faster/qpep/windivert
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          go generate github.com/parvit/qpep/windivert
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             cp -r $WORKSPACE/windivert/x64/* .
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> NUL || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test > unit_tests.out 2>&1 || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out >> unit_tests.out 2>&1 || true
             grep -E "PASS|FAIL|SKIP" unit_tests.out || true
             cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
             popd
@@ -243,9 +318,8 @@ jobs:
         shell: bash
         if: always()
         run: |
-          set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
             echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
@@ -274,3 +348,21 @@ jobs:
         with:
           name: windows_coverage_report
           path: report/*.html
+
+      - name: Fail build on test error
+        shell: bash
+        run: |
+          set +e
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          do
+            pushd $i
+            if [ ! -f unit_tests.out ]; then
+              exit 1
+            fi
+            cat unit_tests.out
+            grep -E "FAIL:" unit_tests.out
+            if [ $? -eq 0 ]; then
+              exit 1
+            fi
+            popd
+          done

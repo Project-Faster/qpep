@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/flags"
+	"github.com/parvit/qpep/shared/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"
@@ -34,9 +34,11 @@ func (s *APIClientSuite) BeforeTest(_, testName string) {
 	Statistics.Reset()
 
 	flags.Globals.Client = false
-	shared.QPepConfig.Verbose = true
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.GatewayAPIPort = 9443
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
+	configuration.QPepConfig.General.Verbose = false
+	configuration.QPepConfig.General.APIPort = 9443
+	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
 	s.finished = false
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 
@@ -88,7 +90,7 @@ func (s *APIClientSuite) TestDoAPIRequest() {
 
 	body := make([]byte, 1024)
 	n, err := resp.Body.Read(body)
-	assert.Equal(t, io.EOF, err)
+	assert.Nil(t, err)
 
 	t.Logf("data: %v\n", string(body[:n]))
 

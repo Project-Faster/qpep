@@ -3,8 +3,8 @@ package api
 import (
 	"bou.ke/monkey"
 	"context"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/flags"
 	"github.com/parvit/qpep/webgui"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -32,8 +32,11 @@ type RouterSuite struct {
 
 func (s *RouterSuite) BeforeTest(_, testName string) {
 	flags.Globals.Client = false
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.GatewayAPIPort = 9443
+
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
+	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.General.APIPort = 9443
 	s.finished = false
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	var local = true

@@ -3,8 +3,12 @@ package service
 import (
 	"context"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/parvit/qpep/version"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/flags"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/version"
 	"github.com/parvit/qpep/workers/client"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/parvit/qpep/workers/server"
 	log "github.com/rs/zerolog"
 	"os"
@@ -18,8 +22,6 @@ import (
 	kservice "github.com/parvit/kardianos-service"
 
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
 	"github.com/parvit/qpep/windivert"
 )
@@ -159,7 +161,7 @@ func ServiceMain() int {
 		}
 
 		if svcCommand == "install" {
-			_ = shared.ReadConfiguration(false)
+			_ = configuration.ReadConfiguration(false)
 			setServiceUserPermissions(serviceName)
 			setInstallDirectoryPermissions(workingDir)
 			logger.Info("Service installed correctly")
@@ -237,7 +239,7 @@ func (p *QPepService) Stop() error {
 		if err := recover(); err != nil {
 			logger.Error("PANIC: %v\n", err)
 		}
-		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
+		gateway.SetSystemProxy(false) // be sure to clear proxy settings on exit
 	}()
 
 	logger.Info("Stop")
@@ -267,12 +269,14 @@ func (p *QPepService) Main() error {
 			logger.Error("PANIC: %v\n", err)
 			p.exitValue = 1
 		}
-		shared.SetSystemProxy(false) // be sure to clear proxy settings on exit
+		// be sure to clear proxy and diverter settings on exit
+		gateway.SetSystemProxy(false)
+		gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0, []int{})
 	}()
 
 	logger.Info("Main")
 
-	if err := shared.ReadConfiguration(false); err != nil {
+	if err := configuration.ReadConfiguration(false); err != nil {
 		return err
 	}
 
@@ -309,12 +313,9 @@ TERMINATIONLOOP:
 	p.cancelFunc()
 	<-p.context.Done()
 
-	logger.Info("Shutdown...")
-	logger.Info("%d", windivert.CloseWinDivertEngine())
-
+	logger.Info("Exiting...")
 	<-time.After(1 * time.Second)
 
-	logger.Info("Exiting...")
 	p.exitValue = 0
 
 	return nil

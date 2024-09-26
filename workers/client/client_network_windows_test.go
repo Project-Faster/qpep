@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/protocol"
 	"github.com/parvit/qpep/windivert"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"
@@ -38,38 +41,43 @@ type ClientNetworkSuite struct {
 }
 
 func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
-	shared.ResetScaleTimeout()
+	gateway.ResetScaleTimeout()
 
 	api.Statistics.Reset()
 	proxyListener = nil
 
-	shared.UsingProxy = false
-	shared.ProxyAddress = nil
+	redirected = false
+	gateway.UsingProxy = false
+	gateway.ProxyAddress = nil
 
 	backend.GenerateTLSConfig("cert.pem", "key.pem")
 
-	shared.QPepConfig.Certificate = "cert.pem"
-	shared.QPepConfig.CertKey = "key.pem"
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
 
-	shared.QPepConfig.GatewayHost = "127.0.0.1"
-	shared.QPepConfig.GatewayPort = 9443
-	shared.QPepConfig.GatewayAPIPort = 445
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.ListenPort = 9090
+	configuration.QPepConfig.Security.Certificate = "cert.pem"
+	configuration.QPepConfig.Security.PrivateKey = "key.pem"
 
-	shared.QPepConfig.BufferSize = 32
-	shared.QPepConfig.MaxConnectionRetries = 15
-	shared.QPepConfig.MultiStream = false
-	shared.QPepConfig.WinDivertThreads = 4
-	shared.QPepConfig.PreferProxy = true
-	shared.QPepConfig.Verbose = true
+	configuration.QPepConfig.Client.GatewayHost = "127.0.0.1"
+	configuration.QPepConfig.Client.GatewayPort = 9443
+	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Client.LocalListenPort = 9090
 
-	logger.SetupLogger(testName, "debug")
+	configuration.QPepConfig.Protocol.BufferSize = 32
+
+	configuration.QPepConfig.General.APIPort = 445
+	configuration.QPepConfig.General.MaxConnectionRetries = 15
+	configuration.QPepConfig.General.MultiStream = false
+	configuration.QPepConfig.General.WinDivertThreads = 4
+	configuration.QPepConfig.General.PreferProxy = true
+	configuration.QPepConfig.General.Verbose = false
+
+	logger.SetupLogger(testName, "info")
 }
 
 func (s *ClientNetworkSuite) AfterTest(_, testName string) {
 	monkey.UnpatchAll()
-	shared.SetSystemProxy(false)
+	gateway.SetSystemProxy(false)
 }
 
 func (s *ClientNetworkSuite) TestGetAddressPortFromHost() {
@@ -94,25 +102,25 @@ func (s *ClientNetworkSuite) TestGetAddressPortFromHost_Invalid() {
 func (s *ClientNetworkSuite) TestInitialCheckConnection_PreferProxy() {
 	validateConfiguration()
 
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.True(s.T(), active)
-		shared.UsingProxy = true
-		shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+		gateway.UsingProxy = true
+		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
 
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	initialCheckConnection()
-	assert.True(s.T(), shared.UsingProxy)
-	assert.NotNil(s.T(), shared.ProxyAddress)
+	assert.True(s.T(), gateway.UsingProxy)
+	assert.NotNil(s.T(), gateway.ProxyAddress)
 
 	initialCheckConnection()
-	assert.True(s.T(), shared.UsingProxy)
-	assert.NotNil(s.T(), shared.ProxyAddress)
+	assert.True(s.T(), gateway.UsingProxy)
+	assert.NotNil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirect() {
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_OK
 	})
@@ -122,7 +130,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirec
 		return windivert.DIVERT_OK
 	})
 
-	shared.QPepConfig.PreferProxy = false
+	configuration.QPepConfig.General.PreferProxy = false
 	validateConfiguration()
 	keepRedirectionRetries = 15
 
@@ -130,75 +138,73 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirec
 
 	assert.Equal(s.T(), 14, keepRedirectionRetries)
 	assert.True(s.T(), calledInit)
-	assert.True(s.T(), calledStop)
+	assert.False(s.T(), calledStop)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterSwitchToProxy() {
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(initDiverter, func() bool {
 		calledInit = true
-		return windivert.DIVERT_OK
+		return true
 	})
 	var calledStop = false
-	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
+	monkey.Patch(stopDiverter, func() {
 		calledStop = true
-		return windivert.DIVERT_OK
 	})
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
-		assert.True(s.T(), active)
-		shared.UsingProxy = true
-		shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+	monkey.Patch(initProxy, func() {
+		gateway.UsingProxy = true
+		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
 
-	shared.QPepConfig.PreferProxy = false
+	configuration.QPepConfig.General.PreferProxy = false
 	validateConfiguration()
 	keepRedirectionRetries = 2
 
-	assert.False(s.T(), shared.UsingProxy)
+	assert.False(s.T(), gateway.UsingProxy)
 	assert.False(s.T(), failedCheckConnection())
 
 	assert.Equal(s.T(), 1, keepRedirectionRetries)
 	assert.False(s.T(), calledInit)
 	assert.True(s.T(), calledStop)
 
-	assert.True(s.T(), shared.UsingProxy)
-	assert.NotNil(s.T(), shared.ProxyAddress)
+	assert.True(s.T(), gateway.UsingProxy)
+	assert.NotNil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterExhausted() {
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.False(s.T(), active)
-		shared.UsingProxy = false
-		shared.ProxyAddress = nil
+		gateway.UsingProxy = false
+		gateway.ProxyAddress = nil
 	})
 
-	shared.QPepConfig.PreferProxy = false
+	configuration.QPepConfig.General.PreferProxy = false
 	validateConfiguration()
 	keepRedirectionRetries = 1
 
-	shared.UsingProxy = true
-	shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+	gateway.UsingProxy = true
+	gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 
 	assert.True(s.T(), failedCheckConnection())
 
 	assert.Equal(s.T(), 0, keepRedirectionRetries)
 
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyKeepRedirect() {
 	validateConfiguration()
 	keepRedirectionRetries = 10
-	shared.UsingProxy = true
+	gateway.UsingProxy = true
 
 	var callCounter = 0
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
-		assert.Equal(s.T(), shared.UsingProxy, active)
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
+		assert.Equal(s.T(), gateway.UsingProxy, active)
 		if active {
-			shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+			gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 		} else {
-			shared.ProxyAddress = nil
+			gateway.ProxyAddress = nil
 		}
 		callCounter++
 	})
@@ -207,25 +213,25 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyKeepRedirect()
 	assert.Equal(s.T(), 1, callCounter)
 	assert.Equal(s.T(), 9, keepRedirectionRetries)
 
-	assert.True(s.T(), shared.UsingProxy)
-	assert.NotNil(s.T(), shared.ProxyAddress)
+	assert.True(s.T(), gateway.UsingProxy)
+	assert.NotNil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_OK() {
 	validateConfiguration()
 	keepRedirectionRetries = 2
-	shared.UsingProxy = true
+	gateway.UsingProxy = true
 
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
-		assert.Equal(s.T(), shared.UsingProxy, active)
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
+		assert.Equal(s.T(), gateway.UsingProxy, active)
 		if active {
-			shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+			gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 		} else {
-			shared.ProxyAddress = nil
+			gateway.ProxyAddress = nil
 		}
 	})
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_OK
 	})
@@ -234,25 +240,25 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 	assert.Equal(s.T(), 1, keepRedirectionRetries)
 	assert.True(s.T(), calledInit)
 
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_Fail() {
 	validateConfiguration()
 	keepRedirectionRetries = 2
-	shared.UsingProxy = true
+	gateway.UsingProxy = true
 
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
-		assert.Equal(s.T(), shared.UsingProxy, active)
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
+		assert.Equal(s.T(), gateway.UsingProxy, active)
 		if active {
-			shared.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
+			gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 		} else {
-			shared.ProxyAddress = nil
+			gateway.ProxyAddress = nil
 		}
 	})
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_ERROR_FAILED
 	})
@@ -261,34 +267,33 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 	assert.Equal(s.T(), 1, keepRedirectionRetries)
 	assert.True(s.T(), calledInit)
 
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyExhausted() {
 	validateConfiguration()
 	keepRedirectionRetries = 1
-	shared.UsingProxy = false
+	gateway.UsingProxy = false
 
 	var calledClose = false
-	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
+	monkey.Patch(stopDiverter, func() {
 		calledClose = true
-		return windivert.DIVERT_OK
 	})
 
 	assert.True(s.T(), failedCheckConnection())
 	assert.Equal(s.T(), 0, keepRedirectionRetries)
 	assert.True(s.T(), calledClose)
 
-	assert.False(s.T(), shared.UsingProxy)
-	assert.Nil(s.T(), shared.ProxyAddress)
+	assert.False(s.T(), gateway.UsingProxy)
+	assert.Nil(s.T(), gateway.ProxyAddress)
 }
 
 func (s *ClientNetworkSuite) TestOpenQuicSession() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	shared.QPepConfig.MaxConnectionRetries = 5
+	configuration.QPepConfig.General.MaxConnectionRetries = 5
 	validateConfiguration()
 
 	wg := &sync.WaitGroup{}
@@ -303,7 +308,7 @@ func (s *ClientNetworkSuite) TestOpenQuicSession() {
 	quicStream, err := conn.OpenStream(context.Background())
 	assert.Nil(s.T(), err)
 
-	sessionHeader := &shared.QPepHeader{
+	sessionHeader := &protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0},
 		DestAddr:   &net.TCPAddr{IP: net.ParseIP("172.50.20.100"), Port: 9999},
 	}
@@ -331,11 +336,11 @@ func (s *ClientNetworkSuite) TestOpenQuicSession_Fail() {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	shared.QPepConfig.MaxConnectionRetries = 1
+	configuration.QPepConfig.General.MaxConnectionRetries = 1
 	validateConfiguration()
 
 	conn, err := openQuicSession()
-	assert.Equal(s.T(), shared.ErrFailedGatewayConnect, err)
+	assert.Equal(s.T(), errors.ErrFailedGatewayConnect, err)
 	assert.Nil(s.T(), conn)
 
 	<-time.After(1 * time.Second)
@@ -431,7 +436,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistream() {
 }
 
 func (s *ClientNetworkSuite) TestHandleTCPConn_Multistream() {
-	shared.QPepConfig.MultiStream = true
+	configuration.QPepConfig.General.MultiStream = true
 	validateConfiguration()
 
 	fakeConn := &fakeTcpConn{}
@@ -484,7 +489,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_FailGetStream() {
 	var calledGetStream = false
 	monkey.Patch(getQuicStream, func(_ context.Context) (backend.QuicBackendStream, error) {
 		calledGetStream = true
-		return nil, shared.ErrFailed
+		return nil, errors.ErrFailed
 	})
 
 	wg := &sync.WaitGroup{}
@@ -549,7 +554,7 @@ func (s *ClientNetworkSuite) TestHandleTCPConn_NoMultistreamProxy() {
 }
 
 func (s *ClientNetworkSuite) TestGetQuicStream() {
-	ClientConfiguration.MultiStream = false
+	configuration.QPepConfig.General.MultiStream = false
 	quicSession = nil
 
 	monkey.Patch(openQuicSession, func() (backend.QuicBackendConnection, error) {
@@ -564,22 +569,22 @@ func (s *ClientNetworkSuite) TestGetQuicStream() {
 }
 
 func (s *ClientNetworkSuite) TestGetQuicStream_FailOpenSession() {
-	ClientConfiguration.MultiStream = false
+	configuration.QPepConfig.General.MultiStream = false
 	quicSession = nil
 
 	monkey.Patch(openQuicSession, func() (backend.QuicBackendConnection, error) {
-		return nil, shared.ErrFailedGatewayConnect
+		return nil, errors.ErrFailedGatewayConnect
 	})
 
 	stream, err := getQuicStream(context.Background())
-	assert.Equal(s.T(), shared.ErrFailedGatewayConnect, err)
+	assert.Equal(s.T(), errors.ErrFailedGatewayConnect, err)
 	assert.Nil(s.T(), stream)
 
 	assert.Nil(s.T(), quicSession)
 }
 
 func (s *ClientNetworkSuite) TestGetQuicStream_MultiStream() {
-	ClientConfiguration.MultiStream = true
+	configuration.QPepConfig.General.MultiStream = true
 	quicSession = nil
 
 	monkey.Patch(openQuicSession, func() (backend.QuicBackendConnection, error) {
@@ -672,7 +677,7 @@ var httpMethods = []string{
 func (s *ClientNetworkSuite) TestHandleProxyOpenConnection() {
 	srcIp := net.ParseIP("127.0.0.1")
 	for _, method := range httpMethods {
-		header := &shared.QPepHeader{
+		header := &protocol.QPepHeader{
 			SourceAddr: &net.TCPAddr{
 				IP:   srcIp,
 				Port: 50000 + rand.Intn(10000),
@@ -720,7 +725,7 @@ User-Agent: windows
 			readData: dstConn.writtenData,
 		}
 
-		recvHeader, err := shared.QPepHeaderFromBytes(proxyWritten)
+		recvHeader, err := protocol.QPepHeaderFromBytes(proxyWritten)
 		assert.Nil(s.T(), err)
 
 		assert.NotNil(s.T(), recvHeader)
@@ -748,7 +753,7 @@ func (s *ClientNetworkSuite) TestHandleProxyOpenConnection_NoData() {
 	request, handleError := handleProxyOpenConnection(srcConn)
 
 	assert.Nil(s.T(), request)
-	assert.Equal(s.T(), shared.ErrNonProxyableRequest, handleError)
+	assert.Equal(s.T(), errors.ErrNonProxyableRequest, handleError)
 }
 
 func (s *ClientNetworkSuite) TestHandleProxyOpenConnection_FailHttpRead() {
@@ -760,7 +765,7 @@ func (s *ClientNetworkSuite) TestHandleProxyOpenConnection_FailHttpRead() {
 	request, handleError := handleProxyOpenConnection(srcConn)
 
 	assert.Nil(s.T(), request)
-	assert.Equal(s.T(), shared.ErrNonProxyableRequest, handleError)
+	assert.Equal(s.T(), errors.ErrNonProxyableRequest, handleError)
 }
 
 func (s *ClientNetworkSuite) TestHandleProxyOpenConnection_FailHostRead_GET() {
@@ -774,7 +779,7 @@ Host: TEST:9443
 	request, handleError := handleProxyOpenConnection(srcConn)
 
 	assert.Nil(s.T(), request)
-	assert.Equal(s.T(), shared.ErrNonProxyableRequest, handleError)
+	assert.Equal(s.T(), errors.ErrNonProxyableRequest, handleError)
 }
 
 func (s *ClientNetworkSuite) TestHandleProxyOpenConnection_FailHostRead_CONNECT() {
@@ -788,7 +793,7 @@ Host: TEST:9443
 	request, handleError := handleProxyOpenConnection(srcConn)
 
 	assert.Nil(s.T(), request)
-	assert.Equal(s.T(), shared.ErrNonProxyableRequest, handleError)
+	assert.Equal(s.T(), errors.ErrNonProxyableRequest, handleError)
 }
 
 func (s *ClientNetworkSuite) TestHandleProxyOpenConnection_FailUnrecognizedMethod() {
@@ -810,7 +815,7 @@ User-Agent: windows
 	request, handleError := handleProxyOpenConnection(srcConn)
 
 	assert.Nil(s.T(), request)
-	assert.Equal(s.T(), shared.ErrNonProxyableRequest, handleError)
+	assert.Equal(s.T(), errors.ErrNonProxyableRequest, handleError)
 
 	assert.NotNil(s.T(), srcConn.writtenData)
 	assert.True(s.T(), srcConn.writtenData.Len() > 0)

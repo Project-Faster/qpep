@@ -2,8 +2,8 @@ package api
 
 import (
 	"fmt"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
 	"strings"
 	"sync"
 )
@@ -83,7 +83,7 @@ func (s *statistics) Reset() {
 
 // Start method calls implicitly the Reset method and launches the broker client
 // with the provided configuration
-func (s *statistics) Start(brokerConfig *shared.AnalyticsDefinition) {
+func (s *statistics) Start(brokerConfig *configuration.AnalyticsDefinition) {
 	s.Reset()
 	s.launchAnalyticsBrokerClient(brokerConfig)
 }

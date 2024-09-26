@@ -1,8 +1,9 @@
 package service
 
 import (
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,7 +78,7 @@ func sendProcessInterrupt() {
 	logger.Debug("sendProcessInterrupt")
 
 	// disable proxy
-	shared.SetSystemProxy(false)
+	gateway.SetSystemProxy(false)
 
 	dll := syscall.MustLoadDLL("kernel32.dll")
 	defer func() {

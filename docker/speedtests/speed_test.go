@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/workers/gateway"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -82,7 +82,7 @@ func (s *SpeedTestsConfigSuite) idlingTimeout(body io.ReadCloser, cancel context
 }
 
 func (s *SpeedTestsConfigSuite) TestRun() {
-	shared.GetSystemProxyEnabled()
+	gateway.GetSystemProxyEnabled()
 	var test = s.T()
 
 	wg := &sync.WaitGroup{}
@@ -213,9 +213,9 @@ func getClientForAPI(localAddr net.Addr) (*http.Client, time.Duration) {
 				if *debugProxy != "" {
 					return url.Parse(*debugProxy)
 				}
-				shared.UsingProxy, shared.ProxyAddress = shared.GetSystemProxyEnabled()
-				if shared.UsingProxy {
-					return shared.ProxyAddress, nil
+				gateway.UsingProxy, gateway.ProxyAddress = gateway.GetSystemProxyEnabled()
+				if gateway.UsingProxy {
+					return gateway.ProxyAddress, nil
 				}
 				return nil, nil
 			},

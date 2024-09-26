@@ -16,8 +16,9 @@ import (
 	"fmt"
 	"github.com/Project-Faster/quic-go"
 	"github.com/Project-Faster/quic-go/logging"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
+	stderr "github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -51,8 +52,8 @@ func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int
 
 	session, err = quic.DialAddr(gatewayPath, tlsConf, quicConfig)
 	if err != nil {
-		logger.Error("Unable to Dial QUIC Session: %v\n", err)
-		return nil, shared.ErrFailedGatewayConnect
+		logger.Error("Unable to Dial Protocol Session: %v\n", err)
+		return nil, stderr.ErrFailedGatewayConnect
 	}
 
 	sessionAdapter := &qgoConnectionAdapter{
@@ -71,8 +72,8 @@ func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, se
 
 	conn, err := quic.ListenAddr(fmt.Sprintf("%s:%d", address, port), tlsConf, quicConfig)
 	if err != nil {
-		logger.Error("Failed to listen on QUIC session: %v\n", err)
-		return nil, shared.ErrFailedGatewayConnect
+		logger.Error("Failed to listen on Protocol session: %v\n", err)
+		return nil, stderr.ErrFailedGatewayConnect
 	}
 
 	return &qgoConnectionAdapter{
@@ -86,7 +87,7 @@ func (q *quicGoBackend) Close() error {
 		_ = conn.Close(0, "")
 	}
 	q.connections = nil
-	logger.Info("== QUIC Session Closed ==\n")
+	logger.Info("== Protocol Session Closed ==\n")
 	return nil
 }
 
@@ -98,7 +99,7 @@ func qgoGetConfiguration(traceOn bool) *quic.Config {
 
 		InitialConnectionReceiveWindow: 10 * 1024 * 1024,
 
-		HandshakeIdleTimeout: shared.GetScaledTimeout(10, time.Second),
+		HandshakeIdleTimeout: gateway.GetScaledTimeout(10, time.Second),
 		KeepAlivePeriod:      0,
 
 		EnableDatagrams: false,
@@ -125,7 +126,7 @@ func (c *qgoConnectionAdapter) LocalAddr() net.Addr {
 	if c.listener != nil {
 		return c.listener.Addr()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
@@ -135,7 +136,7 @@ func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
 	if c.listener != nil {
 		return c.listener.Addr()
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
@@ -152,7 +153,7 @@ func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBacken
 		}
 		return cNew, nil
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
@@ -165,7 +166,7 @@ func (c *qgoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStr
 			Stream: stream,
 		}, err
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
@@ -175,7 +176,7 @@ func (c *qgoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStrea
 			Stream: stream,
 		}, err
 	}
-	panic(shared.ErrInvalidBackendOperation)
+	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *qgoConnectionAdapter) Close(code int, message string) error {
@@ -308,7 +309,6 @@ func loadTLSConfig(certPEM, keyPEM string) *tls.Config {
 				return nil
 			}
 			if keyDERBlock.Type == "PRIVATE KEY" || strings.HasSuffix(keyDERBlock.Type, " PRIVATE KEY") {
-				logger.Error("Certificate PEM key parsing in file %s failed", dataKey)
 				break
 			}
 			skippedBlockTypes = append(skippedBlockTypes, keyDERBlock.Type)

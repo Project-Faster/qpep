@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/flags"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/flags"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/protocol"
 	"io"
 	"net"
 	"runtime/debug"
@@ -40,21 +43,25 @@ func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address s
 		}
 		cancel()
 	}()
+	configSec := configuration.QPepConfig.Security
+	configProto := configuration.QPepConfig.Protocol
+
 	if quicProvider == nil {
 		var ok bool
-		quicProvider, ok = backend.Get(shared.QPepConfig.Backend)
+		quicProvider, ok = backend.Get(configProto.Backend)
 		if !ok {
-			panic(shared.ErrInvalidBackendSelected)
+			panic(errors.ErrInvalidBackendSelected)
 		}
 	}
 
 	var err error
-	quicListener, err = quicProvider.Listen(ctx, address, port, shared.QPepConfig.Certificate, shared.QPepConfig.CertKey,
-		shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo,
+	quicListener, err = quicProvider.Listen(ctx, address, port,
+		configSec.Certificate, configSec.PrivateKey,
+		configProto.CCAlgorithm, configProto.CCSlowstartAlgo,
 		flags.Globals.Trace)
 
 	if err != nil {
-		logger.Error("Unrecoverable error while listening for QUIC connections: %s\n", err)
+		logger.Error("Unrecoverable error while listening for Protocol connections: %s\n", err)
 		return
 	}
 
@@ -68,7 +75,7 @@ func listenQuicSession(ctx context.Context, cancel context.CancelFunc, address s
 
 		quicSession, err := quicListener.AcceptConnection(ctx)
 		if err != nil {
-			logger.Error("Unrecoverable error while accepting QUIC session: %s\n", err)
+			logger.Error("Unrecoverable error while accepting Protocol session: %s\n", err)
 			return
 		}
 		go func() {
@@ -95,7 +102,7 @@ func listenQuicConn(quicConn backend.QuicBackendConnection) {
 	for {
 		quicStream, err := quicConn.AcceptStream(context.Background())
 		if err != nil {
-			logger.Error("Unrecoverable error while accepting QUIC stream: %s\n", err)
+			logger.Error("Unrecoverable error while accepting Protocol stream: %s\n", err)
 			quicConn.Close(0, "")
 			return
 		}
@@ -140,28 +147,28 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 		}
 	}()
 
-	qpepHeader, err := shared.QPepHeaderFromBytes(quicStream)
+	qpepHeader, err := protocol.QPepHeaderFromBytes(quicStream)
 	if err != nil {
 		logger.Error("Unable to decode QPEP header: %s\n", err)
 		closeStreamNow(quicStream)
 		return
 	}
 
-	srcLimit, okSrc := shared.GetAddressSpeedLimit(qpepHeader.SourceAddr.IP, true)
-	dstLimit, okDst := shared.GetAddressSpeedLimit(qpepHeader.DestAddr.IP, false)
+	srcLimit, okSrc := configuration.GetAddressSpeedLimit(qpepHeader.SourceAddr.IP, true)
+	dstLimit, okDst := configuration.GetAddressSpeedLimit(qpepHeader.DestAddr.IP, false)
 	if (okSrc && srcLimit == 0) || (okDst && dstLimit == 0) {
 		logger.Info("Server speed limits blocked the connection, src:%v(%v) dst:%v(%v)", srcLimit, okSrc, dstLimit, okDst)
 		closeStreamNow(quicStream)
 		return
 	}
 
-	logger.Debug("[%d] Connection flags : %d %v", quicStream.ID(), qpepHeader.Flags, qpepHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION != 0)
+	logger.Debug("[%d] Connection flags : %d %v", quicStream.ID(), qpepHeader.Flags, qpepHeader.Flags&protocol.QPEP_LOCALSERVER_DESTINATION != 0)
 
 	// To support the server being behind a private NAT (external gateway address != local listening address)
 	// we dial the listening address when the connection is directed at the non-local API server
 	srcAddress := qpepHeader.SourceAddr.String()
 	destAddress := qpepHeader.DestAddr.String()
-	if qpepHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION != 0 {
+	if qpepHeader.Flags&protocol.QPEP_LOCALSERVER_DESTINATION != 0 {
 		logger.Debug("[%d] Local connection to server", quicStream.ID())
 		destAddress = fmt.Sprintf("127.0.0.1:%d", qpepHeader.DestAddr.Port)
 	}
@@ -186,7 +193,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	}
 	logger.Info("[%d] Opened TCP NetConn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
 
-	proxyAddress := tcpConn.LocalAddr().String()
+	proxySrcAddress := qpepHeader.SourceAddr.String()
 	startTime := time.Now()
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
@@ -196,13 +203,13 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	//setLinger(tcpConn)
 
-	api.Statistics.SetMappedAddress(proxyAddress, srcAddress)
+	api.Statistics.SetMappedAddress(proxySrcAddress, srcAddress)
 	api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS)
 	api.Statistics.IncrementCounter(1.0, api.PERF_CONN, srcAddress)
 	defer func() {
 		api.Statistics.DecrementCounter(1.0, api.PERF_CONN, srcAddress)
 		api.Statistics.DecrementCounter(1.0, api.TOTAL_CONNECTIONS)
-		api.Statistics.DeleteMappedAddress(proxyAddress)
+		api.Statistics.DeleteMappedAddress(proxySrcAddress)
 	}()
 
 	ctx, _ := context.WithCancel(context.Background())
@@ -228,7 +235,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	written := int64(0)
 	read := int64(0)
 
-	buf := make([]byte, shared.QPepConfig.BufferSize*1024)
+	buf := make([]byte, configuration.QPepConfig.Protocol.BufferSize*1024)
 	periodStart := time.Now()
 	periodWritten := int64(0)
 
@@ -308,7 +315,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 	written := int64(0)
 	read := int64(0)
 
-	buf := make([]byte, shared.QPepConfig.BufferSize*1024)
+	buf := make([]byte, configuration.QPepConfig.Protocol.BufferSize*1024)
 	periodStart := time.Now()
 	periodWritten := int64(0)
 

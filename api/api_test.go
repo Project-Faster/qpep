@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/version"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net/http"
@@ -30,12 +30,14 @@ type APISuite struct {
 }
 
 func (s *APISuite) BeforeTest(_, testName string) {
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
+	configuration.QPepConfig.General.Verbose = false
 }
 
 func (s *APISuite) AfterTest(_, testName string) {
 	monkey.UnpatchAll()
 	Statistics.Reset()
-	shared.QPepConfig.Verbose = false
 }
 
 func (s *APISuite) TestFormatRequest() {
@@ -50,7 +52,7 @@ func (s *APISuite) TestFormatRequest_WithBody() {
 	req, _ := http.NewRequest("POST", "http://localhost:9443", strings.NewReader(body))
 	assert.NotNil(s.T(), req)
 
-	shared.QPepConfig.Verbose = true
+	configuration.QPepConfig.General.Verbose = true
 	assert.Equal(s.T(), "POST / HTTP/1.1\r\nHost: localhost:9443\r\n\r\nQPep is a hybrid network accelerator based on the QUIC protocol", formatRequest(req))
 }
 
@@ -302,7 +304,7 @@ func (s *APISuite) TestApiStatisticsHosts_FailJSON() {
 func (s *APISuite) TestApiStatisticsInfo() {
 	t := s.T()
 
-	shared.QPepConfig.ListenHost = "192.168.1.10"
+	configuration.QPepConfig.Server.LocalListeningAddress = "0.0.0.0"
 
 	w := &FakeResponse{}
 	apiStatisticsInfo(w, nil, nil)
@@ -318,7 +320,7 @@ func (s *APISuite) TestApiStatisticsInfo() {
 
 	assert.Equal(t, 1, resp.Data[0].ID)
 	assert.Equal(t, "Address", resp.Data[0].Attribute)
-	assert.Equal(t, shared.QPepConfig.ListenHost, resp.Data[0].Value)
+	assert.Equal(t, configuration.QPepConfig.Server.LocalListeningAddress, resp.Data[0].Value)
 	assert.Equal(t, INFO_ADDRESS, resp.Data[0].Name)
 
 	assert.Equal(t, 2, resp.Data[1].ID)

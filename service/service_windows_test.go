@@ -8,6 +8,7 @@ import (
 	"bou.ke/monkey"
 	"errors"
 	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"
@@ -150,7 +151,7 @@ func (s *ServiceWinSuite) TestInstallDirectoryPermissions_ErrorSecondCmd() {
 
 func (s *ServiceWinSuite) TestSendProcessInterrupt() {
 	var proxyWasReset = false
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.False(s.T(), active)
 		if !active {
 			proxyWasReset = true
@@ -174,7 +175,7 @@ func (s *ServiceWinSuite) TestSendProcessInterrupt() {
 
 func (s *ServiceWinSuite) TestSendProcessInterrupt_ErrorKill() {
 	var proxyWasReset = false
-	monkey.Patch(shared.SetSystemProxy, func(active bool) {
+	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
 		assert.False(s.T(), active)
 		if !active {
 			proxyWasReset = true

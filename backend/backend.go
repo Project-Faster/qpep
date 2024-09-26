@@ -8,8 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/logger"
 	"hash/crc64"
 	"io"
 	"io/ioutil"
@@ -86,7 +86,7 @@ func CopyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeout time.D
 		dumpPacket("rd", debugPrefix, buf, nr)
 
 		offset := 0
-		for written != read {
+		for err == nil && written != read {
 			dst.SetWriteDeadline(time.Now().Add(timeout))
 			nw, ew = dst.Write(buf[offset:nr])
 			written += int64(nw)
@@ -97,7 +97,7 @@ func CopyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeout time.D
 				err = io.ErrUnexpectedEOF
 			}
 			if ew != nil {
-				if err2, ok := ew.(net.Error); ok && !err2.Timeout() {
+				if err2, ok := ew.(net.Error); ok && err2.Timeout() {
 					continue
 				}
 				err = ew
@@ -111,7 +111,7 @@ func CopyBuffer(dst WriterTimeout, src ReaderTimeout, buf []byte, timeout time.D
 			err = er
 		}
 	}
-	if er == io.EOF {
+	if er == io.EOF || ew == io.EOF {
 		err = nil
 	}
 
@@ -126,7 +126,7 @@ func dumpPacket(dmpType, prefix string, buf []byte, nr int) {
 		return
 	}
 
-	dump, derr := os.Create(fmt.Sprintf("%s.%d-rd.bin", prefix, localPacketCounter))
+	dump, derr := os.Create(fmt.Sprintf("%s.%d-%s.bin", prefix, localPacketCounter, dmpType))
 	if derr != nil {
 		panic(derr)
 	}

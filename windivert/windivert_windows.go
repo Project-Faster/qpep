@@ -9,28 +9,10 @@ package windivert
 import "C"
 
 import (
-	"github.com/parvit/qpep/shared"
-	"time"
 	"unsafe"
 
-	. "github.com/parvit/qpep/logger"
+	. "github.com/parvit/qpep/shared/logger"
 )
-
-func init() {
-	_, _, code := shared.RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
-	if code != 0 {
-		return
-	}
-
-	_, _, _ = shared.RunCommand("sc.exe", "stop", "WinDivert") // Stop orphaned instances of WinDivert
-	<-time.After(1 * time.Second)
-	_, _, code = shared.RunCommand("sc.exe", "queryex", "WinDivert") // Check orphaned instances of WinDivert
-	if code != 0 {
-		return
-	}
-
-	panic("Tried to stop the WinDivert orphan instance but it did not terminate, unable to continue")
-}
 
 // InitializeWinDivertEngine method invokes the initialization of the WinDivert library, specifying that:
 // * _gatewayAddr_ Packets must be redirected to this address

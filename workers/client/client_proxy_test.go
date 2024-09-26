@@ -2,7 +2,7 @@ package client
 
 import (
 	"bou.ke/monkey"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net"
@@ -66,11 +66,7 @@ func (s *ClientProxyListenerSuite) TestProxyListener_AcceptNil() {
 	listener := &ClientProxyListener{}
 
 	conn, err := listener.Accept()
-	assert.Equal(s.T(), shared.ErrFailed, err)
-	assert.Nil(s.T(), conn)
-
-	conn, err = listener.AcceptTProxy()
-	assert.Equal(s.T(), shared.ErrFailed, err)
+	assert.Equal(s.T(), errors.ErrFailed, err)
 	assert.Nil(s.T(), conn)
 }
 
@@ -115,10 +111,10 @@ func (s *ClientProxyListenerSuite) TestProxyListener_FailAccept() {
 	clListener := listener.(*ClientProxyListener)
 	monkey.PatchInstanceMethod(reflect.TypeOf(clListener.base), "AcceptTCP",
 		func(_ *net.TCPListener) (*net.TCPConn, error) {
-			return nil, shared.ErrFailed
+			return nil, errors.ErrFailed
 		})
 
-	conn, errConn := clListener.AcceptTProxy()
+	conn, errConn := clListener.Accept()
 	assert.Nil(s.T(), conn)
-	assert.Equal(s.T(), shared.ErrFailed, errConn)
+	assert.Equal(s.T(), errors.ErrFailed, errConn)
 }

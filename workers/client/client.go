@@ -1,8 +1,11 @@
 package client
 
 import (
-	"github.com/parvit/qpep/logger"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 	"net"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -19,52 +22,29 @@ const (
 )
 
 var (
+	GATEWAY_CHECK_WAIT = 10 * time.Second
+
 	// redirected indicates if the connections are using the diverter for connection
 	redirected = false
 	// keepRedirectionRetries counter for the number of retries to keep trying to get a connection to server
-	keepRedirectionRetries = shared.DEFAULT_REDIRECT_RETRIES
+	keepRedirectionRetries = configuration.DEFAULT_REDIRECT_RETRIES
 
-	// ClientConfiguration instance of the default configuration for the client
-	ClientConfiguration = ClientConfig{
-		ListenHost: "0.0.0.0", ListenPort: 9443,
-		GatewayHost: "198.56.1.10", GatewayPort: 443,
+	// clientAdditional instance of the default configuration for the client
+	clientAdditional = ClientConfig{
 		RedirectedInterfaces: []int64{},
-		QuicStreamTimeout:    2, MultiStream: shared.QPepConfig.MultiStream,
-		MaxConnectionRetries: shared.DEFAULT_REDIRECT_RETRIES,
+		QuicStreamTimeout:    2,
 		IdleTimeout:          time.Duration(3) * time.Second,
-		WinDivertThreads:     1,
-		Verbose:              false,
 	}
 )
 
 // ClientConfig struct that describes the parameter that can influence the behavior of the client
 type ClientConfig struct {
-	// ListenHost local address on which to listen for diverted / proxied connections
-	ListenHost string
-	// ListenPort local port on which to listen for diverted / proxied connections
-	ListenPort int
-	// GatewayHost remote address of the qpep server to which to establish quic connections
-	GatewayHost string
-	// GatewayPort remote port of the qpep server to which to establish quic connections
-	GatewayPort int
 	// RedirectedInterfaces list of ids of the interfaces that can be included for redirection
 	RedirectedInterfaces []int64
-	// APIPort Indicates the local/remote port of the API server (local will be 127.0.0.1:<APIPort>, remote <GatewayHost>:<APIPort>)
-	APIPort int
 	// QuicStreamTimeout Timeout in seconds for which to wait for a successful quic connection to the qpep server
 	QuicStreamTimeout int
-	// MultiStream indicates whether to enable the MultiStream option in quic-go library
-	MultiStream bool
 	// IdleTimeout Timeout after which, without activity, a connected quic stream is closed
 	IdleTimeout time.Duration
-	// MaxConnectionRetries Maximum number of tries for a qpep server connection after which the client is terminated
-	MaxConnectionRetries int
-	// PreferProxy If True, the first half of the MaxConnectionRetries uses the proxy instead of diverter, False is reversed
-	PreferProxy bool
-	// WinDivertThreads number of native threads that the windivert engine will be allowed to use
-	WinDivertThreads int
-	// Verbose outputs more log
-	Verbose bool
 }
 
 // RunClient method executes the qpep in client mode and initializes its services
@@ -84,11 +64,13 @@ func RunClient(ctx context.Context, cancel context.CancelFunc) {
 	// update configuration from flags
 	validateConfiguration()
 
-	logger.Info("Binding to TCP %s:%d", ClientConfiguration.ListenHost, ClientConfiguration.ListenPort)
+	config := configuration.QPepConfig.Client
+
+	logger.Info("Binding to TCP %s:%d", config.LocalListeningAddress, config.LocalListenPort)
 	var err error
 	proxyListener, err = NewClientProxyListener("tcp", &net.TCPAddr{
-		IP:   net.ParseIP(ClientConfiguration.ListenHost),
-		Port: ClientConfiguration.ListenPort,
+		IP:   net.ParseIP(config.LocalListeningAddress),
+		Port: config.LocalListenPort,
 	})
 	if err != nil {
 		logger.Error("Encountered error when binding client proxy listener: %s", err)
@@ -114,6 +96,9 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 		}
 		wg.Done()
 		cancel()
+
+		stopDiverter()
+		stopProxy()
 	}()
 
 	var connected = false
@@ -123,9 +108,11 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 	// connection with the server to be on already up
 	initialCheckConnection()
 
-	localAddr := ClientConfiguration.ListenHost
-	apiAddr := ClientConfiguration.GatewayHost
-	apiPort := ClientConfiguration.APIPort
+	config := configuration.QPepConfig
+
+	localAddr := config.Client.LocalListeningAddress
+	apiAddr := config.Client.GatewayHost
+	apiPort := config.General.APIPort
 	connected, _ = gatewayStatusCheck(localAddr, apiAddr, apiPort)
 
 	// Update loop
@@ -137,14 +124,14 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 			}
 			return
 
-		case <-time.After(10 * time.Second):
+		case <-time.After(GATEWAY_CHECK_WAIT):
 			if shared.DEBUG_MASK_REDIRECT || checkIsRunning {
 				continue
 			}
 			checkIsRunning = true
-
 			connected, _ = gatewayStatusCheck(localAddr, apiAddr, apiPort)
 			checkIsRunning = false
+
 			if !connected {
 				// if connection is lost then keep the redirection active
 				// for a certain number of retries then terminate to not keep
@@ -160,13 +147,15 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 // initialCheckConnection method checks whether the connections checks are to initialized or not
 // and honors the PreferProxy setting
 func initialCheckConnection() {
-	if redirected || shared.UsingProxy {
+	if redirected || gateway.UsingProxy {
 		// no need to restart, already redirected
 		return
 	}
 
-	keepRedirectionRetries = ClientConfiguration.MaxConnectionRetries // reset connection tries
-	preferProxy := ClientConfiguration.PreferProxy
+	configGeneral := configuration.QPepConfig.General
+
+	keepRedirectionRetries = configGeneral.MaxConnectionRetries // reset connection tries
+	preferProxy := configGeneral.PreferProxy
 
 	if preferProxy {
 		logger.Info("Proxy preference set, trying to connect...\n")
@@ -180,15 +169,17 @@ func initialCheckConnection() {
 // failedCheckConnection method handles the logic for switching between diverter and proxy (or viceversa if PreferProxy true)
 // after half connection tries are failed, and stopping altogether if retries are exhausted
 func failedCheckConnection() bool {
-	maxRetries := ClientConfiguration.MaxConnectionRetries
-	preferProxy := ClientConfiguration.PreferProxy
+	configGeneral := configuration.QPepConfig.General
 
-	shared.ScaleUpTimeout()
+	maxRetries := configGeneral.MaxConnectionRetries
+	preferProxy := configGeneral.PreferProxy
+
+	gateway.ScaleUpTimeout()
 
 	keepRedirectionRetries--
 	if preferProxy {
 		// First half of tries with proxy, then diverter, then stop
-		if shared.UsingProxy && keepRedirectionRetries < maxRetries/2 {
+		if gateway.UsingProxy && keepRedirectionRetries < maxRetries/2 {
 			stopProxy()
 			logger.Info("Connection failed and half retries exhausted, trying with diverter\n")
 			return !initDiverter()
@@ -206,7 +197,7 @@ func failedCheckConnection() bool {
 	}
 
 	// First half of tries with diverter, then proxy, then stop
-	if !shared.UsingProxy && keepRedirectionRetries < maxRetries/2 {
+	if !gateway.UsingProxy && keepRedirectionRetries < maxRetries/2 {
 		stopDiverter()
 		logger.Info("Connection failed and half retries exhausted, trying with proxy\n")
 		initProxy()
@@ -256,36 +247,41 @@ func clientStatisticsUpdate(localAddr, apiAddr string, apiPort int, publicAddres
 // validateConfiguration method handles the checking of the configuration values provided in the configuration files
 // for the client mode
 func validateConfiguration() {
-	shared.AssertParamIP("listen host", shared.QPepConfig.ListenHost)
-	shared.AssertParamPort("listen port", shared.QPepConfig.ListenPort)
+	configClient := configuration.QPepConfig.Client
+	configGeneral := configuration.QPepConfig.General
+	configProto := configuration.QPepConfig.Protocol
 
-	// copy values for client configuration
-	ClientConfiguration.GatewayHost = shared.QPepConfig.GatewayHost
-	ClientConfiguration.GatewayPort = shared.QPepConfig.GatewayPort
-	ClientConfiguration.APIPort = shared.QPepConfig.GatewayAPIPort
-	ClientConfiguration.ListenHost, ClientConfiguration.RedirectedInterfaces = shared.GetDefaultLanListeningAddress(
-		shared.QPepConfig.ListenHost, shared.QPepConfig.GatewayHost)
-	ClientConfiguration.ListenPort = shared.QPepConfig.ListenPort
-	ClientConfiguration.MaxConnectionRetries = shared.QPepConfig.MaxConnectionRetries
-	ClientConfiguration.MultiStream = shared.QPepConfig.MultiStream
-	ClientConfiguration.WinDivertThreads = shared.QPepConfig.WinDivertThreads
-	ClientConfiguration.PreferProxy = shared.QPepConfig.PreferProxy
-	ClientConfiguration.Verbose = shared.QPepConfig.Verbose
+	configuration.AssertParamIP("listen host", configClient.LocalListeningAddress)
+	configuration.AssertParamPort("listen port", configClient.LocalListenPort)
+
+	configuration.AssertParamNumeric("buffer size", configProto.BufferSize, 1, 1024)
+
+	// resolve local listening address
+	configClient.LocalListeningAddress, clientAdditional.RedirectedInterfaces =
+		gateway.GetDefaultLanListeningAddress(configClient.LocalListeningAddress, configClient.GatewayHost)
 
 	// panic if configuration is inconsistent
-	shared.AssertParamIP("gateway host", ClientConfiguration.GatewayHost)
-	shared.AssertParamPort("gateway port", ClientConfiguration.GatewayPort)
+	configuration.AssertParamIP("gateway host", configClient.GatewayHost)
+	configuration.AssertParamPort("gateway port", configClient.GatewayPort)
 
-	shared.AssertParamPort("api port", ClientConfiguration.APIPort)
+	configuration.AssertParamPort("api port", configGeneral.APIPort)
 
-	shared.AssertParamNumeric("max connection retries", ClientConfiguration.MaxConnectionRetries, 1, 300)
-	shared.AssertParamNumeric("max diverter threads", ClientConfiguration.WinDivertThreads, 1, 32)
+	configuration.AssertParamNumeric("max connection retries", configGeneral.MaxConnectionRetries, 1, 300)
+	configuration.AssertParamNumeric("max diverter threads", configGeneral.WinDivertThreads, 1, 32)
+	configuration.AssertParamValidTimeout("idle timeout", configProto.IdleTimeout)
 
-	shared.AssertParamHostsDifferent("hosts", ClientConfiguration.GatewayHost, ClientConfiguration.ListenHost)
-	shared.AssertParamPortsDifferent("ports", ClientConfiguration.GatewayPort,
-		ClientConfiguration.ListenPort, ClientConfiguration.APIPort)
+	configuration.AssertParamHostsDifferent("hosts", configClient.GatewayHost, configClient.LocalListeningAddress)
+	configuration.AssertParamPortsDifferent("ports", configClient.GatewayPort,
+		configClient.LocalListenPort, configGeneral.APIPort)
 
-	shared.AssertParamNumeric("auto-redirected interfaces", len(ClientConfiguration.RedirectedInterfaces), 0, 256)
+	configuration.AssertParamNumeric("auto-redirected interfaces", len(clientAdditional.RedirectedInterfaces), 0, 256)
+
+	switch runtime.GOOS {
+	case "linux":
+		logger.Info("Platform forced prefer_proxy to false\n")
+		configGeneral.PreferProxy = false
+		break
+	}
 
 	// validation ok
 	logger.Info("Client configuration validation OK\n")

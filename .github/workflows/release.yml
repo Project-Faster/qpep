@@ -26,22 +26,65 @@ jobs:
     defaults:
       run:
         shell: bash
-        
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Check tag
         uses: mukunku/tag-exists-action@v1.0.0
         id: checkTag
-        with: 
+        with:
           tag: 'v${{ github.event.inputs.version_tag }}'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - if: ${{ steps.checkTag.outputs.exists == 'true' }}
         name: Fail build
         run: exit 1
-    
+
+  docs:
+    if: true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      GO_VERSION: 1.20.14
+      PANDOC_VERSION: 3.3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: false
+
+      - name: Install Pandoc
+        uses: pandoc/actions/setup@v1.0.0
+        with:
+          version: ${{ env.PANDOC_VERSION }}
+
+      - name: Install TeXlive
+        run: sudo apt-get update && sudo apt-get install texlive-full
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Generate PDF
+        run: |
+          cd docs/
+          CURDATE=$(date '+%x %T')
+          sed -i -E -e 's|subtitle:.+|subtitle: "User Manual - version ${{ github.event.inputs.version_tag }}"|' -e "s|date:.+|date: \"$CURDATE\"|" user-manual.md
+          sed -i -E -e 's|page-background:\s*resources/draft.png||' user-manual.md
+          go generate
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_user_manual
+          path: "docs/*.pdf"
+
   build-linux:
     needs: check-release
     runs-on: ubuntu-latest
@@ -75,35 +118,36 @@ jobs:
 
       - name: Prepare
         run: |
+          sudo apt-get install -y pkg-config libgtk-3-dev libayatana-appindicator-dev
           go clean -cache -x
           mkdir -p cover
           mkdir -p report
           mkdir -p unit
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
 
       - name: Build Backends
         run: |
           cd backend/
           go generate
 
-      - name: Build Executable
+      - name: Build QPep
         run: |
           go build -v -o build/qpep
+
+      - name: Build QPep Tray
+        run: |
+          pushd qpep-tray
+          go build -o ../build/qpep-tray
+          popd
 
       - uses: actions/upload-artifact@v4
         with:
           name: qpep_linux_b${{ github.run_id }}
           path: build/
 
-      - name: Prepare Tests
-        run: |
-          mkdir -p unit/
-          mkdir -p cover/
-          mkdir -p report/
-          go install github.com/jstemmer/go-junit-report@v1.0.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
-          
       - name: Test
         if: ${{ inputs.test_release }}
         run: |
@@ -111,16 +155,31 @@ jobs:
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
           do
             pushd $i
+            export WORKSPACE="${{ github.workspace }}"
             go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=${{ github.workspace }}/cover/$(basename $PWD).out &> unit_tests.out || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
             grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-            cat unit_tests.out | go-junit-report > ${{ github.workspace }}/unit/$(basename $PWD).xml
+            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Coverage Results
+        if: always()
+        run: |
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          do
+            pushd $i
+            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
+            echo >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
             popd
           done
         continue-on-error: true
 
       - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2
         if: ${{ inputs.test_release }}
         with:
           check_name: "Unit Tests - Linux Platform"
@@ -202,7 +261,6 @@ jobs:
       - name: Build QPep Tray
         run: |
           pushd qpep-tray
-          set CGO_ENABLED=0
           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
           popd
 
@@ -224,7 +282,7 @@ jobs:
           MKDIR unit
           MKDIR cover
           MKDIR report
-          go install github.com/jstemmer/go-junit-report@v1.0.0
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
@@ -256,35 +314,34 @@ jobs:
           junit_files: "unit/*.xml"
 
   create-release-tag:
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, docs]
     runs-on: ubuntu-latest
     defaults:
-      run: 
+      run:
         shell: bash
-        
+
     steps:
-      - name: Changelog
-        uses: scottbrenner/generate-changelog-action@master
-        id: Changelog
-        env:
-          REPO: ${{ github.repository }}
-    
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
           name: qpep_windows_b${{ github.run_id }}
-      
+
       - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
           name: qpep_linux_b${{ github.run_id }}
-      
+
+      - name: Download UserManual Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qpep_user_manual
+
       - name: Prepare archives
         run: |
            cd ${{ github.workspace }}
            7z a -tzip qpep_windows_b${{ github.run_id }}.zip ${{ github.workspace }}/installer.msi
            7z a -tzip qpep_linux_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep
-        
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@latest
@@ -299,24 +356,34 @@ jobs:
           prerelease: false
 
       - name: Attach Windows Release Asset
-        id: upload-release-asset 
+        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: qpep_windows_b${{ github.run_id }}.zip
           asset_name: qpep_windows_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
           asset_content_type: application/zip
-          
+
       - name: Attach Linux Release Asset
-        id: upload-linux-asset 
+        id: upload-linux-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: qpep_linux_b${{ github.run_id }}.zip
           asset_name: qpep_linux_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
           asset_content_type: application/zip
-          
+
+      - name: Attach UserManual Release Asset
+        id: upload-usermanual-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: qpep_user_manual.zip
+          asset_name: qpep_user_manual_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
+          asset_content_type: application/zip

@@ -1,9 +1,8 @@
 package client
 
 import (
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/windivert"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/workers/gateway"
 	"net"
 	"strings"
 )
@@ -11,13 +10,17 @@ import (
 // initDiverter method wraps the logic for initializing the windiverter engine, returns true if the diverter
 // succeeded initialization and false otherwise
 func initDiverter() bool {
-	gatewayHost := ClientConfiguration.GatewayHost
-	gatewayPort := ClientConfiguration.GatewayPort
-	listenPort := ClientConfiguration.ListenPort
-	threads := ClientConfiguration.WinDivertThreads
-	listenHost := ClientConfiguration.ListenHost
-	redirectedInterfaces := ClientConfiguration.RedirectedInterfaces
+	generalConfig := configuration.QPepConfig.General
+	clientConfig := configuration.QPepConfig.Client
+	filteredPorts := configuration.QPepConfig.Limits.IgnoredPorts
 	filteredPorts := shared.QPepConfig.IgnoredPorts
+
+	gatewayHost := clientConfig.GatewayHost
+	gatewayPort := clientConfig.GatewayPort
+	listenPort := clientConfig.LocalListenPort
+	listenHost := clientConfig.LocalListeningAddress
+	threads := generalConfig.WinDivertThreads
+	redirectedInterfaces := clientAdditional.RedirectedInterfaces
 
 	// select an appropriate interface
 	var redirectedInetID int64 = 0
@@ -33,30 +36,25 @@ func initDiverter() bool {
 		}
 	}
 
-	logger.Info("WinDivert: %v %v %v %v %v %v %v\n", gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID, filteredPorts)
-	code := windivert.InitializeWinDivertEngine(gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID, filteredPorts)
-	logger.Info("WinDivert code: %v\n", code)
-	if code != windivert.DIVERT_OK {
-		logger.Panic("Could not initialize WinDivert engine, code %d\n", code)
-	}
-	return code == windivert.DIVERT_OK
+	redirected = gateway.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID, filteredPorts)
+	return redirected
 }
 
 // stopDiverter method wraps the calls for stopping the diverter
 func stopDiverter() {
-	windivert.CloseWinDivertEngine()
+	gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0, []int{})
 	redirected = false
 }
 
 // initProxy method wraps the calls for initializing the proxy
 func initProxy() {
-	shared.UsingProxy = true
-	shared.SetSystemProxy(true)
+	gateway.UsingProxy = true
+	gateway.SetSystemProxy(true)
 }
 
 // stopProxy method wraps the calls for stopping the proxy
 func stopProxy() {
 	redirected = false
-	shared.UsingProxy = false
-	shared.SetSystemProxy(false)
+	gateway.UsingProxy = false
+	gateway.SetSystemProxy(false)
 }

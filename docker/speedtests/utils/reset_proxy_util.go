@@ -1,7 +1,9 @@
 package main
 
-import "github.com/parvit/qpep/shared"
+import (
+	"github.com/parvit/qpep/workers/gateway"
+)
 
 func main() {
-	shared.SetSystemProxy(false)
+	gateway.SetSystemProxy(false)
 }

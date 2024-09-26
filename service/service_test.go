@@ -5,8 +5,9 @@ import (
 	"context"
 	service "github.com/parvit/kardianos-service"
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
 	"github.com/parvit/qpep/workers/client"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/parvit/qpep/workers/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -31,7 +32,10 @@ func (s *ServiceSuite) AfterTest(_, _ string) {
 	monkey.UnpatchAll()
 }
 
-func (s *ServiceSuite) BeforeTest(_, _ string) {}
+func (s *ServiceSuite) BeforeTest(_, _ string) {
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
+}
 
 func (s *ServiceSuite) TestServiceMain_Server() {
 	var svc *QPepService
@@ -47,7 +51,7 @@ func (s *ServiceSuite) TestServiceMain_Server() {
 	})
 	monkey.Patch(server.RunServer, func(context.Context, context.CancelFunc) {})
 	monkey.Patch(api.RunServer, func(context.Context, context.CancelFunc, bool) {})
-	monkey.Patch(shared.SetSystemProxy, func(bool) {})
+	monkey.Patch(gateway.SetSystemProxy, func(bool) {})
 
 	os.Args = os.Args[:1]
 	go ServiceMain()
@@ -72,7 +76,7 @@ func (s *ServiceSuite) TestServiceMain_Client() {
 		}, nil
 	})
 	monkey.Patch(client.RunClient, func(context.Context, context.CancelFunc) {})
-	monkey.Patch(shared.SetSystemProxy, func(bool) {})
+	monkey.Patch(gateway.SetSystemProxy, func(bool) {})
 
 	os.Args = append(os.Args[:1], "--client")
 	go ServiceMain()
@@ -98,7 +102,7 @@ func (s *ServiceSuite) TestServiceStart() {
 	})
 	monkey.Patch(server.RunServer, func(context.Context, context.CancelFunc) {})
 	monkey.Patch(api.RunServer, func(context.Context, context.CancelFunc, bool) {})
-	monkey.Patch(shared.SetSystemProxy, func(bool) {})
+	monkey.Patch(gateway.SetSystemProxy, func(bool) {})
 
 	os.Args = append(os.Args[:1], "--service", "start")
 	go ServiceMain()
@@ -124,7 +128,7 @@ func (s *ServiceSuite) TestServiceStop_WhenStopped() {
 	})
 	monkey.Patch(server.RunServer, func(context.Context, context.CancelFunc) {})
 	monkey.Patch(api.RunServer, func(context.Context, context.CancelFunc, bool) {})
-	monkey.Patch(shared.SetSystemProxy, func(bool) {})
+	monkey.Patch(gateway.SetSystemProxy, func(bool) {})
 
 	os.Args = append(os.Args[:1], "--service", "stop")
 	go ServiceMain()
@@ -259,7 +263,7 @@ func (s *ServiceSuite) TestServiceUnknownCommand() {
 	})
 	monkey.Patch(server.RunServer, func(context.Context, context.CancelFunc) {})
 	monkey.Patch(api.RunServer, func(context.Context, context.CancelFunc, bool) {})
-	monkey.Patch(shared.SetSystemProxy, func(bool) {})
+	monkey.Patch(gateway.SetSystemProxy, func(bool) {})
 
 	os.Args = append(os.Args[:1], "--service", "test")
 	code := ServiceMain()
@@ -279,7 +283,7 @@ func (s *ServiceSuite) TestServiceInstall() {
 			StatusField: 0,
 		}, nil
 	})
-	monkey.Patch(shared.SetSystemProxy, func(bool) {})
+	monkey.Patch(gateway.SetSystemProxy, func(bool) {})
 	var calledServicePerm = false
 	monkey.Patch(setServiceUserPermissions, func(string) {
 		calledServicePerm = true

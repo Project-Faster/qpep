@@ -2,38 +2,15 @@ package server
 
 import (
 	"context"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/workers/gateway"
 	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
 )
-
-var (
-	// ServerConfiguration global variable that keeps track of the current server configuration
-	ServerConfiguration = ServerConfig{
-		ListenHost:  "0.0.0.0",
-		ListenPort:  443,
-		APIPort:     444,
-		IdleTimeout: 3 * time.Second,
-	}
-)
-
-// ServerConfiguration struct models the parameters necessary for running the quic server
-type ServerConfig struct {
-	// ListenHost ip address on which the server listens for connections
-	ListenHost string
-	// ListenPort port [1-65535] on which the server listens for connections
-	ListenPort int
-	// APIPort port [1-65535] on which the API server is launched
-	APIPort int
-	// IdleTimeout Timeout after which, without activity, a connected quic stream is closed
-	IdleTimeout time.Duration
-
-	BrokerConfig shared.AnalyticsDefinition
-}
 
 // RunServer method validates the provided server configuration and then launches the server
 // with the input context
@@ -52,12 +29,13 @@ func RunServer(ctx context.Context, cancel context.CancelFunc) {
 	// update configuration from flags
 	validateConfiguration()
 
-	if ServerConfiguration.BrokerConfig.Enabled {
-		api.Statistics.Start(&ServerConfiguration.BrokerConfig)
+	if configuration.QPepConfig.Analytics.Enabled {
+		api.Statistics.Start(configuration.QPepConfig.Analytics)
 	}
 	defer api.Statistics.Stop()
 
-	logger.Info("Opening QPEP Server on: %s:%d\n", ServerConfiguration.ListenHost, ServerConfiguration.ListenPort)
+	config := configuration.QPepConfig.Server
+	logger.Info("Opening QPEP Server on: %s:%d\n", config.LocalListeningAddress, config.LocalListenPort)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -68,7 +46,7 @@ func RunServer(ctx context.Context, cancel context.CancelFunc) {
 			wg.Done()
 		}()
 		//defer wg.Done()
-		listenQuicSession(ctx, cancel, ServerConfiguration.ListenHost, ServerConfiguration.ListenPort)
+		listenQuicSession(ctx, cancel, config.LocalListeningAddress, config.LocalListenPort)
 	}()
 
 	go func() {
@@ -124,32 +102,28 @@ func performanceWatcher(ctx context.Context, cancel context.CancelFunc) {
 // validateConfiguration method checks the validity of the configuration values that have been provided, panicking if
 // there is any issue
 func validateConfiguration() {
-	shared.AssertParamIP("listen host", shared.QPepConfig.ListenHost)
+	configSrv := configuration.QPepConfig.Server
+	configGeneral := configuration.QPepConfig.General
+	configProto := configuration.QPepConfig.Protocol
+	configBroker := configuration.QPepConfig.Analytics
 
-	ServerConfiguration.ListenHost, _ = shared.GetDefaultLanListeningAddress(shared.QPepConfig.ListenHost, "")
-	ServerConfiguration.ListenPort = shared.QPepConfig.ListenPort
-	ServerConfiguration.APIPort = shared.QPepConfig.GatewayAPIPort
+	configuration.AssertParamIP("listen host", configSrv.LocalListeningAddress)
+	configuration.AssertParamPort("listen port", configSrv.LocalListenPort)
 
-	shared.AssertParamPort("listen port", ServerConfiguration.ListenPort)
+	configSrv.LocalListeningAddress, _ = gateway.GetDefaultLanListeningAddress(configSrv.LocalListeningAddress, "")
 
-	shared.AssertParamPort("api port", ServerConfiguration.APIPort)
+	configuration.AssertParamPort("api port", configGeneral.APIPort)
+	configuration.AssertParamValidTimeout("idle timeout", configProto.IdleTimeout)
+	configuration.AssertParamPortsDifferent("ports", configSrv.LocalListenPort, configGeneral.APIPort)
 
-	shared.AssertParamPortsDifferent("ports", ServerConfiguration.ListenPort, ServerConfiguration.APIPort)
+	if !configBroker.Enabled {
+		configBroker.Enabled = false
 
-	brokerConfig := shared.QPepConfig.Analytics
-	if !brokerConfig.Enabled {
-		ServerConfiguration.BrokerConfig.Enabled = false
 	} else {
-		shared.AssertParamIP("broker address", brokerConfig.BrokerAddress)
-		shared.AssertParamPort("broker port", brokerConfig.BrokerPort)
-		shared.AssertParamString("broker topic", brokerConfig.BrokerTopic)
-		shared.AssertParamChoice("broker protocol", brokerConfig.BrokerProtocol, []string{"tcp", "udp"})
-
-		ServerConfiguration.BrokerConfig.Enabled = true
-		ServerConfiguration.BrokerConfig.BrokerAddress = brokerConfig.BrokerAddress
-		ServerConfiguration.BrokerConfig.BrokerPort = brokerConfig.BrokerPort
-		ServerConfiguration.BrokerConfig.BrokerProtocol = brokerConfig.BrokerProtocol
-		ServerConfiguration.BrokerConfig.BrokerTopic = brokerConfig.BrokerTopic
+		configuration.AssertParamIP("broker address", configBroker.BrokerAddress)
+		configuration.AssertParamPort("broker port", configBroker.BrokerPort)
+		configuration.AssertParamString("broker topic", configBroker.BrokerTopic)
+		configuration.AssertParamChoice("broker protocol", configBroker.BrokerProtocol, []string{"tcp", "udp"})
 	}
 
 	logger.Info("Server configuration validation OK\n")

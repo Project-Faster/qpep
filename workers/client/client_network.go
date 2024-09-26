@@ -4,7 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/parvit/qpep/flags"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/flags"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/protocol"
+	"github.com/parvit/qpep/workers/gateway"
 	"io"
 	"io/ioutil"
 	"net"
@@ -17,9 +22,7 @@ import (
 	"time"
 
 	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/logger"
 	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/windivert"
 	"golang.org/x/net/context"
 )
 
@@ -73,16 +76,26 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	setLinger(tcpConn)
 
-	logger.Info("Accepting TCP connection: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
-	defer tcpConn.Close()
+	logger.Info("TCP connection START: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
+	defer func() {
+		logger.Debug("TCP connection END: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
+		_ = tcpConn.Close()
+	}()
 
-	tcpSourceAddr := tcpConn.RemoteAddr().(*net.TCPAddr)
+	tcpRemoteAddr := tcpConn.RemoteAddr().(*net.TCPAddr)
 	tcpLocalAddr := tcpConn.LocalAddr().(*net.TCPAddr)
-	diverted, srcPort, dstPort, srcAddress, dstAddress := windivert.GetConnectionStateData(tcpSourceAddr.Port)
+	diverted, srcPort, dstPort, srcAddress, dstAddress := gateway.GetConnectionDivertedState(tcpLocalAddr, tcpRemoteAddr)
 
 	var proxyRequest *http.Request
 	var errProxy error
-	if diverted != windivert.DIVERT_OK {
+	if !diverted {
+		if filteredPorts == nil {
+			filteredPorts = make(map[int]struct{})
+			for _, p := range configuration.QPepConfig.Limits.IgnoredPorts {
+				filteredPorts[p] = struct{}{}
+			}
+		}
+
 		if filteredPorts == nil {
 			filteredPorts = make(map[int]struct{})
 			for _, p := range shared.QPepConfig.IgnoredPorts {
@@ -92,17 +105,19 @@ func handleTCPConn(tcpConn net.Conn) {
 
 		// proxy open connection
 		proxyRequest, errProxy = handleProxyOpenConnection(tcpConn)
-		if errProxy == shared.ErrProxyCheckRequest {
+		if errProxy == errors.ErrProxyCheckRequest {
 			logger.Info("Checked for proxy usage, closing.")
 			return
 		}
 
 		// check direct connection
-		_, port, _ := getAddressPortFromHost(proxyRequest.Host)
-		if _, ok := filteredPorts[port]; ok {
-			logger.Info("opening proxy direct connection")
-			handleProxyedRequest(proxyRequest, nil, tcpConn, nil)
-			return
+		if proxyRequest != nil {
+			_, port, _ := getAddressPortFromHost(proxyRequest.Host)
+			if _, ok := filteredPorts[port]; ok {
+				logger.Info("opening proxy direct connection")
+				handleProxyedRequest(proxyRequest, nil, tcpConn, nil)
+				return
+			}
 		}
 
 		logger.OnError(errProxy, "opening proxy connection")
@@ -121,16 +136,19 @@ func handleTCPConn(tcpConn net.Conn) {
 	var streamWait sync.WaitGroup
 	streamWait.Add(2)
 
-	//Set our custom header to the QUIC session so the server can generate the correct TCP handshake on the other side
-	sessionHeader := shared.QPepHeader{
-		SourceAddr: tcpSourceAddr,
+	//Set our custom header to the Protocol session so the server can generate the correct TCP handshake on the other side
+	sessionHeader := protocol.QPepHeader{
+		SourceAddr: tcpRemoteAddr,
 		DestAddr:   tcpLocalAddr,
 		Flags:      0,
 	}
 
+	generalConfig := configuration.QPepConfig.General
+	clientConfig := configuration.QPepConfig.Client
+
 	// divert check
-	if diverted == windivert.DIVERT_OK {
-		logger.Info("Diverted connection: %v:%v %v:%v", srcAddress, srcPort, dstAddress, dstPort)
+	if diverted {
+		logger.Info("Diverted connection: %v:%v -> %v:%v", srcAddress, srcPort, dstAddress, dstPort)
 
 		sessionHeader.SourceAddr = &net.TCPAddr{
 			IP:   net.ParseIP(srcAddress),
@@ -141,13 +159,13 @@ func handleTCPConn(tcpConn net.Conn) {
 			Port: dstPort,
 		}
 
-		if sessionHeader.DestAddr.IP.String() == ClientConfiguration.GatewayHost {
-			sessionHeader.Flags |= shared.QPEP_LOCALSERVER_DESTINATION
+		if sessionHeader.DestAddr.IP.String() == clientConfig.GatewayHost {
+			sessionHeader.Flags |= protocol.QPEP_LOCALSERVER_DESTINATION
 		}
 
 		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v (Connection flags : %d %d)",
 			sessionHeader.SourceAddr, sessionHeader.DestAddr,
-			sessionHeader.Flags, sessionHeader.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
+			sessionHeader.Flags, sessionHeader.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
 
 		_, err := quicStream.Write(sessionHeader.ToBytes())
 		logger.OnError(err, "writing to quic stream")
@@ -175,7 +193,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	streamWait.Wait()
 	logger.Info("[%d] Stream End (duration: %v)", quicStream.ID(), time.Now().Sub(startTime))
 
-	if !ClientConfiguration.MultiStream || (quicSession != nil && quicSession.IsClosed()) {
+	if !generalConfig.MultiStream || (quicSession != nil && quicSession.IsClosed()) {
 		// destroy the session so a new one is created next time
 		newSessionLock.Lock()
 		quicSession = nil
@@ -206,14 +224,14 @@ func getQuicStream(ctx context.Context) (backend.QuicBackendStream, error) {
 	}
 
 	// if we allow for multiple streams in a session, try and open on the existing session
-	if ClientConfiguration.MultiStream && localSession != nil {
+	if configuration.QPepConfig.General.MultiStream && localSession != nil {
 		logger.Debug("Trying to open on existing session")
 		quicStream, err = localSession.OpenStream(context.Background())
 		if err == nil {
 			return quicStream, nil
 		}
 		// if we weren't able to open a quicStream on that session (usually inactivity timeout), we can try to open a new session
-		logger.OnError(err, "Unable to open new stream on existing QUIC session, closing session")
+		logger.OnError(err, "Unable to open new stream on existing Protocol session, closing session")
 		quicStream = nil
 
 		if quicSession != nil {
@@ -221,13 +239,13 @@ func getQuicStream(ctx context.Context) (backend.QuicBackendStream, error) {
 			quicSession = nil
 		}
 
-		return nil, shared.ErrFailedGatewayConnect
+		return nil, errors.ErrFailedGatewayConnect
 	}
 
 	//Dial a stream to send writtenData on this new session
 	quicStream, err = quicSession.OpenStream(ctx)
 	// if we cannot open a stream on this session, send a TCP RST and let the client decide to try again
-	logger.OnError(err, "Unable to open QUIC stream")
+	logger.OnError(err, "Unable to open Protocol stream")
 	if err != nil {
 		return nil, err
 	}
@@ -244,14 +262,14 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 	n, err := io.Copy(buf, tcpConn)
 	if n == 0 {
 		logger.Error("Failed to copy request: %v\n", err)
-		return nil, shared.ErrNonProxyableRequest
+		return nil, errors.ErrNonProxyableRequest
 	}
 	if err != nil {
 		nErr, ok := err.(net.Error)
 		if !ok || (ok && (!nErr.Timeout() && !nErr.Temporary())) {
 			_ = tcpConn.Close()
 			logger.Error("Failed to receive request: %v\n", err)
-			return nil, shared.ErrNonProxyableRequest
+			return nil, errors.ErrNonProxyableRequest
 		}
 	}
 
@@ -260,12 +278,12 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 	if err != nil {
 		_ = tcpConn.Close()
 		logger.Error("Failed to parse request: %v\n", err)
-		return nil, shared.ErrNonProxyableRequest
+		return nil, errors.ErrNonProxyableRequest
 	}
 
 	if checkProxyTestConnection(req.RequestURI) {
 		var isProxyWorking = false
-		if shared.UsingProxy && shared.ProxyAddress.String() == "http://"+tcpConn.LocalAddr().String() {
+		if gateway.UsingProxy && gateway.ProxyAddress.String() == "http://"+tcpConn.LocalAddr().String() {
 			isProxyWorking = true
 		}
 
@@ -279,13 +297,13 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 			ContentLength: 0,
 			Request:       req,
 			Header: http.Header{
-				shared.QPEP_PROXY_HEADER: []string{fmt.Sprintf("%v", isProxyWorking)},
+				gateway.QPEP_PROXY_HEADER: []string{fmt.Sprintf("%v", isProxyWorking)},
 			},
 		}
 
 		t.Write(tcpConn)
 		_ = tcpConn.Close()
-		return nil, shared.ErrProxyCheckRequest
+		return nil, errors.ErrProxyCheckRequest
 	}
 
 	switch req.Method {
@@ -310,7 +328,7 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 		if !proxyable {
 			_ = tcpConn.Close()
 			logger.Info("Non proxyable request\n")
-			return nil, shared.ErrNonProxyableRequest
+			return nil, errors.ErrNonProxyableRequest
 		}
 		break
 	default:
@@ -329,12 +347,14 @@ func handleProxyOpenConnection(tcpConn net.Conn) (*http.Request, error) {
 		t.Write(tcpConn)
 		_ = tcpConn.Close()
 		logger.Error("Proxy returns BadGateway\n")
-		return nil, shared.ErrNonProxyableRequest
+		return nil, errors.ErrNonProxyableRequest
 	}
 	return req, nil
 }
 
-func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn net.Conn, stream backend.QuicBackendStream) error {
+func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpConn net.Conn, stream backend.QuicBackendStream) error {
+	clientConfig := configuration.QPepConfig.Client
+
 	switch req.Method {
 	case http.MethodDelete:
 		fallthrough
@@ -369,12 +389,12 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 			Port: port,
 		}
 
-		if header.DestAddr.IP.String() == ClientConfiguration.GatewayHost {
-			header.Flags |= shared.QPEP_LOCALSERVER_DESTINATION
+		if header.DestAddr.IP.String() == clientConfig.GatewayHost {
+			header.Flags |= protocol.QPEP_LOCALSERVER_DESTINATION
 		}
 
 		headerData := header.ToBytes()
-		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
+		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
 		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
 		logger.Info("QPEP header %v / ID: %v", headerData, stream.ID())
 
@@ -382,7 +402,7 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 		if err != nil {
 			_ = tcpConn.Close()
 			logger.Error("Error writing to quic stream: %v", err)
-			return shared.ErrFailed
+			return errors.ErrFailed
 		}
 
 		logger.Debug("Sending captured %s request\n", req.Method)
@@ -421,10 +441,10 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 			Port: port,
 		}
 
-		if header.DestAddr.IP.String() == ClientConfiguration.GatewayHost {
-			header.Flags |= shared.QPEP_LOCALSERVER_DESTINATION
+		if header.DestAddr.IP.String() == clientConfig.GatewayHost {
+			header.Flags |= protocol.QPEP_LOCALSERVER_DESTINATION
 		}
-		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&shared.QPEP_LOCALSERVER_DESTINATION)
+		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
 
 		logger.Info("(Proxied) Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
 
@@ -432,7 +452,7 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 		if err != nil {
 			_ = tcpConn.Close()
 			logger.Error("Error writing to quic stream: %v", err)
-			return shared.ErrFailed
+			return errors.ErrFailed
 		}
 		break
 	default:
@@ -444,7 +464,9 @@ func handleProxyedRequest(req *http.Request, header *shared.QPepHeader, tcpConn 
 // handleTcpToQuic method implements the tcp connection to quic connection side of the connection
 func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backend.QuicBackendStream, src net.Conn, qtFlag, tqFlag *atomic.Bool) {
 
-	buf := make([]byte, shared.QPepConfig.BufferSize*1024)
+	config := configuration.QPepConfig.Protocol
+
+	buf := make([]byte, config.BufferSize*1024)
 	written := int64(0)
 	read := int64(0)
 
@@ -504,8 +526,9 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 
 // handleQuicToTcp method implements the quic connection to tcp connection side of the connection
 func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Conn, src backend.QuicBackendStream, qtFlag, tqFlag *atomic.Bool) {
+	config := configuration.QPepConfig.Protocol
 
-	buf := make([]byte, shared.QPepConfig.BufferSize*1024)
+	buf := make([]byte, config.BufferSize*1024)
 	written := int64(0)
 	read := int64(0)
 
@@ -660,28 +683,34 @@ var openSessionLock sync.Mutex
 
 // openQuicSession implements the quic connection request to the qpep server
 func openQuicSession() (backend.QuicBackendConnection, error) {
+	configProto := configuration.QPepConfig.Protocol
+	configSec := configuration.QPepConfig.Security
+	clientConfig := configuration.QPepConfig.Client
+
 	if quicProvider == nil {
 		var ok bool
-		quicProvider, ok = backend.Get(shared.QPepConfig.Backend)
+		quicProvider, ok = backend.Get(configProto.Backend)
 		if !ok {
-			panic(shared.ErrInvalidBackendSelected)
+			panic(errors.ErrInvalidBackendSelected)
 		}
 	}
 
 	openSessionLock.Lock()
 	defer openSessionLock.Unlock()
 
-	logger.Info("== Dialing QUIC Session: %s:%d ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort)
-	session, err := quicProvider.Dial(context.Background(), ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort,
-		shared.QPepConfig.Certificate, shared.QPepConfig.CCAlgorithm, shared.QPepConfig.CCSlowstartAlgo,
+	logger.Info("== Dialing Protocol Session: %s:%d ==\n", clientConfig.GatewayHost, clientConfig.GatewayPort)
+
+	session, err := quicProvider.Dial(context.Background(),
+		clientConfig.GatewayHost, clientConfig.GatewayPort,
+		configSec.Certificate, configProto.CCAlgorithm, configProto.CCSlowstartAlgo,
 		flags.Globals.Trace)
 
 	if err != nil {
-		logger.Error("== Unable to Dial QUIC Session: %v ==\n", err)
-		return nil, shared.ErrFailedGatewayConnect
+		logger.Error("== Unable to Dial Protocol Session: %v ==\n", err)
+		return nil, errors.ErrFailedGatewayConnect
 	}
 
-	logger.Info("== Dialed QUIC Session: %s:%d (%v) ==\n", ClientConfiguration.GatewayHost, ClientConfiguration.GatewayPort,
+	logger.Info("== Dialed Protocol Session: %s:%d (%v) ==\n", clientConfig.GatewayHost, clientConfig.GatewayPort,
 		session)
 
 	return session, nil

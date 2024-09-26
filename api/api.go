@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/parvit/qpep/shared/configuration"
+	"github.com/parvit/qpep/shared/version"
 	"net/http"
 	"net/http/httputil"
 	"runtime"
@@ -12,9 +14,6 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/version"
 )
 
 func closeBody(req *http.Request) {
@@ -26,7 +25,8 @@ func closeBody(req *http.Request) {
 // formatRequest method formats to a string the request in input, if verbose configuration
 // is set then also the body of the request is extracted
 func formatRequest(r *http.Request) string {
-	data, err := httputil.DumpRequest(r, shared.QPepConfig.Verbose)
+	config := configuration.QPepConfig.General
+	data, err := httputil.DumpRequest(r, config.Verbose)
 	if err != nil {
 		return fmt.Sprintf("REQUEST: %v", err)
 	}
@@ -173,7 +173,7 @@ func apiStatisticsInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Par
 	reqAddress := ps.ByName("addr")
 
 	lastUpdate := ""
-	address := shared.QPepConfig.ListenHost
+	address := configuration.QPepConfig.Client.LocalListeningAddress
 	platform := runtime.GOOS
 	if len(reqAddress) > 0 {
 		address = reqAddress

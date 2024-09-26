@@ -11,8 +11,11 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/parvit/qpep/api"
 	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/logger"
-	"github.com/parvit/qpep/shared"
+	"github.com/parvit/qpep/shared/configuration"
+	errors2 "github.com/parvit/qpep/shared/errors"
+	"github.com/parvit/qpep/shared/logger"
+	"github.com/parvit/qpep/shared/protocol"
+	"github.com/parvit/qpep/workers/gateway"
 	"github.com/rs/cors"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -54,14 +57,17 @@ type ServerSuite struct {
 func (s *ServerSuite) BeforeTest(_, testName string) {
 	backend.GenerateTLSConfig("cert.pem", "key.pem")
 
-	shared.QPepConfig.BufferSize = 32
-	shared.QPepConfig.Certificate = "cert.pem"
-	shared.QPepConfig.CertKey = "key.pem"
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.ListenPort = 9090
-	shared.QPepConfig.GatewayAPIPort = 9443
+	configuration.QPepConfig = configuration.QPepConfigType{}
+	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
 
-	logger.SetupLogger(testName, "debug")
+	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Server.LocalListenPort = 9090
+	configuration.QPepConfig.Security.Certificate = "cert.pem"
+	configuration.QPepConfig.Security.PrivateKey = "key.pem"
+	configuration.QPepConfig.Protocol.BufferSize = 32
+	configuration.QPepConfig.General.APIPort = 9443
+
+	logger.SetupLogger(testName, "info")
 }
 
 func (s *ServerSuite) AfterTest(_, testName string) {
@@ -76,31 +82,31 @@ func (s *ServerSuite) TestValidateConfiguration() {
 }
 
 func (s *ServerSuite) TestValidateConfiguration_BadListenAddress() {
-	shared.QPepConfig.ListenHost = "ABCD"
-	shared.QPepConfig.ListenPort = 9090
-	shared.QPepConfig.GatewayAPIPort = 9443
+	configuration.QPepConfig.Server.LocalListeningAddress = "ABCD"
+	configuration.QPepConfig.Server.LocalListenPort = 9090
+	configuration.QPepConfig.General.APIPort = 9443
 
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(s.T(), errors2.ErrConfigurationValidationFailed, func() {
 		validateConfiguration()
 	})
 }
 
 func (s *ServerSuite) TestValidateConfiguration_BadListenPort() {
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.ListenPort = 0
-	shared.QPepConfig.GatewayAPIPort = 9443
+	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Server.LocalListenPort = 0
+	configuration.QPepConfig.General.APIPort = 9443
 
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(s.T(), errors2.ErrConfigurationValidationFailed, func() {
 		validateConfiguration()
 	})
 }
 
 func (s *ServerSuite) TestValidateConfiguration_BadAPIPort() {
-	shared.QPepConfig.ListenHost = "127.0.0.1"
-	shared.QPepConfig.ListenPort = 9090
-	shared.QPepConfig.GatewayAPIPort = 99999
+	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
+	configuration.QPepConfig.Server.LocalListenPort = 9090
+	configuration.QPepConfig.General.APIPort = 99999
 
-	assert.PanicsWithValue(s.T(), shared.ErrConfigurationValidationFailed, func() {
+	assert.PanicsWithValue(s.T(), errors2.ErrConfigurationValidationFailed, func() {
 		validateConfiguration()
 	})
 }
@@ -198,7 +204,7 @@ func (s *ServerSuite) TestRunServer() {
 }
 
 func (s *ServerSuite) TestRunServer_BadConfig() {
-	shared.QPepConfig.ListenHost = "ABCD"
+	configuration.QPepConfig.Server.LocalListeningAddress = "ABCD"
 
 	s.runServerTest()
 }
@@ -214,7 +220,7 @@ func (s *ServerSuite) TestRunServer_BadListener() {
 func (s *ServerSuite) TestRunServer_APIConnection() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	monkey.Patch(shared.GetDefaultLanListeningAddress, func(current, gateway string) (string, []int64) {
+	monkey.Patch(gateway.GetDefaultLanListeningAddress, func(current, gateway string) (string, []int64) {
 		return "127.0.0.1", nil
 	})
 
@@ -229,7 +235,7 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 		api.RunServer(ctx, cancel, false)
 	}()
 
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
@@ -237,7 +243,7 @@ func (s *ServerSuite) TestRunServer_APIConnection() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -288,7 +294,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
 		RunServer(ctx, cancel)
 	}()
 
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
@@ -326,7 +332,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 		api.RunServer(ctx, cancel, false)
 	}()
 
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	conn, err := openQuicSession_test(addr, 9090)
 	assert.Nil(s.T(), err)
@@ -334,7 +340,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -362,7 +368,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
 
 func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 	// incoming speed limit
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	clientsMap := map[string]string{
 		addr + "/32": "0",
@@ -372,16 +378,16 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 		"google.com": "0",
 	}
 
-	shared.QPepConfig.Limits = shared.LimitsDefinition{
-		Clients:      clientsMap,
-		Destinations: destMap,
+	configuration.QPepConfig.Limits = &configuration.LimitsDefinition{
+		Incoming: clientsMap,
+		Outgoing: destMap,
 	}
 
 	// incoming speed limits
-	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+	configuration.LoadAddressSpeedLimitMap(clientsMap, true)
 
 	// outgoing speed limit
-	shared.LoadAddressSpeedLimitMap(destMap, false)
+	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
 	ctx, cancel := context.WithCancel(context.Background())
@@ -404,7 +410,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -437,7 +443,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 
 func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 	// incoming speed limit
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	clientsMap := map[string]string{
 		addr + "/32": "100K",
@@ -447,16 +453,16 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 		"google.com": "0",
 	}
 
-	shared.QPepConfig.Limits = shared.LimitsDefinition{
-		Clients:      clientsMap,
-		Destinations: destMap,
+	configuration.QPepConfig.Limits = &configuration.LimitsDefinition{
+		Incoming: clientsMap,
+		Outgoing: destMap,
 	}
 
 	// incoming speed limits
-	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+	configuration.LoadAddressSpeedLimitMap(clientsMap, true)
 
 	// outgoing speed limit
-	shared.LoadAddressSpeedLimitMap(destMap, false)
+	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
 	ctx, cancel := context.WithCancel(context.Background())
@@ -479,7 +485,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -512,7 +518,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 
 func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	// incoming speed limit
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	clientsMap := map[string]string{
 		addr + "/32": "300K",
@@ -521,16 +527,16 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 		"google.com": "0",
 	}
 
-	shared.QPepConfig.Limits = shared.LimitsDefinition{
-		Clients:      clientsMap,
-		Destinations: destMap,
+	configuration.QPepConfig.Limits = &configuration.LimitsDefinition{
+		Incoming: clientsMap,
+		Outgoing: destMap,
 	}
 
 	// incoming speed limits
-	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+	configuration.LoadAddressSpeedLimitMap(clientsMap, true)
 
 	// outgoing speed limit
-	shared.LoadAddressSpeedLimitMap(destMap, false)
+	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
 	ctx, cancel := context.WithCancel(context.Background())
@@ -581,7 +587,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -625,7 +631,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 
 func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	// incoming speed limit
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	clientsMap := map[string]string{}
 	destMap := map[string]string{
@@ -633,16 +639,16 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 		"google.com": "0",
 	}
 
-	shared.QPepConfig.Limits = shared.LimitsDefinition{
-		Clients:      clientsMap,
-		Destinations: destMap,
+	configuration.QPepConfig.Limits = &configuration.LimitsDefinition{
+		Incoming: clientsMap,
+		Outgoing: destMap,
 	}
 
 	// incoming speed limits
-	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+	configuration.LoadAddressSpeedLimitMap(clientsMap, true)
 
 	// outgoing speed limit
-	shared.LoadAddressSpeedLimitMap(destMap, false)
+	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
 	ctx, cancel := context.WithCancel(context.Background())
@@ -693,7 +699,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -742,21 +748,21 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 
 func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	// incoming speed limit
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	clientsMap := map[string]string{}
 	destMap := map[string]string{}
 
-	shared.QPepConfig.Limits = shared.LimitsDefinition{
-		Clients:      clientsMap,
-		Destinations: destMap,
+	configuration.QPepConfig.Limits = &configuration.LimitsDefinition{
+		Incoming: clientsMap,
+		Outgoing: destMap,
 	}
 
 	// incoming speed limits
-	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+	configuration.LoadAddressSpeedLimitMap(clientsMap, true)
 
 	// outgoing speed limit
-	shared.LoadAddressSpeedLimitMap(destMap, false)
+	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
 	ctx, cancel := context.WithCancel(context.Background())
@@ -809,7 +815,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -838,21 +844,21 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 
 func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	// incoming speed limit
-	addr, _ := shared.GetDefaultLanListeningAddress("127.0.0.1", "")
+	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
 	clientsMap := map[string]string{}
 	destMap := map[string]string{}
 
-	shared.QPepConfig.Limits = shared.LimitsDefinition{
-		Clients:      clientsMap,
-		Destinations: destMap,
+	configuration.QPepConfig.Limits = &configuration.LimitsDefinition{
+		Incoming: clientsMap,
+		Outgoing: destMap,
 	}
 
 	// incoming speed limits
-	shared.LoadAddressSpeedLimitMap(clientsMap, true)
+	configuration.LoadAddressSpeedLimitMap(clientsMap, true)
 
 	// outgoing speed limit
-	shared.LoadAddressSpeedLimitMap(destMap, false)
+	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
 	ctx, cancel := context.WithCancel(context.Background())
@@ -904,7 +910,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	stream, err := conn.OpenStream(ctx)
 	assert.Nil(s.T(), err)
 
-	sessionHeader := shared.QPepHeader{
+	sessionHeader := protocol.QPepHeader{
 		SourceAddr: &net.TCPAddr{
 			IP: net.ParseIP(addr),
 		},
@@ -937,16 +943,16 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 // --- utilities --- //
 func openQuicSession_test(address string, port int) (backend.QuicBackendConnection, error) {
 	var ok bool
-	quicProvider, ok = backend.Get(shared.QPepConfig.Backend)
+	quicProvider, ok = backend.Get(configuration.QPepConfig.Protocol.Backend)
 	if !ok {
-		panic(shared.ErrInvalidBackendSelected)
+		panic(errors2.ErrInvalidBackendSelected)
 	}
 
 	conn, err := quicProvider.Dial(context.Background(), address, port, "cert.pem",
 		"reno", "basic", false)
 
 	if err != nil {
-		logger.Error("Unrecoverable error while listening for QUIC connections: %s\n", err)
+		logger.Error("Unrecoverable error while listening for Protocol connections: %s\n", err)
 		return nil, err
 	}
 
