@@ -96,13 +96,6 @@ func handleTCPConn(tcpConn net.Conn) {
 			}
 		}
 
-		if filteredPorts == nil {
-			filteredPorts = make(map[int]struct{})
-			for _, p := range shared.QPepConfig.IgnoredPorts {
-				filteredPorts[p] = struct{}{}
-			}
-		}
-
 		// proxy open connection
 		proxyRequest, errProxy = handleProxyOpenConnection(tcpConn)
 		if errProxy == errors.ErrProxyCheckRequest {

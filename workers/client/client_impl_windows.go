@@ -13,7 +13,6 @@ func initDiverter() bool {
 	generalConfig := configuration.QPepConfig.General
 	clientConfig := configuration.QPepConfig.Client
 	filteredPorts := configuration.QPepConfig.Limits.IgnoredPorts
-	filteredPorts := shared.QPepConfig.IgnoredPorts
 
 	gatewayHost := clientConfig.GatewayHost
 	gatewayPort := clientConfig.GatewayPort
