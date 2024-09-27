@@ -82,7 +82,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_user_manual
+          name: qpep_user_manual_b${{ github.run_id }}
           path: "docs/*.pdf"
 
   build-linux:
@@ -334,13 +334,14 @@ jobs:
       - name: Download UserManual Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_user_manual
+          name: qpep_user_manual_b${{ github.run_id }}
 
       - name: Prepare archives
         run: |
            cd ${{ github.workspace }}
            7z a -tzip qpep_windows_b${{ github.run_id }}.zip ${{ github.workspace }}/installer.msi
            7z a -tzip qpep_linux_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep
+           7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/user_manual.pdf
 
       - name: Create Release
         id: create_release
@@ -384,6 +385,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: qpep_user_manual.zip
+          asset_path: qpep_user_manual_b${{ github.run_id }}.zip
           asset_name: qpep_user_manual_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
           asset_content_type: application/zip
