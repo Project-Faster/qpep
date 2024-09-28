@@ -1,29 +1,24 @@
 
-# client
-gateway: <QPEP_GATEWAY>
-port: <QPEP_PORT>
-apiport: 444
-listenaddress: <QPEP_ADDRESS>
-listenport: 9443
+client:
+  local_address: <QPEP_ADDRESS>
+  local_port: 9443
+  gateway_address: <QPEP_GATEWAY>
+  gateway_port: <QPEP_PORT>
 
-# backend
-backend: <QPEP_BACKEND>
-ccalgorithm: <QPEP_CCA>
-ccslowstart: <QPEP_SLOWSTART>
-buffersize: 512 # in Kb
+protocol:
+  backend: <QPEP_BACKEND>
+  buffersize: 512
+  idletimeout: 30s
+  ccalgorithm: <QPEP_CCA>
+  ccslowstart: <QPEP_SLOWSTART>
 
-# certificate
-certificate: server_cert.pem
+security:
+  certificate: server_cert.pem
 
-# default
-acks: 10
-ackdelay: 25
-congestion: 4
-decimate: 4
-decimatetime: 100
-maxretries: 50
-multistream: true
-verbose: false
-preferproxy: true
-varackdelay: 0
-threads: 4
+general:
+  api_port: 444
+  max_retries: 20
+  diverter_threads: 4
+  use_multistream: true
+  prefer_proxy: true
+  verbose: false
