@@ -1,7 +1,7 @@
 
 server:
   local_address: ${QPEP_ADDRESS}
-  local_port: 443
+  local_port: ${QPEP_PORT}
 
 protocol:
   backend: ${QPEP_BACKEND}
