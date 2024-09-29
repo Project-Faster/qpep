@@ -19,7 +19,7 @@ on:
         default: false
         required: true
   push:
-    branches: [ "main", "testing-*", "issue*" ]
+    branches: [ "main", "dev-*" ]
 
 run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] rev.${{ github.sha }}
 

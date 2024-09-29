@@ -215,7 +215,9 @@ jobs:
 
       - name: Reset Proxy
         if: always()
+        shell: cmd
         run: |
+          set CGO_ENABLED=0
           go run docker/speedtests/utils/reset_proxy_util.go
 
       - name: Generate results
