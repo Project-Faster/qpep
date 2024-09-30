@@ -22,6 +22,7 @@ var targetURL = flag.String("target_url", "", "url to download")
 var connections = flag.Int("connections_num", 1, "simultaneous tcp connections to make to the server")
 var expectedSize = flag.Int("expect_mb", 10, "size in MBs of the target file")
 var debugProxy = flag.String("debug_proxy", "", "url to download")
+var debugVerbose = flag.Bool("debug_verbose", false, "print verbose output")
 
 var testlog log.Logger
 
@@ -185,7 +186,9 @@ func (s *SpeedTestsConfigSuite) TestRun() {
 				toRead -= int64(read)
 				flagActivity = time.Now().Unix()
 
-				test.Logf("#%d read: %d, total: %d, toRead: %d", id, read, resp.ContentLength, toRead)
+				if *debugVerbose {
+					test.Logf("#%d read: %d, total: %d, toRead: %d", id, read, resp.ContentLength, toRead)
+				}
 				if time.Since(start) > 100*time.Millisecond {
 					start = time.Now()
 					//test.Logf("#%d bytes to read: %d", id, toRead)

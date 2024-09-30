@@ -166,6 +166,7 @@ jobs:
         shell: cmd
         run: |
           cd docker/speedtests/
+          set CGO_ENABLED=0
           go test speed_test.go -v -c -o speedtests.test
 
           .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
