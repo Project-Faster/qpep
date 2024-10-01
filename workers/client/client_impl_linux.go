@@ -8,10 +8,16 @@ import (
 // initDiverter method wraps the logic for initializing the windiverter engine, returns true if the diverter
 // succeeded initialization and false otherwise
 func initDiverter() bool {
+	clientConfig := configuration.QPepConfig.Client
+	filteredPorts := configuration.QPepConfig.Limits.IgnoredPorts
+
+	listenPort := clientConfig.LocalListenPort
+	listenHost := clientConfig.LocalListeningAddress
+
 	redirected = gateway.SetConnectionDiverter(true, "",
-		configuration.QPepConfig.Client.LocalListeningAddress, 0,
-		configuration.QPepConfig.Client.LocalListenPort, 0,
-		0)
+		listenHost, 0,
+		listenPort, 0,
+		0, filteredPorts)
 
 	return redirected
 }
@@ -19,7 +25,7 @@ func initDiverter() bool {
 // stopDiverter method wraps the calls for stopping the diverter
 func stopDiverter() {
 	redirected = false
-	gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
+	gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0, []int{})
 }
 
 // initProxy method wraps the calls for initializing the proxy

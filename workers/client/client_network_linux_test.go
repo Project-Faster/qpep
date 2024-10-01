@@ -100,7 +100,7 @@ func (s *ClientNetworkSuite) TestGetAddressPortFromHost_Invalid() {
 }
 
 func (s *ClientNetworkSuite) TestInitialCheckConnection_PreferProxy() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	validateConfiguration()
@@ -122,11 +122,11 @@ func (s *ClientNetworkSuite) TestInitialCheckConnection_PreferProxy() {
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirect() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_OK
 	})
@@ -148,7 +148,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirec
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterSwitchToProxy() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	var calledInit = false
@@ -181,7 +181,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterSwitchToPro
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterExhausted() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
@@ -206,7 +206,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterExhausted()
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyKeepRedirect() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	validateConfiguration()
@@ -233,7 +233,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyKeepRedirect()
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_OK() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	validateConfiguration()
@@ -249,7 +249,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 		}
 	})
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_OK
 	})
@@ -263,7 +263,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_Fail() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	validateConfiguration()
@@ -279,7 +279,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 		}
 	})
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_ERROR_FAILED
 	})
@@ -293,7 +293,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 }
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxyExhausted() {
-	s.T().Skipf("Proxy set on linux not implemented yet")
+	s.T().Skipf("Proxy set not supported on linux")
 	return
 
 	validateConfiguration()

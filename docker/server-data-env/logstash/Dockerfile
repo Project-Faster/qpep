@@ -1,5 +1,5 @@
 
-FROM opensearchproject/logstash-oss-with-opensearch-output-plugin:8.6.1
+FROM opensearchproject/logstash-oss-with-opensearch-output-plugin:8.9.0
 USER "root"
 
 WORKDIR /usr/share/logstash/bin

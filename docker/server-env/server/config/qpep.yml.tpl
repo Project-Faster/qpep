@@ -1,22 +1,19 @@
 
-# server
-gateway: ${QPEP_GATEWAY}
-port: 443
-apiport: 444
-listenaddress: ${QPEP_ADDRESS}
-listenport: ${QPEP_PORT}
+server:
+  local_address: ${QPEP_ADDRESS}
+  local_port: ${QPEP_PORT}
 
-# backend
-backend: ${QPEP_BACKEND}
-ccalgorithm: ${QPEP_CCA}
-ccslowstart: ${QPEP_SLOWSTART}
-buffersize: 512 # in Kb
+protocol:
+  backend: ${QPEP_BACKEND}
+  buffersize: 512
+  idletimeout: 30s
+  ccalgorithm: ${QPEP_CCA}
+  ccslowstart: ${QPEP_SLOWSTART}
 
-# certificate
-certificate: server_cert.pem
-certificate_key: server_key.pem
+security:
+  certificate: server_cert.pem
+  private_key: server_key.pem
 
-# broker settings
 analytics:
   enabled: true
   topic: /qpep
@@ -24,15 +21,10 @@ analytics:
   port: 1883
   protocol: tcp
 
-# default
-acks: 10
-ackdelay: 25
-congestion: 4
-decimate: 4
-decimatetime: 100
-maxretries: 100
-multistream: true
-verbose: false
-preferproxy: true
-varackdelay: 0
-threads: 4
+general:
+  api_port: 444
+  max_retries: 20
+  diverter_threads: 4
+  use_multistream: true
+  prefer_proxy: true
+  verbose: false

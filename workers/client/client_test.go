@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/suite"
 	"math/big"
 	"net"
+	"net/url"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -44,6 +46,8 @@ func (s *ClientSuite) BeforeTest(_, testName string) {
 	gateway.UsingProxy = false
 	gateway.ProxyAddress = nil
 
+	GATEWAY_CHECK_WAIT = 1 * time.Second
+
 	configuration.QPepConfig = configuration.QPepConfigType{}
 	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
 
@@ -57,7 +61,7 @@ func (s *ClientSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.General.MultiStream = true
 	configuration.QPepConfig.General.WinDivertThreads = 4
 	configuration.QPepConfig.General.PreferProxy = true
-	configuration.QPepConfig.General.Verbose = true
+	configuration.QPepConfig.General.Verbose = false
 }
 
 func (s *ClientSuite) AfterTest(_, testName string) {

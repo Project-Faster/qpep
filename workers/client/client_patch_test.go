@@ -55,7 +55,7 @@ func (s *ClientSuite) TestHandleServices() {
 	}()
 
 	wg2 := &sync.WaitGroup{}
-	wg2.Add(3)
+	wg2.Add(2)
 
 	var calledInitialCheck = false
 	monkey.Patch(initialCheckConnection, func() {
@@ -76,15 +76,6 @@ func (s *ClientSuite) TestHandleServices() {
 			ServerVersion: "0.1.0",
 		}
 	})
-	var calledStatsUpdate = false
-	monkey.Patch(clientStatisticsUpdate, func(_ string, _ string, _ int, pubAddress string) bool {
-		assert.Equal(s.T(), "172.20.50.150", pubAddress)
-		if !calledStatsUpdate {
-			calledStatsUpdate = true
-			wg2.Done()
-		}
-		return true
-	})
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -102,7 +93,7 @@ func (s *ClientSuite) TestHandleServices() {
 	}()
 
 	select {
-	case <-time.After(10 * time.Second):
+	case <-time.After((GATEWAY_CHECK_WAIT * 3) + (1 * time.Second)):
 		s.T().Logf("Test Timed out waiting for routines to finish")
 		s.T().FailNow()
 		return
@@ -112,7 +103,6 @@ func (s *ClientSuite) TestHandleServices() {
 
 	assert.True(s.T(), calledInitialCheck)
 	assert.True(s.T(), calledGatewayCheck)
-	assert.True(s.T(), calledStatsUpdate)
 }
 
 func (s *ClientSuite) TestHandleServices_PanicCheck() {
@@ -181,7 +171,7 @@ func (s *ClientSuite) TestHandleServices_FailGateway() {
 	}()
 
 	select {
-	case <-time.After(10 * time.Second):
+	case <-time.After((GATEWAY_CHECK_WAIT * 3) + (1 * time.Second)):
 		s.T().Logf("Test Timed out waiting for routines to finish")
 		s.T().FailNow()
 		return
@@ -197,7 +187,7 @@ func (s *ClientSuite) TestHandleServices_FailGateway() {
 
 func (s *ClientSuite) TestHandleServices_FailStatistics() {
 	wg2 := &sync.WaitGroup{}
-	wg2.Add(4)
+	wg2.Add(3)
 	var calledInitialCheck = false
 	monkey.Patch(initialCheckConnection, func() {
 		if !calledInitialCheck {
@@ -216,15 +206,6 @@ func (s *ClientSuite) TestHandleServices_FailStatistics() {
 			Port:          54635,
 			ServerVersion: "0.1.0",
 		}
-	})
-	var calledStatsUpdate = false
-	monkey.Patch(clientStatisticsUpdate, func(_ string, _ string, _ int, pubAddress string) bool {
-		assert.Equal(s.T(), "172.20.50.150", pubAddress)
-		if !calledStatsUpdate {
-			calledStatsUpdate = true
-			wg2.Done()
-		}
-		return false
 	})
 	var calledFailedConnectionFirst = false
 	var calledFailedConnectionSecond = false
@@ -266,7 +247,6 @@ func (s *ClientSuite) TestHandleServices_FailStatistics() {
 
 	assert.True(s.T(), calledInitialCheck)
 	assert.True(s.T(), calledGatewayCheck)
-	assert.True(s.T(), calledStatsUpdate)
 	assert.True(s.T(), calledFailedConnectionFirst)
 	assert.True(s.T(), calledFailedConnectionSecond)
 }
@@ -304,41 +284,45 @@ func (s *ClientSuite) TestStopProxy() {
 }
 
 func (s *ClientSuite) TestInitDiverter() {
-	if runtime.GOOS != "windows" {
-		assert.False(s.T(), initDiverter())
-		return
-	}
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
-		return windivert.DIVERT_OK
+	redirected = false
+	monkey.Patch(gateway.SetConnectionDiverter, func(active bool, _ string, _ string, _ int, _ int, _ int, _ int64, _ []int) bool {
+		assert.True(s.T(), active)
+		redirected = true
+		return true
 	})
 	assert.True(s.T(), initDiverter())
+	assert.True(s.T(), redirected)
 }
 
 func (s *ClientSuite) TestInitDiverter_Fail() {
-	if runtime.GOOS != "windows" {
-		assert.False(s.T(), initDiverter())
-		return
-	}
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
-		return windivert.DIVERT_ERROR_ALREADY_INIT
+	redirected = true
+	monkey.Patch(gateway.SetConnectionDiverter, func(active bool, _ string, _ string, _ int, _ int, _ int, _ int64, _ []int) bool {
+		assert.True(s.T(), active)
+		redirected = false
+		return false
 	})
 	assert.False(s.T(), initDiverter())
+	assert.False(s.T(), redirected)
 }
 
 func (s *ClientSuite) TestStopDiverter() {
-	if runtime.GOOS != "windows" {
-		assert.False(s.T(), initDiverter())
-		return
-	}
-	monkey.Patch(windivert.CloseWinDivertEngine, func() int {
-		return windivert.DIVERT_OK
+	redirected = true
+	monkey.Patch(gateway.SetConnectionDiverter, func(active bool, _ string, _ string, _ int, _ int, _ int, _ int64, _ []int) bool {
+		assert.False(s.T(), active)
+		redirected = false
+		return false
 	})
 	stopDiverter()
 	assert.False(s.T(), redirected)
 }
 
-func (s *ClientSuite) TestInitialCheckConnection() {
-	configuration.QPepConfig.General.PreferProxy = false
+func (s *ClientSuite) TestInitialCheckConnection_Proxy() {
+	if runtime.GOOS == "linux" {
+		s.T().Skipf("Proxy set not supported on linux")
+		return
+	}
+
+	configuration.QPepConfig.General.PreferProxy = true
 	validateConfiguration()
 
 	monkey.Patch(gateway.SetSystemProxy, func(active bool) {
@@ -347,14 +331,34 @@ func (s *ClientSuite) TestInitialCheckConnection() {
 		gateway.ProxyAddress, _ = url.Parse("http://127.0.0.1:8080")
 	})
 
+	redirected = false
+	assert.False(s.T(), gateway.UsingProxy)
+	initialCheckConnection()
+	assert.True(s.T(), gateway.UsingProxy)
+	assert.NotNil(s.T(), gateway.ProxyAddress)
+
+	assert.False(s.T(), redirected)
+}
+
+func (s *ClientSuite) TestInitialCheckConnection_Diverter() {
+	configuration.QPepConfig.General.PreferProxy = false
+	validateConfiguration()
+	if runtime.GOOS == "linux" {
+		assert.False(s.T(), configuration.QPepConfig.General.PreferProxy)
+	}
+
+	redirected = false
+	monkey.Patch(initDiverter, func() bool {
+		redirected = true
+		return true
+	})
+
 	assert.False(s.T(), gateway.UsingProxy)
 	initialCheckConnection()
 	assert.False(s.T(), gateway.UsingProxy)
 	assert.Nil(s.T(), gateway.ProxyAddress)
 
-	initialCheckConnection()
-	assert.False(s.T(), gateway.UsingProxy)
-	assert.Nil(s.T(), gateway.ProxyAddress)
+	assert.True(s.T(), redirected)
 }
 
 func (s *ClientSuite) TestGatewayStatusCheck() {

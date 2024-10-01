@@ -64,7 +64,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	code := InitializeWinDivertEngine(
 		"127.0.0.1", "127.0.0.2",
 		configuration.QPepConfig.General.APIPort, 445,
-		4, itFaces[0])
+		4, itFaces[0], []int{80})
 
 	assert.Equal(t, DIVERT_OK, code)
 }
@@ -77,7 +77,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 	code := InitializeWinDivertEngine(
 		"127.0.0.1", "127.0.0.2",
 		0, 0,
-		4, itFaces[0])
+		4, itFaces[0], []int{80})
 
 	assert.NotEqual(t, DIVERT_OK, code)
 }
@@ -90,7 +90,7 @@ func (s *WinDivertSuite) TestCloseWinDivertEngine() {
 	code := InitializeWinDivertEngine(
 		"127.0.0.1", "127.0.0.2",
 		configuration.QPepConfig.General.APIPort, 445,
-		4, itFaces[0])
+		4, itFaces[0], []int{80})
 
 	assert.Equal(t, DIVERT_OK, code)
 

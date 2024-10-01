@@ -277,6 +277,13 @@ func validateConfiguration() {
 
 	configuration.AssertParamNumeric("auto-redirected interfaces", len(clientAdditional.RedirectedInterfaces), 0, 256)
 
+	switch runtime.GOOS {
+	case "linux":
+		logger.Info("Platform forced prefer_proxy to false\n")
+		configGeneral.PreferProxy = false
+		break
+	}
+
 	// validation ok
 	logger.Info("Client configuration validation OK\n")
 }

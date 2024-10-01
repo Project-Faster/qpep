@@ -36,15 +36,17 @@ goals are to:
 
 \bigskip
 
-The acceleration of the TCP connections is accomplished on the client side by redirecting, in one of two ways, those connections that would have normally be sent over the high latency network:
+The acceleration of the TCP connections is accomplished on the client side by redirecting, with following methods, those connections that would have normally be sent over the high latency network:
 
 1. WinDivert Driver (*Windows Only*)
 
-2. Local Proxy
+2. IPtables redirect (*Linux Only*)
+
+3. Local Proxy
 
 \bigskip
 
-Both methods do seamlessly bridge, in the form of QUIC streams, the TCP connections originated on the local machine through to a QUIC tunnel which is received on the server machine.
+The methods do seamlessly bridge, in the form of QUIC streams, the TCP connections originated on the local machine through to a QUIC tunnel which is received on the server machine.
 
 \bigskip
 
@@ -79,7 +81,7 @@ The benefits of using the QUIC protocol over UDP are too numerous to list here, 
 
 \newpage
 
-QPep supports different backend implementations of the QUIC protocol at the moment:
+QPep supports different backend implementations of the QUIC protocol currently:
 
 * _[Quicly](https://github.com/h2o/quicly)_ : Through the [Quicly-Go](https://github.com/Project-Faster/quicly-go) wrapper, which supports the new SEARCH CCA slowstart implementation
 
@@ -112,8 +114,6 @@ Refer to https://github.com/Project-Faster/qpep/releases to download the latest 
 ### Windows
 
 > Before proceding be sure to have Administrator rights for your local machine
->
-> QPep currently only supports client mode on windows currently
 
 Once obtained the install.msi file, open it and you'll be greeted by the intro screen:
 
@@ -187,10 +187,7 @@ are created in the installation directory.
 
 #### Notes on redirection
 
-On Linux platform, setting the `prefer_proxy: true` value will not work as on the other platforms, proxy settings on Linux cannot
-be set dynamically.
-
-This implies that only `prefer_proxy: false` is actually useful and should be set as such.
+On Linux platform, setting the `prefer_proxy: true` parameter has no effect as only the iptables diverter is usable dynamically.
 
 
 \newpage
@@ -245,6 +242,8 @@ analytics:
   topic: data-topic
 
 limits:
+  ignored_ports:
+    - 3389      # example exclude RDP in TCP mode
   incoming:
     - 192.168.1.100: 100K
   outgoing:
@@ -343,7 +342,9 @@ Parameters used to configure the support for sending performance statistics to m
 
 #### Limits
 
-Allows to set speed limits for incoming and outgoing connections.
+Allows to set limits for incoming and outgoing connections.
+
+* **ignored_ports** : List of ports to ignore in redirection (implicitly contains port 53 for DNS)
 
 * **incoming** : Map composed by key / value pairs where the key is the address of the incoming connection and the value is the bytes per second specification (eg. 100K)
 
@@ -439,7 +440,7 @@ From left to right:
 Based on these parameters we can draft the two configurations for the client and the server.
 
 
-Client configuraiton
+Client configuration
 ------
 
 A possible configuration file `qpep.yml` for the client would be:

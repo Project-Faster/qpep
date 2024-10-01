@@ -33,8 +33,9 @@ var DefaultConfig = QPepConfigType{
 		Verbose:              false,
 	},
 	Limits: &LimitsDefinition{
-		Incoming: nil,
-		Outgoing: nil,
+		Incoming:     nil,
+		Outgoing:     nil,
+		IgnoredPorts: []int{},
 	},
 	Analytics: &AnalyticsDefinition{
 		Enabled:        false,

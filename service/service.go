@@ -280,7 +280,7 @@ func (p *QPepService) Main() error {
 		}
 		// be sure to clear proxy and diverter settings on exit
 		gateway.SetSystemProxy(false)
-		gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
+		gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0, []int{})
 	}()
 
 	logger.Info("Main")
@@ -348,7 +348,7 @@ func (p *QPepService) Logger(errs chan<- error) (kservice.Logger, error) {
 // runAsClient method wraps the logic to setup the system as client mode
 func runAsClient(execContext context.Context, cancel context.CancelFunc) {
 	logger.Info("Running Client")
-	windivert.EnableDiverterLogging(configuration.QPepConfig.General.Verbose)
+	windivert.EnableDiverterLogging(flags.Globals.Verbose)
 	go client.RunClient(execContext, cancel)
 }
 

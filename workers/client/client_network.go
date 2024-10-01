@@ -33,6 +33,8 @@ var (
 	newSessionLock sync.RWMutex
 	// quicSession listening quic connection to the server
 	quicSession backend.QuicBackendConnection
+
+	filteredPorts map[int]struct{} = nil
 )
 
 func setLinger(c net.Conn) {
@@ -87,12 +89,30 @@ func handleTCPConn(tcpConn net.Conn) {
 	var proxyRequest *http.Request
 	var errProxy error
 	if !diverted {
+		if filteredPorts == nil {
+			filteredPorts = make(map[int]struct{})
+			for _, p := range configuration.QPepConfig.Limits.IgnoredPorts {
+				filteredPorts[p] = struct{}{}
+			}
+		}
+
 		// proxy open connection
 		proxyRequest, errProxy = handleProxyOpenConnection(tcpConn)
 		if errProxy == errors.ErrProxyCheckRequest {
 			logger.Info("Checked for proxy usage, closing.")
 			return
 		}
+
+		// check direct connection
+		if proxyRequest != nil {
+			_, port, _ := getAddressPortFromHost(proxyRequest.Host)
+			if _, ok := filteredPorts[port]; ok {
+				logger.Info("opening proxy direct connection")
+				handleProxyedRequest(proxyRequest, nil, tcpConn, nil)
+				return
+			}
+		}
+
 		logger.OnError(errProxy, "opening proxy connection")
 	}
 
@@ -351,6 +371,12 @@ func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpCon
 
 		logger.Info("HOST: %s", req.Host)
 
+		// direct
+		if header == nil {
+			handleDirectConnection(tcpConn, req, fmt.Sprintf("%s:%d", address, port))
+			break
+		}
+
 		header.DestAddr = &net.TCPAddr{
 			IP:   address,
 			Port: port,
@@ -384,16 +410,6 @@ func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpCon
 
 		logger.Info("HOST: %s", req.Host)
 
-		header.DestAddr = &net.TCPAddr{
-			IP:   address,
-			Port: port,
-		}
-
-		if header.DestAddr.IP.String() == clientConfig.GatewayHost {
-			header.Flags |= protocol.QPEP_LOCALSERVER_DESTINATION
-		}
-		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
-
 		t := http.Response{
 			Status:        "200 Connection established",
 			StatusCode:    http.StatusOK,
@@ -407,6 +423,21 @@ func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpCon
 		}
 
 		t.Write(tcpConn)
+
+		if header == nil {
+			handleDirectConnection(tcpConn, nil, fmt.Sprintf("%s:%d", address, port))
+			break
+		}
+
+		header.DestAddr = &net.TCPAddr{
+			IP:   address,
+			Port: port,
+		}
+
+		if header.DestAddr.IP.String() == clientConfig.GatewayHost {
+			header.Flags |= protocol.QPEP_LOCALSERVER_DESTINATION
+		}
+		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
 
 		logger.Info("(Proxied) Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
 
@@ -546,6 +577,55 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 			return
 		}
 	}
+}
+
+func handleDirectConnection(conn net.Conn, req *http.Request, dest string) {
+	defer conn.Close()
+
+	logger.Info("Start direct connection: %v -> %v -> %v", conn.RemoteAddr(), conn.LocalAddr(), dest)
+	defer logger.Info("End direct connection: %v -> %v -> %v", conn.RemoteAddr(), conn.LocalAddr(), dest)
+
+	//
+	dialer := &net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 3 * time.Second,
+		DualStack: true,
+	}
+
+	c, err := dialer.Dial("tcp", dest)
+	if err != nil {
+		logger.Error("ERROR: %v", err)
+		return
+	}
+	defer c.Close()
+
+	if req != nil {
+		req.Write(c)
+	}
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer func() {
+			_ = recover()
+			wg.Done()
+		}()
+		conn.SetDeadline(time.Now().Add(10 * time.Second))
+		c.SetDeadline(time.Now().Add(10 * time.Second))
+		_, _ = io.Copy(conn, c)
+	}()
+	go func() {
+		defer func() {
+			_ = recover()
+			wg.Done()
+		}()
+		conn.SetDeadline(time.Now().Add(10 * time.Second))
+		c.SetDeadline(time.Now().Add(10 * time.Second))
+		_, _ = io.Copy(c, conn)
+	}()
+
+	wg.Wait()
 }
 
 func checkProxyTestConnection(host string) bool {

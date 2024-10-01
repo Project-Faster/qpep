@@ -1,6 +1,9 @@
 #pragma once
 
-#define FILTER_OUTBOUND "!impostor and ip.SrcAddr!=127.0.0.1 and ip.DstAddr!=127.0.0.1 and tcp and tcp.DstPort!=%d and tcp.DstPort!=53"
+#define FILTER_MAX_SIZE  (65 * 1024)
+#define FILTER_MAX       (1024)
+#define FILTER_OUTBOUND  "!impostor && ip.SrcAddr!=127.0.0.1 && ip.DstAddr!=127.0.0.1 && tcp && tcp.DstPort!=%d"
+#define FILTER_IGNORE    " && tcp.DstPort!=%d && tcp.SrcPort!=%d"
 
 #define MAXBUF            WINDIVERT_MTU_MAX
 #define INET6_ADDRSTRLEN  45

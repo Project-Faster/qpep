@@ -34,7 +34,7 @@ UINT32 allowedGatewayInterface = 0; //!< Allowed interface id to be redirected
  * @param numThreads    Number of worker threads to use (1-8)
  * @return DIVERT_OK    if everything ok, an error otherwise
  */
-int InitializeWinDivertEngine(char* gatewayHost, char* listenHost, int gatewayPort, int listenPort, int numThreads) 
+int InitializeWinDivertEngine(char* gatewayHost, char* listenHost, int gatewayPort, int listenPort, int numThreads, int* ranges, int len_ranges)
 {
     if( gatewayPort < 1 || gatewayPort > 65536 || numThreads < 1 || numThreads > MAX_THREADS ) {
         logNativeMessageToGo(0, "Cannot initialize windiver engine with provided data, gateway port:%d, threads:%d", gatewayPort, numThreads);
@@ -50,8 +50,11 @@ int InitializeWinDivertEngine(char* gatewayHost, char* listenHost, int gatewayPo
     InitializeSRWLock(&sharedRWLock);
 
     // The filter for windivert, captures outbound tcp packets which are not directed at the client listening port
-    char filterOut[256] = "";
-    snprintf(filterOut, 256, FILTER_OUTBOUND, listenPort);
+    char filterOut[FILTER_MAX] = "";
+    int wr = snprintf(filterOut, FILTER_MAX_SIZE, FILTER_OUTBOUND, listenPort );
+    for( int i=0; i<1024 && i < len_ranges; i++ ) {
+      wr += snprintf( filterOut+wr, FILTER_MAX_SIZE-wr, FILTER_IGNORE, ranges[i], ranges[i] );
+    }
     logNativeMessageToGo(0, "Filtering outbound with %s", filterOut);
 
     // Open Windivert engine

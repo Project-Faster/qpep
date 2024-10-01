@@ -284,10 +284,16 @@ func preloadRegistryKeysForUsers() {
 	}
 }
 
-func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) bool {
+func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string,
+	gatewayPort, listenPort, numThreads int,
+	gatewayInterface int64, ignoredPorts []int) bool {
+
 	if active {
-		logger.Info("Initializing WinDivert: %v %v %v %v %v %v\n", gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface)
-		code := windivert.InitializeWinDivertEngine(gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface)
+		logger.Info("Initializing WinDivert: %v %v %v %v %v %v %v\n",
+			gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface, ignoredPorts)
+
+		code := windivert.InitializeWinDivertEngine(gatewayAddr, listenAddr, gatewayPort,
+			listenPort, numThreads, gatewayInterface, ignoredPorts)
 		logger.Info("WinDivert code: %v\n", code)
 		if code != windivert.DIVERT_OK {
 			logger.Error("Could not initialize WinDivert engine, code %d\n", code)

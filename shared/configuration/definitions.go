@@ -72,6 +72,8 @@ type LimitsDefinition struct {
 	Incoming map[string]string `yaml:"incoming"`
 	// Outgoing (yaml:destinations) key defines the speed limits for outgoing connections
 	Outgoing map[string]string `yaml:"outgoing"`
+	// IgnoredPorts list of network ports to be excluded from redirection
+	IgnoredPorts []int `yaml:"ignored_ports"`
 }
 
 // AnalyticsDefinition struct models the configuration values for the analytics client, by default it
@@ -143,6 +145,7 @@ func (q *LimitsDefinition) merge(r *LimitsDefinition) {
 	if r != nil {
 		q.Incoming = r.Incoming
 		q.Outgoing = r.Outgoing
+		q.IgnoredPorts = r.IgnoredPorts
 	}
 }
 

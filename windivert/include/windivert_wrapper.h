@@ -21,7 +21,7 @@ enum {
   DIVERT_ERROR_NOT_OPEN = 4,       //!< Connection is not open so no state available
 };
 
-extern int  InitializeWinDivertEngine(char* gatewayHost, char* listenHost, int gatewayPort, int listenPort, int numThreads);
+extern int  InitializeWinDivertEngine(char* gatewayHost, char* listenHost, int gatewayPort, int listenPort, int numThreads, int* ranges, int len_ranges);
 extern int  CloseWinDivertEngine();
 extern void logMessageToGo( char* message );
 extern void EnableMessageOutputToGo( int enabled );

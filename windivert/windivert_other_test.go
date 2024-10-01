@@ -46,7 +46,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine() {
 	code := InitializeWinDivertEngine(
 		addr, addr,
 		configuration.QPepConfig.General.APIPort, 445,
-		4, 0)
+		4, 0, []int{})
 
 	assert.Equal(t, DIVERT_OK, code)
 }
@@ -59,7 +59,7 @@ func (s *WinDivertSuite) TestInitializeWinDivertEngine_Fail() {
 	code := InitializeWinDivertEngine(
 		addr, addr,
 		0, 0,
-		4, 0)
+		4, 0, []int{80})
 
 	assert.Equal(t, DIVERT_OK, code) // ok because it's not implemented on linux
 }
@@ -72,7 +72,7 @@ func (s *WinDivertSuite) TestCloseWinDivertEngine() {
 	code := InitializeWinDivertEngine(
 		addr, addr,
 		configuration.QPepConfig.General.APIPort, 445,
-		4, 0)
+		4, 0, []int{80})
 
 	assert.Equal(t, DIVERT_OK, code)
 

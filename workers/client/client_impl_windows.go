@@ -12,6 +12,7 @@ import (
 func initDiverter() bool {
 	generalConfig := configuration.QPepConfig.General
 	clientConfig := configuration.QPepConfig.Client
+	filteredPorts := configuration.QPepConfig.Limits.IgnoredPorts
 
 	gatewayHost := clientConfig.GatewayHost
 	gatewayPort := clientConfig.GatewayPort
@@ -34,13 +35,13 @@ func initDiverter() bool {
 		}
 	}
 
-	redirected = gateway.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID)
+	redirected = gateway.SetConnectionDiverter(true, gatewayHost, listenHost, gatewayPort, listenPort, threads, redirectedInetID, filteredPorts)
 	return redirected
 }
 
 // stopDiverter method wraps the calls for stopping the diverter
 func stopDiverter() {
-	gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0)
+	gateway.SetConnectionDiverter(false, "", "", 0, 0, 0, 0, []int{})
 	redirected = false
 }
 

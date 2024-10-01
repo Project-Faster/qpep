@@ -120,7 +120,7 @@ func (s *ClientNetworkSuite) TestInitialCheckConnection_PreferProxy() {
 
 func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferDiverterKeepRedirect() {
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_OK
 	})
@@ -231,7 +231,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 		}
 	})
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_OK
 	})
@@ -258,7 +258,7 @@ func (s *ClientNetworkSuite) TestFailedCheckConnection_PreferProxySwitchToProxy_
 		}
 	})
 	var calledInit = false
-	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64) int {
+	monkey.Patch(windivert.InitializeWinDivertEngine, func(string, string, int, int, int, int64, []int) int {
 		calledInit = true
 		return windivert.DIVERT_ERROR_FAILED
 	})

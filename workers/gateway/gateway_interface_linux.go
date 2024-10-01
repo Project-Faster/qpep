@@ -7,32 +7,14 @@ import (
 	"github.com/jackpal/gateway"
 	"net"
 	"net/url"
+	"strconv"
 )
 
-const (
-	// 25       smtp
-	// 21       ftp
-	// 22       ssh
-	// 23       telnet
-	// 53       dns
-	// 67, 68.  dhcp
-	// 80, 443  http/https
-	// 143      imap
-	// 161, 162 snmp
-	// 636      ldap
-	// 989, 990 sftp
-	// 1025:65535  other tcp
-	PROTOCOLS_PORTS_LIST = `21:25,53,67,68,80,443,143,636,161:162,989:990,1025:65535`
+var (
+	redirectOn = false
+
+	defaultPortsIgnored = []int{53}
 )
-
-var redirectOn = false
-
-func getRouteListeningAddresses() []string {
-	if defaultListeningAddress == "" {
-		defaultListeningAddress = "127.0.0.1"
-	}
-	return []string{defaultListeningAddress}
-}
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	defaultIP, err := gateway.DiscoverInterface()
@@ -50,11 +32,13 @@ func GetSystemProxyEnabled() (bool, *url.URL) {
 	return false, nil
 }
 
-func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) bool {
+func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int,
+	gatewayInterface int64, ignoredPorts []int) bool {
 	redirectOn = active
 
 	if active {
-		logger.Info("Setting system iptables\n")
+		logger.Info("Initializing iptables: %v %v %v %v %v %v %v\n",
+			gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface)
 
 		_, err, _ := shared.RunCommand("bash", "-c", "iptables -P FORWARD ACCEPT")
 		if err != nil {
@@ -62,15 +46,30 @@ func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayP
 			return false
 		}
 
+		var allIgnoredPorts = append([]int{}, defaultPortsIgnored...)
+		allIgnoredPorts = append(allIgnoredPorts, gatewayPort)
+		allIgnoredPorts = append(allIgnoredPorts, listenPort)
+		allIgnoredPorts = append(allIgnoredPorts, ignoredPorts...)
+
+		var allIgnoredStr = ""
+		for i := 0; i < len(allIgnoredPorts); i++ {
+			if i == 0 {
+				allIgnoredStr = strconv.FormatInt(int64(allIgnoredPorts[i]), 10)
+				continue
+			}
+
+			allIgnoredStr += "," + strconv.FormatInt(int64(allIgnoredPorts[i]), 10)
+		}
+
 		_, err, _ = shared.RunCommand("bash", "-c",
-			fmt.Sprintf("iptables -t nat -A OUTPUT -j DNAT -p tcp --to-destination %s:%d -m multiport --destination-ports %s", listenAddr, listenPort, PROTOCOLS_PORTS_LIST))
+			fmt.Sprintf("iptables -t nat -A OUTPUT -j DNAT -p tcp --to-destination %s:%d -m multiport ! --dports %s", listenAddr, listenPort, allIgnoredStr))
 		if err != nil {
 			logger.Error("%v\n", err)
 			return false
 		}
 
 		_, err, _ = shared.RunCommand("bash", "-c",
-			fmt.Sprintf("iptables -t nat -A POSTROUTING -j MASQUERADE -p tcp -m multiport --destination-ports %s", PROTOCOLS_PORTS_LIST))
+			fmt.Sprintf("iptables -t nat -A POSTROUTING -j MASQUERADE -p tcp -m multiport ! --dports %s", allIgnoredStr))
 		if err != nil {
 			logger.Error("%v\n", err)
 			return false
