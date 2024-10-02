@@ -5,6 +5,7 @@ import (
 	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/Project-Faster/qpep/workers/gateway"
 	"net"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -130,9 +131,9 @@ func handleServices(ctx context.Context, cancel context.CancelFunc, wg *sync.Wai
 				continue
 			}
 			checkIsRunning = true
-
 			connected, _ = gatewayStatusCheck(localAddr, apiAddr, apiPort)
 			checkIsRunning = false
+
 			if !connected {
 				// if connection is lost then keep the redirection active
 				// for a certain number of retries then terminate to not keep
