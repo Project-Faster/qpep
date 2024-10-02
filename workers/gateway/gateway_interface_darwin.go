@@ -217,7 +217,8 @@ func parseProxyUrlFromOutput(output []byte) string {
 	return fmt.Sprintf("%s:%s", proxyHost, proxyPort)
 }
 
-func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int, gatewayInterface int64) bool {
+func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayPort, listenPort, numThreads int,
+	gatewayInterface int64, ignoredPorts []int) bool {
 	return true
 }
 

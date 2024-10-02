@@ -26,6 +26,13 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	return []int64{}, []string{defaultIP.String()}, nil
 }
 
+func getRouteListeningAddresses() []string {
+	if defaultListeningAddress == "" {
+		defaultListeningAddress = "127.0.0.1"
+	}
+	return []string{defaultListeningAddress}
+}
+
 func SetSystemProxy(active bool) {}
 
 func GetSystemProxyEnabled() (bool, *url.URL) {
