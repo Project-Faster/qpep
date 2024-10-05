@@ -7,7 +7,6 @@ import (
 	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared/configuration"
-	"github.com/Project-Faster/qpep/windivert"
 	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"net"
