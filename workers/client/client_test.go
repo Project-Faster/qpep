@@ -20,8 +20,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"math/big"
 	"net"
-	"net/url"
-	"runtime"
 	"sync"
 	"testing"
 	"time"

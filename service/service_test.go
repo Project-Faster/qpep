@@ -82,6 +82,7 @@ func (s *ServiceSuite) TestServiceMain_Client() {
 		}, nil
 	})
 	monkey.Patch(client.RunClient, func(context.Context, context.CancelFunc) {})
+	monkey.Patch(api.RunServer, func(context.Context, context.CancelFunc, bool) {})
 	monkey.Patch(gateway.SetSystemProxy, func(bool) {})
 
 	os.Args = append(os.Args[:1], "--client")
