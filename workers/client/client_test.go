@@ -49,7 +49,7 @@ func (s *ClientSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig = configuration.QPepConfigType{}
 	configuration.QPepConfig.Merge(&configuration.DefaultConfig)
 
-	configuration.QPepConfig.Client.GatewayHost = "127.0.0.1"
+	configuration.QPepConfig.Client.GatewayHost = "127.0.0.2"
 	configuration.QPepConfig.Client.GatewayPort = 9443
 	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
 	configuration.QPepConfig.Client.LocalListenPort = 9090

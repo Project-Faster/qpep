@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/Project-Faster/monkey"
-	"github.com/julienschmidt/httprouter"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/backend"
 	"github.com/Project-Faster/qpep/shared/configuration"
@@ -13,6 +12,7 @@ import (
 	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/Project-Faster/qpep/shared/protocol"
 	"github.com/Project-Faster/qpep/workers/gateway"
+	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -385,6 +385,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	// incoming speed limit
 	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
+
+	s.T().Logf("address: %v", addr)
 
 	clientsMap := map[string]string{
 		addr + "/32": "300K",

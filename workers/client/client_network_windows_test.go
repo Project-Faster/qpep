@@ -58,7 +58,7 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.Security.Certificate = "cert.pem"
 	configuration.QPepConfig.Security.PrivateKey = "key.pem"
 
-	configuration.QPepConfig.Client.GatewayHost = "127.0.0.1"
+	configuration.QPepConfig.Client.GatewayHost = "127.0.0.2"
 	configuration.QPepConfig.Client.GatewayPort = 9443
 	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
 	configuration.QPepConfig.Client.LocalListenPort = 9090
