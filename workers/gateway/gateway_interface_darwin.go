@@ -34,10 +34,6 @@ var (
 )
 
 func getRouteListeningAddresses() []string {
-	if len(defaultListeningAddress) > 0 {
-		return []string{defaultListeningAddress}
-	}
-
 	output, err, code := shared.RunCommand("networksetup", "-listallnetworkservices")
 	if err != nil || code != 0 {
 		logger.Error("Could not set system proxy, error (code: %d): %v", code, err)
