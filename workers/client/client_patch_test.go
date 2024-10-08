@@ -7,10 +7,12 @@ import (
 	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"net"
 	"net/url"
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -375,4 +377,24 @@ func (s *ClientSuite) TestClientStatisticsUpdate_Fail() {
 
 	ok := clientStatisticsUpdate("127.0.0.1", "127.0.0.1", 8080, "172.30.54.250")
 	assert.False(s.T(), ok)
+}
+
+func (s *ClientProxyListenerSuite) TestProxyListener_FailAccept() {
+	listener, err := NewClientProxyListener("tcp", &net.TCPAddr{
+		IP:   net.ParseIP("127.0.0.1"),
+		Port: 9090,
+	})
+
+	assert.Nil(s.T(), err)
+	assert.NotNil(s.T(), listener)
+
+	clListener := listener.(*ClientProxyListener)
+	monkey.PatchInstanceMethod(reflect.TypeOf(clListener.base), "AcceptTCP",
+		func(_ *net.TCPListener) (*net.TCPConn, error) {
+			return nil, errors.ErrFailed
+		})
+
+	conn, errConn := clListener.Accept()
+	assert.Nil(s.T(), conn)
+	assert.Equal(s.T(), errors.ErrFailed, errConn)
 }

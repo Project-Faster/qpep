@@ -37,8 +37,6 @@ type ClientSuite struct {
 }
 
 func (s *ClientSuite) BeforeTest(_, testName string) {
-	gateway.SetSystemProxy(false)
-	api.Statistics.Reset()
 	proxyListener = nil
 
 	gateway.UsingProxy = false
@@ -60,6 +58,9 @@ func (s *ClientSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.General.WinDivertThreads = 4
 	configuration.QPepConfig.General.PreferProxy = true
 	configuration.QPepConfig.General.Verbose = false
+
+	gateway.SetSystemProxy(false)
+	api.Statistics.Reset()
 }
 
 func (s *ClientSuite) AfterTest(_, testName string) {

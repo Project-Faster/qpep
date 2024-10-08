@@ -7,7 +7,6 @@ import (
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/Project-Faster/qpep/shared/logger"
-	"github.com/jackpal/gateway"
 	"net"
 	"net/url"
 	"regexp"
@@ -33,17 +32,11 @@ var (
 	ipRegexp = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
 )
 
-func getRouteGatewayInterfaces() ([]int64, []string, error) {
-	defaultIP, err := gateway.DiscoverGateway()
-	if err != nil {
-		logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
+func getRouteListeningAddresses() []string {
+	if len(defaultListeningAddress) > 0 {
+		return []string{defaultListeningAddress}
 	}
 
-	logger.Info("Found default ip address: %s\n", defaultIP.String())
-	return []int64{}, []string{defaultIP.String()}, nil
-}
-
-func getRouteListeningAddresses() []string {
 	output, err, code := shared.RunCommand("networksetup", "-listallnetworkservices")
 	if err != nil || code != 0 {
 		logger.Error("Could not set system proxy, error (code: %d): %v", code, err)
@@ -75,6 +68,16 @@ func getRouteListeningAddresses() []string {
 	}
 
 	return outAddress
+}
+
+func getRouteGatewayInterfaces() ([]int64, []string, error) {
+	defaultIP, err := gateway.DiscoverGateway()
+	if err != nil {
+		logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
+	}
+
+	logger.Info("Found default ip address: %s\n", defaultIP.String())
+	return []int64{}, []string{defaultIP.String()}, nil
 }
 
 func SetSystemProxy(active bool) {

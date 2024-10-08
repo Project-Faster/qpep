@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/shared/logger"
-	"github.com/jackpal/gateway"
 	"net"
 	"net/url"
 	"strconv"
@@ -16,6 +15,13 @@ var (
 	defaultPortsIgnored = []int{53}
 )
 
+func getRouteListeningAddresses() []string {
+	if defaultListeningAddress == "" {
+		defaultListeningAddress = "127.0.0.1"
+	}
+	return []string{defaultListeningAddress}
+}
+
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
 	defaultIP, err := gateway.DiscoverInterface()
 	if err != nil {
@@ -24,13 +30,6 @@ func getRouteGatewayInterfaces() ([]int64, []string, error) {
 
 	logger.Info("Found default ip address: %s\n", defaultIP.String())
 	return []int64{}, []string{defaultIP.String()}, nil
-}
-
-func getRouteListeningAddresses() []string {
-	if defaultListeningAddress == "" {
-		defaultListeningAddress = "127.0.0.1"
-	}
-	return []string{defaultListeningAddress}
 }
 
 func SetSystemProxy(active bool) {}
