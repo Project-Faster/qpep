@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/shared/logger"
+	gw "github.com/jackpal/gateway"
 	"net"
 	"net/url"
 	"strconv"
@@ -23,7 +24,7 @@ func getRouteListeningAddresses() []string {
 }
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
-	defaultIP, err := gateway.DiscoverInterface()
+	defaultIP, err := gw.DiscoverInterface()
 	if err != nil {
 		logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
 	}
