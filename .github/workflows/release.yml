@@ -476,10 +476,11 @@ jobs:
       - name: Prepare archives
         run: |
            cd ${{ github.workspace }}
+           dir
            7z a -tzip qpep_windows_b${{ github.run_id }}.zip ${{ github.workspace }}/installer.msi
            7z a -tzip qpep_linux_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep
            7z a -tzip qpep_macos_b${{ github.run_id }}.zip ${{ github.workspace }}/*.pkg
-           7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/user_manual.pdf
+           7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep_user_manual_b${{ github.run_id }}.pdf
 
       - name: Create Release
         id: create_release
