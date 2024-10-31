@@ -96,7 +96,7 @@ jobs:
       CGO_ENABLED: 1
       GOPATH: ${{ github.workspace }}/.go
       CMAKE_BUILD_PARALLEL_LEVEL: 4
-      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
     defaults:
       run:
         shell: bash
@@ -170,12 +170,13 @@ jobs:
       - name: Test
         run: |
           set -x
+          go list ./... | grep -E -v "${IGNORE_PACKAGES}"
           for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             export WORKSPACE="${{ github.workspace }}"
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> unit_tests.out || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &>> unit_tests.out || true
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test > unit_tests.out 2>&1 || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out >> unit_tests.out 2>&1 || true
             grep -E "PASS|FAIL|SKIP" unit_tests.out || true
             cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
             popd

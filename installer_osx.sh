@@ -61,9 +61,9 @@ if [[ ! -f "../build/qpep-tray" ]]; then
   fail "Error: No qpep-tray executable found"
 fi
 
+mkdir -p QPep.app/Contents/MacOS/config
 cp ../build/qpep QPep.app/Contents/MacOS/
 cp ../build/qpep-tray QPep.app/Contents/MacOS/
-mkdir -p QPep.app/Contents/MacOS/config
 
 export QPEP_GATEWAY=192.168.1.100
 export QPEP_ADDRESS=0.0.0.0
