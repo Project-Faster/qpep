@@ -14,7 +14,7 @@ echo "**** QPEP OSX INSTALLER BUILDER ****"
 echo "************************************"
 echo
 
-echo [Prerequisites check: MAC OS]
+echo [Prerequisites check: PLATFORM MAC]
 uname -a | grep Darwin
 if [[ ! "$?" -eq "0" ]]; then
   fail "Not found"
@@ -65,6 +65,8 @@ mkdir -p QPep.app/Contents/MacOS/config
 cp ../build/qpep QPep.app/Contents/MacOS/
 cp ../build/qpep-tray QPep.app/Contents/MacOS/
 
+mkdir -p Uninstaller.app/Contents/MacOS/
+
 export QPEP_GATEWAY=192.168.1.100
 export QPEP_ADDRESS=0.0.0.0
 export QPEP_PORT=1443
@@ -74,8 +76,10 @@ export QPEP_SLOWSTART=search
 envsubst < ./qpep.yml.tpl > QPep.app/Contents/MacOS/config/qpep.yml
 cp ./server_cert.pem QPep.app/Contents/MacOS/server_cert.pem
 
-echo [Generate Bundle]
+echo [Generate Install Bundle]
 pkgbuild --root "QPep.app" --identifier com.project-faster.qpep --scripts Scripts --install-location "/Applications/QPep.app" DistributionInstall.pkg
+
+echo [Generate Uninstall Bundle]
 pkgbuild --root "Uninstaller.app" --identifier com.project-faster.qpep --scripts UninstallScripts --install-location "/Applications" DistributionUninstall.pkg
 
 # for reference if needed to recreate the xml
