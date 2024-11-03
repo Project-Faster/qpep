@@ -9,10 +9,16 @@ function fail() {
   exit 1
 }
 
+export QPEP_VERSION=$1
 echo "************************************"
 echo "**** QPEP OSX INSTALLER BUILDER ****"
+echo "**** VERSION: ${QPEP_VERSION}"
 echo "************************************"
 echo
+
+if [[ "${QPEP_VERSION}" -eq "" ]]; then
+  fail "Version not specified"
+fi
 
 echo [Prerequisites check: PLATFORM MAC]
 uname -a | grep Darwin
@@ -75,6 +81,8 @@ export QPEP_CCA=reno
 export QPEP_SLOWSTART=search
 envsubst < ./qpep.yml.tpl > QPep.app/Contents/MacOS/config/qpep.yml
 cp ./server_cert.pem QPep.app/Contents/MacOS/server_cert.pem
+
+envsubst < ./Info.plist.tpl > QPep.app/Contents/Info.plist
 
 echo [Generate Install Bundle]
 pkgbuild --root "QPep.app" --identifier com.project-faster.qpep --scripts Scripts --install-location "/Applications/QPep.app" DistributionInstall.pkg
