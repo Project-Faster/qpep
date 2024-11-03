@@ -189,6 +189,38 @@ are created in the installation directory.
 
 On Linux platform, setting the `prefer_proxy: true` parameter has no effect as only the iptables diverter is usable dynamically.
 
+### MacOS
+
+> Before proceding be sure to have Administrator rights for your local machine
+> and that MacOS version is at least MacOS X 10.13 Ventura or later
+
+#### Installation
+To begin the installation process, open the QPepInstaller.pkg file.
+
+![Installer Welcome screen](resources/mac2.png){ width=100pt }
+
+On next screen press 'Next' to accept the software license.
+
+![QPep license screen](resources/mac3.png){ width=100pt }
+
+Next step allows to select, if possible, the destination folder and drive.
+
+![Installer Welcome screen](resources/mac4.png){ width=100pt }
+
+After this the installation proceeds automatically and if successful, a confirmation message is displayed.
+
+![Installer Welcome screen](resources/mac5.png){ width=100pt }
+
+Later the QPep application can be found in the 'Application' folder of the system and on the
+main menu.
+
+![Installer Welcome screen](resources/mac6.png){ width=100pt }
+
+Usage of the application is the same as indicated for the other platforms.
+
+#### Uninstallation
+If you wish to remove QPep from you MacOS system, you can use the provided QPepUninstaller.pkg file as
+the standard remove operation from Application folder does not remove the qpep services.
 
 \newpage
 
