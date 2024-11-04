@@ -3,10 +3,11 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/flags"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/flags"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/webgui"
 	"mime"
 	"net"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/parvit/qpep/webgui"
 	"github.com/rs/cors"
 )
 
@@ -88,6 +88,8 @@ func RunServer(ctx context.Context, cancel context.CancelFunc, localMode bool) {
 
 	if err := srv.ListenAndServe(); err != nil {
 		logger.Info("Error running API server: %v", err)
+		var errPtr = ctx.Value("lastError").(*error)
+		*errPtr = err
 	}
 	srv = nil
 	cancel()
@@ -114,7 +116,7 @@ func newServer(addr string, rtr *APIRouter, ctx context.Context) *http.Server {
 // apiFilter method checks if a request to an api path is really intended to be an api request, checking
 // that the "Accept" header be compatible with json content, if not then it returns an http 400 error BadRequest
 func apiFilter(next httprouter.Handle) httprouter.Handle {
-	return httprouter.Handle(func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		logger.Info("apiFilter - %s\n", formatRequest(r))
 
 		// Request API request must accept JSON
@@ -133,7 +135,7 @@ func apiFilter(next httprouter.Handle) httprouter.Handle {
 		w.Header().Add("Content-Type", "application/json")
 		w.Header().Set("Connection", "close")
 		next(w, r, ps)
-	})
+	}
 }
 
 // apiForbidden method returns as response the http status code 403 Forbidden

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+rm -f /tmp/qpep-postinstall.log
+touch /tmp/qpep-postinstall.log
+
+{
+echo "[QPep post-install script]"
+date
+
+echo ">> Fix permissions"
+chown -R $USER:staff /Applications/QPep.app
+chmod -R 0755 /Applications/QPep.app
+
+mkdir /Applications/QPep.app/Contents/MacOS/log
+chown -R $USER:staff /Applications/QPep.app/Contents/MacOS/log
+chmod -R 0755 /Applications/QPep.app/Contents/MacOS/log
+
+if [[ -d /tmp/qpep-config ]]; then
+  echo ">> Restoring previous configuration"
+  rm -rf /Applications/QPep.app/Contents/MacOS/config
+  mv /tmp/qpep-config /Applications/QPep.app/Contents/MacOS/config
+fi
+
+echo ">> Remove previous service if present"
+sudo -S -E -u "$USER" /bin/bash -c 'cd /Applications/QPep.app/Contents/MacOS/ && ./qpep --client --service uninstall' || true
+
+echo ">> Install client service"
+sudo -S -E -u "$USER" /bin/bash -c 'cd /Applications/QPep.app/Contents/MacOS/ && ./qpep --client --service install' || true
+
+ls /Users/$USER/Library/LaunchAgents/
+
+echo ">> Fix service permission"
+sudo -S chown root:wheel "/Users/$USER/Library/LaunchAgents/qpep-client.plist"
+sudo -S chmod o-w "/Users/$USER/Library/LaunchAgents/qpep-client.plist"
+
+echo "Done"
+}  &> /tmp/qpep-postinstall.log
+
+exit 0

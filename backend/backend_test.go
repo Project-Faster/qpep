@@ -1,10 +1,10 @@
 package backend
 
 import (
-	"bou.ke/monkey"
+	"github.com/Project-Faster/monkey"
 	"bytes"
 	"fmt"
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/shared"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"

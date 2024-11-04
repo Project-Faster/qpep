@@ -1,8 +1,15 @@
 package service
 
 import (
-	"github.com/parvit/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"os"
+)
+
+const (
+	PLATFORM_EXE_NAME            = "qpep"
+	PLATFORM_PATHVAR_SEP         = ':'
+	PLATFORM_SERVICE_CLIENT_NAME = "qpep-client"
+	PLATFORM_SERVICE_SERVER_NAME = "qpep-server"
 )
 
 // setCurrentWorkingDir method is currently a no-op

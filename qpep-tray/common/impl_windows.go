@@ -2,11 +2,11 @@ package common
 
 import (
 	"fmt"
-	"github.com/parvit/qpep/qpep-tray/icons"
-	"github.com/parvit/qpep/qpep-tray/notify"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/qpep-tray/icons"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"os/exec"
 	"path/filepath"
 	"strings"

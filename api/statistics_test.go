@@ -1,11 +1,12 @@
 package api
 
 import (
-	"bou.ke/monkey"
-	"github.com/parvit/qpep/shared/configuration"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"reflect"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -79,6 +80,10 @@ func (s *StatisticsSuite) TestAsKey() {
 
 func (s *StatisticsSuite) TestSendEvent() {
 	t := s.T()
+	if runtime.GOARCH == "arm64" {
+		t.Skip("monkey patching does not work properly on arm64")
+		return
+	}
 
 	var st = &statistics{
 		brokerClient: &analyticsClient{},

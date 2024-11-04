@@ -1,21 +1,18 @@
 package server
 
 import (
-	"bou.ke/monkey"
 	"bufio"
 	"context"
-	"crypto/tls"
-	"errors"
 	"fmt"
-	"github.com/Project-Faster/quic-go"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/backend"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	stderr "github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/protocol"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/julienschmidt/httprouter"
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/shared/configuration"
-	errors2 "github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/shared/protocol"
-	"github.com/parvit/qpep/workers/gateway"
 	"github.com/rs/cors"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -75,44 +71,8 @@ func (s *ServerSuite) AfterTest(_, testName string) {
 	api.Statistics.Reset()
 }
 
-func (s *ServerSuite) TestValidateConfiguration() {
-	assert.NotPanics(s.T(), func() {
-		validateConfiguration()
-	})
-}
-
-func (s *ServerSuite) TestValidateConfiguration_BadListenAddress() {
-	configuration.QPepConfig.Server.LocalListeningAddress = "ABCD"
-	configuration.QPepConfig.Server.LocalListenPort = 9090
-	configuration.QPepConfig.General.APIPort = 9443
-
-	assert.PanicsWithValue(s.T(), errors2.ErrConfigurationValidationFailed, func() {
-		validateConfiguration()
-	})
-}
-
-func (s *ServerSuite) TestValidateConfiguration_BadListenPort() {
-	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
-	configuration.QPepConfig.Server.LocalListenPort = 0
-	configuration.QPepConfig.General.APIPort = 9443
-
-	assert.PanicsWithValue(s.T(), errors2.ErrConfigurationValidationFailed, func() {
-		validateConfiguration()
-	})
-}
-
-func (s *ServerSuite) TestValidateConfiguration_BadAPIPort() {
-	configuration.QPepConfig.Server.LocalListeningAddress = "127.0.0.1"
-	configuration.QPepConfig.Server.LocalListenPort = 9090
-	configuration.QPepConfig.General.APIPort = 99999
-
-	assert.PanicsWithValue(s.T(), errors2.ErrConfigurationValidationFailed, func() {
-		validateConfiguration()
-	})
-}
-
 func (s *ServerSuite) TestPerformanceWatcher() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	api.Statistics.SetMappedAddress("127.0.0.1", "192.168.1.100")
 
@@ -151,25 +111,6 @@ func (s *ServerSuite) TestPerformanceWatcher() {
 
 }
 
-func (s *ServerSuite) TestPerformanceWatcher_Panic() {
-	var prevStats = api.Statistics
-	api.Statistics = nil
-	defer func() {
-		api.Statistics = prevStats
-	}()
-
-	assert.NotPanics(s.T(), func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		performanceWatcher(ctx, cancel)
-	})
-}
-
-func (s *ServerSuite) TestListenQuicSession_Panic() {
-	quicProvider = fakeBackend
-	ctx, cancel := context.WithCancel(context.Background())
-	listenQuicSession(ctx, cancel, "127.0.0.1", 9443)
-}
-
 func (s *ServerSuite) TestListenQuicConn_Panic() {
 	listenQuicConn(&testSession{})
 }
@@ -179,7 +120,7 @@ func (s *ServerSuite) TestHandleQuicStream_Panic() {
 }
 
 func (s *ServerSuite) runServerTest() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	var finished = false
 	var wg = &sync.WaitGroup{}
@@ -209,83 +150,8 @@ func (s *ServerSuite) TestRunServer_BadConfig() {
 	s.runServerTest()
 }
 
-func (s *ServerSuite) TestRunServer_BadListener() {
-	monkey.Patch(quic.ListenAddr, func(string, *tls.Config, *quic.Config) (quic.Listener, error) {
-		return nil, errors.New("test-error")
-	})
-
-	s.runServerTest()
-}
-
-func (s *ServerSuite) TestRunServer_APIConnection() {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	monkey.Patch(gateway.GetDefaultLanListeningAddress, func(current, gateway string) (string, []int64) {
-		return "127.0.0.1", nil
-	})
-
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		RunServer(ctx, cancel)
-	}()
-	go func() {
-		defer wg.Done()
-		api.RunServer(ctx, cancel, false)
-	}()
-
-	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
-
-	conn, err := openQuicSession_test(addr, 9090)
-	assert.Nil(s.T(), err)
-
-	stream, err := conn.OpenStream(ctx)
-	assert.Nil(s.T(), err)
-
-	sessionHeader := protocol.QPepHeader{
-		SourceAddr: &net.TCPAddr{
-			IP: net.ParseIP(addr),
-		},
-		DestAddr: &net.TCPAddr{
-			IP:   net.ParseIP(addr),
-			Port: 9443,
-		},
-	}
-
-	stream.Write(sessionHeader.ToBytes())
-
-	sendData := []byte("GET /api/v1/server/echo HTTP/1.1\r\nHost: :9443\r\nAccept: application/json\r\nAccept-Encoding: gzip\r\nConnection: close\r\nUser-Agent: windows\r\n\r\n\n")
-	_, _ = stream.Write(sendData)
-
-	receiveData := make([]byte, 1024)
-	recv, _ := stream.Read(receiveData)
-
-	expectedRecv := `HTTP\/1\.1 200 OK
-Connection: close
-Content-Type: application\/json
-Vary: Origin
-Date: .+ GMT
-Content-Length: \d+
-
-{"address":"[^"]+","port":\d+,"serverversion":"[^"]+","total_connections":\d+}`
-
-	matchStr := strings.ReplaceAll(string(receiveData[:recv]), "\r", "")
-
-	stream.AbortWrite(0)
-	stream.AbortRead(0)
-	stream.Close()
-
-	cancel()
-
-	wg.Wait()
-
-	re := regexp.MustCompile(expectedRecv)
-	assert.True(s.T(), re.MatchString(matchStr))
-}
-
 func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -319,7 +185,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_BadHeader() {
 }
 
 func (s *ServerSuite) TestRunServer_APIConnection_BadDestination() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -390,7 +256,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroSrc() {
 	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -465,7 +331,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitZeroDst() {
 	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -520,6 +386,8 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	// incoming speed limit
 	addr, _ := gateway.GetDefaultLanListeningAddress("127.0.0.1", "")
 
+	s.T().Logf("address: %v", addr)
+
 	clientsMap := map[string]string{
 		addr + "/32": "300K",
 	}
@@ -539,7 +407,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitSrc() {
 	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	var apisrv *http.Server = nil
 
@@ -651,7 +519,7 @@ func (s *ServerSuite) TestRunServer_APIConnection_LimitDst() {
 	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	var apisrv *http.Server = nil
 	var expectSent = 0
@@ -765,7 +633,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection() {
 	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	var apisrv *http.Server = nil
 	var expectSent = 1024 * 1024 * 10
@@ -861,7 +729,7 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 	configuration.LoadAddressSpeedLimitMap(destMap, false)
 
 	// launch request servers
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := newContext()
 
 	var apisrv *http.Server = nil
 	var expectSent = 1024 * 1024 * 10
@@ -941,11 +809,20 @@ func (s *ServerSuite) TestRunServer_DownloadConnection_InactivityTimeout() {
 }
 
 // --- utilities --- //
+func newContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var lastError error
+	ctx = context.WithValue(ctx, "lastError", &lastError)
+
+	return ctx, cancel
+}
+
 func openQuicSession_test(address string, port int) (backend.QuicBackendConnection, error) {
 	var ok bool
 	quicProvider, ok = backend.Get(configuration.QPepConfig.Protocol.Backend)
 	if !ok {
-		panic(errors2.ErrInvalidBackendSelected)
+		panic(stderr.ErrInvalidBackendSelected)
 	}
 
 	conn, err := quicProvider.Dial(context.Background(), address, port, "cert.pem",

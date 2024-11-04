@@ -37,9 +37,15 @@ func getLoggerFile(logName string) *os.File {
 		Panic("Could not find executable: %s", err)
 	}
 
-	logFile := filepath.Join(filepath.Dir(execPath), logName)
+	logPath := filepath.Join(filepath.Dir(execPath), "log")
+	err = os.MkdirAll(logPath, 0755)
+	if err != nil {
+		Panic("%v", err)
+	}
 
-	_logFile, err = os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	logFile := filepath.Join(logPath, logName)
+
+	_logFile, err = os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		Panic("%v", err)
 	}

@@ -2,14 +2,13 @@ package server
 
 import (
 	"context"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/parvit/qpep/api"
 )
 
 // RunServer method validates the provided server configuration and then launches the server

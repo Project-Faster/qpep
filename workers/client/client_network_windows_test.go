@@ -3,18 +3,18 @@
 package client
 
 import (
-	"bou.ke/monkey"
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/backend"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/shared/protocol"
-	"github.com/parvit/qpep/windivert"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/backend"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/protocol"
+	"github.com/Project-Faster/qpep/windivert"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"io"
@@ -58,7 +58,7 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.Security.Certificate = "cert.pem"
 	configuration.QPepConfig.Security.PrivateKey = "key.pem"
 
-	configuration.QPepConfig.Client.GatewayHost = "127.0.0.1"
+	configuration.QPepConfig.Client.GatewayHost = "127.0.0.2"
 	configuration.QPepConfig.Client.GatewayPort = 9443
 	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
 	configuration.QPepConfig.Client.LocalListenPort = 9090

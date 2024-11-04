@@ -3,12 +3,12 @@
 package gateway
 
 import (
-	"bou.ke/monkey"
 	stderr "errors"
 	"fmt"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/errors"
+	"github.com/Project-Faster/monkey"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"net/url"

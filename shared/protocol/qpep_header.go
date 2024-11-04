@@ -7,8 +7,8 @@ package protocol
 
 import (
 	"encoding/binary"
-	"github.com/parvit/qpep/shared/errors"
-	"github.com/parvit/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"io"
 	"net"
 	"time"

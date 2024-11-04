@@ -5,9 +5,9 @@
 package logger
 
 import (
-	"bou.ke/monkey"
 	"errors"
 	"fmt"
+	"github.com/Project-Faster/monkey"
 	dbg "github.com/nyaosorg/go-windows-dbg"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +45,7 @@ func (s *LoggerSuite) TestLogger_InfoLevel() {
 	t := s.T()
 	execPath, _ := os.Executable()
 
-	logFile := filepath.Join(filepath.Dir(execPath), "test")
+	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
 	SetupLogger("test", "info")
@@ -73,7 +73,7 @@ func (s *LoggerSuite) TestLogger_DebugLevel() {
 	t := s.T()
 	execPath, _ := os.Executable()
 
-	logFile := filepath.Join(filepath.Dir(execPath), "test")
+	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
 	SetupLogger("test", "debug")
@@ -103,7 +103,7 @@ func (s *LoggerSuite) TestLogger_ErrorLevel() {
 	t := s.T()
 	execPath, _ := os.Executable()
 
-	logFile := filepath.Join(filepath.Dir(execPath), "test")
+	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
 	SetupLogger("test", "info")
@@ -133,7 +133,7 @@ func (s *LoggerSuite) TestLogger_PanicMessage() {
 	t := s.T()
 	execPath, _ := os.Executable()
 
-	logFile := filepath.Join(filepath.Dir(execPath), "test")
+	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
 	SetupLogger("test", "info")

@@ -1,11 +1,14 @@
 package gateway
 
 import (
-	"github.com/jackpal/gateway"
-	"github.com/parvit/qpep/shared/logger"
+	"errors"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"net/url"
+	"runtime"
 	"strings"
 	"time"
+
+	"github.com/jackpal/gateway"
 )
 
 var (
@@ -21,6 +24,8 @@ var (
 	// detectedGatewayAddresses is the list of automatically detected addresses available in the system (one per network device)
 	detectedGatewayAddresses []string
 
+	defaultListeningAddressList []string
+
 	// timeoutLatencyMultiplier multiples the various timeouts to try to adapt to progressively higher latencies
 	timeoutLatencyMultiplier int64 = 1
 )
@@ -30,14 +35,19 @@ const (
 	QPEP_PROXY_HEADER     = "X-QPEP-PROXY"
 )
 
+var (
+	errNotImplemented = errors.New("not implemented for OS: " + runtime.GOOS)
+)
+
 // init method executes the static initialization for detecting the current system's interfaces and addresses
 func init() {
 	var err error
 	detectedGatewayInterfaces, detectedGatewayAddresses, err = getRouteGatewayInterfaces()
-
 	if err != nil {
 		panic(err)
 	}
+
+	defaultListeningAddressList, _ = GetLanListeningAddresses()
 }
 
 // GetDefaultLanListeningAddress method allows the caller to obtain an address and a list of interfaces usable
@@ -52,15 +62,21 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 		return currentAddress, detectedGatewayInterfaces
 	}
 
+	var filterList = detectedGatewayAddresses
+
 	if len(gatewayAddress) == 0 {
 		defaultIP, err := gateway.DiscoverInterface()
-		if err != nil {
+		if err == nil {
+			defaultListeningAddress = defaultIP.String()
+			logger.Info("Found default ip address: %s\n", defaultListeningAddress)
+			return defaultListeningAddress, detectedGatewayInterfaces
+		}
+
+		if err.Error() != errNotImplemented.Error() {
 			logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
 		}
 
-		defaultListeningAddress = defaultIP.String()
-		logger.Info("Found default ip address: %s\n", defaultListeningAddress)
-		return defaultListeningAddress, detectedGatewayInterfaces
+		filterList = defaultListeningAddressList
 	}
 
 	logger.Info("WARNING: Detected invalid listening ip address, trying to autodetect the default route...\n")
@@ -69,8 +85,8 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 	foundLongest := 0
 	gatewaySplit := strings.Split(gatewayAddress, ".")
 
-	for i := 0; i < len(detectedGatewayAddresses); i++ {
-		addrComponents := strings.Split(detectedGatewayAddresses[i], ".")
+	for i := 0; i < len(filterList); i++ {
+		addrComponents := strings.Split(filterList[i], ".")
 		if addrComponents[0] != gatewaySplit[0] {
 			continue
 		}
@@ -99,17 +115,18 @@ func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (strin
 		break
 	}
 	if searchIdx != -1 {
-		defaultListeningAddress = detectedGatewayAddresses[searchIdx]
+		defaultListeningAddress = filterList[searchIdx]
 		logger.Info("Found default ip address: %s\n", defaultListeningAddress)
 		return defaultListeningAddress, detectedGatewayInterfaces
 	}
-	defaultListeningAddress = detectedGatewayAddresses[0]
+	defaultListeningAddress = filterList[0]
 	return defaultListeningAddress, detectedGatewayInterfaces
 }
 
 // GetLanListeningAddresses returns all detected addresses and interfaces that can be used for listening
 func GetLanListeningAddresses() ([]string, []int64) {
-	return detectedGatewayAddresses, detectedGatewayInterfaces
+	defaultListeningAddressList = getRouteListeningAddresses()
+	return defaultListeningAddressList, detectedGatewayInterfaces
 }
 
 func GetScaledTimeout(base int64, duration time.Duration) time.Duration {

@@ -1,9 +1,9 @@
 package client
 
 import (
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"net"
 	"runtime"
 	"runtime/debug"
@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/parvit/qpep/api"
-	"github.com/parvit/qpep/shared"
+	"github.com/Project-Faster/qpep/api"
+	"github.com/Project-Faster/qpep/shared"
 	"golang.org/x/net/context"
 )
 
@@ -74,6 +74,8 @@ func RunClient(ctx context.Context, cancel context.CancelFunc) {
 	})
 	if err != nil {
 		logger.Error("Encountered error when binding client proxy listener: %s", err)
+		var errPtr = ctx.Value("lastError").(*error)
+		*errPtr = err
 		return
 	}
 

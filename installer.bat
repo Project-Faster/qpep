@@ -45,6 +45,10 @@ ECHO [Requirements check: GO]
 go version
 if %ERRORLEVEL% GEQ 1 goto fail
 
+ECHO [Requirements check: CMake]
+cmake --version
+if %ERRORLEVEL% GEQ 1 goto fail
+
 ECHO [Requirements check: MSBuild]
 msbuild --version
 if %ERRORLEVEL% GEQ 1 goto fail
@@ -92,6 +96,13 @@ if %BUILD64% NEQ 0 (
 
     ECHO [Build 64bits server/client]
     set CGO_ENABLED=1
+    ECHO [Build backends 64bits]
+    pushd backend
+    go generate
+    if %ERRORLEVEL% GEQ 1 goto fail
+    popd
+
+    ECHO [Build 64bits server/client]
     go build -o build\64bits\qpep.exe
     if %ERRORLEVEL% GEQ 1 goto fail
 
@@ -117,8 +128,14 @@ if %BUILD32% NEQ 0 (
     if %ERRORLEVEL% GEQ 1 goto fail
     echo OK
 
-    ECHO [Build 32bits server/client]
     set CGO_ENABLED=1
+    ECHO [Build backends 32bits]
+    pushd backend
+    go generate
+    if %ERRORLEVEL% GEQ 1 goto fail
+    popd
+
+    ECHO [Build 32bits server/client]
     go build -x -o build\32bits\qpep.exe
     if %ERRORLEVEL% GEQ 1 goto fail
 

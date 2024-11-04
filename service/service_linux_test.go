@@ -5,7 +5,7 @@
 package service
 
 import (
-	"bou.ke/monkey"
+	"github.com/Project-Faster/monkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"os"

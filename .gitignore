@@ -22,6 +22,8 @@ build
 obj
 bin
 .vs
+.DS_Store
+.gitignore
 
 # generated file
 binaries.wxs

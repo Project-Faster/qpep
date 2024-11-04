@@ -85,6 +85,137 @@ jobs:
           name: qpep_user_manual_b${{ github.run_id }}
           path: "docs/*.pdf"
 
+  build-mac-os:
+    needs: check-release
+    runs-on: macos-latest
+    env:
+      GO_VERSION: 1.20.14
+      CMAKE_VERSION: '3.22.x'
+      GOARCH: arm64
+      GOOS: darwin
+      CGO_ENABLED: 1
+      GOPATH: ${{ github.workspace }}/.go
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+      IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.14
+        with:
+          cmake-version: ${{ env.CMAKE_VERSION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prepare
+        run: |
+          go clean -cache -x
+          mkdir -p cover
+          mkdir -p report
+          mkdir -p unit
+          mkdir -p $GOPATH/bin
+          pip install dmgbuild
+
+      - name: Build Backends
+        run: |
+          export CPP=${CXX}
+          export PATH=$GOPATH/bin:$GOPATH/bin/${GOOS}_${GOARCH}:$PATH
+          cd backend/
+          go generate
+
+      - name: Build Executable
+        run: |
+          go build -v -o build/qpep
+
+      - name: Build QPep Tray 64bits
+        run: |
+          pushd qpep-tray
+          go build -v -o ../build/qpep-tray
+          popd
+
+      - name: Build MacOS installer
+        run: |
+          bash ./installer_osx.sh "${{ github.event.inputs.version_tag }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qpep_macos_b${{ github.run_id }}
+          path: installer-osx/QPep*.pkg
+
+      - name: Prepare Tests
+        run: |
+          mkdir -p unit/
+          mkdir -p cover/
+          mkdir -p report/
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
+          go install github.com/axw/gocov/gocov@v1.1.0
+          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
+          go install github.com/AlekSi/gocov-xml@v1.1.0
+
+      - name: Test
+        run: |
+          set -x
+          go list ./... | grep -E -v "${IGNORE_PACKAGES}"
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            export WORKSPACE="${{ github.workspace }}"
+            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test > unit_tests.out 2>&1 || true
+            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out >> unit_tests.out 2>&1 || true
+            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
+            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Coverage Results
+        if: always()
+        run: |
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
+          do
+            pushd $i
+            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
+            echo >> $GITHUB_STEP_SUMMARY
+            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
+            popd
+          done
+        continue-on-error: true
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action/macos@v2
+        if: always()
+        with:
+          check_name: "Unit Tests - MacOS Platform"
+          junit_files: "unit/*.xml"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos_cover_output
+          path: "cover/*.out"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos_coverage_report
+          path: "report/*.html"
+
   build-linux:
     needs: check-release
     runs-on: ubuntu-latest
@@ -152,7 +283,7 @@ jobs:
         if: ${{ inputs.test_release }}
         run: |
           set -x
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             export WORKSPACE="${{ github.workspace }}"
@@ -167,7 +298,7 @@ jobs:
       - name: Publish Coverage Results
         if: always()
         run: |
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
@@ -261,6 +392,7 @@ jobs:
       - name: Build QPep Tray
         run: |
           pushd qpep-tray
+          set CGO_ENABLED=0
           go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
           popd
 
@@ -293,8 +425,8 @@ jobs:
         run: |
           set -x
           export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          go generate github.com/parvit/qpep/windivert
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/parvit\/qpep\/||p')
+          go generate github.com/Project-Faster/qpep/windivert
+          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
           do
             pushd $i
             cp -r $WORKSPACE/windivert/x64/* .
@@ -314,7 +446,7 @@ jobs:
           junit_files: "unit/*.xml"
 
   create-release-tag:
-    needs: [build-windows, build-linux, docs]
+    needs: [ build-windows, build-linux, build-mac-os, docs ]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -331,6 +463,11 @@ jobs:
         with:
           name: qpep_linux_b${{ github.run_id }}
 
+      - name: Download MacOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qpep_macos_b${{ github.run_id }}
+
       - name: Download UserManual Artifact
         uses: actions/download-artifact@v4
         with:
@@ -341,7 +478,8 @@ jobs:
            cd ${{ github.workspace }}
            7z a -tzip qpep_windows_b${{ github.run_id }}.zip ${{ github.workspace }}/installer.msi
            7z a -tzip qpep_linux_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep
-           7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/user_manual.pdf
+           7z a -tzip qpep_macos_b${{ github.run_id }}.zip ${{ github.workspace }}/*.pkg
+           7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/user-manual.pdf
 
       - name: Create Release
         id: create_release
@@ -378,6 +516,17 @@ jobs:
           asset_name: qpep_linux_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
           asset_content_type: application/zip
 
+      - name: Attach MacOS Release Asset
+        id: upload-macos-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: qpep_macos_b${{ github.run_id }}.zip
+          asset_name: qpep_macos_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
+          asset_content_type: application/zip
+          
       - name: Attach UserManual Release Asset
         id: upload-usermanual-asset
         uses: actions/upload-release-asset@v1

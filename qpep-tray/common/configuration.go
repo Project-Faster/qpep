@@ -3,9 +3,9 @@ package common
 import (
 	"context"
 	"fmt"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/qpep-tray/notify"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"os"
 	"time"
 
@@ -13,9 +13,18 @@ import (
 )
 
 func openConfigurationWithOSEditor() {
-	_, baseConfigPath, _ := configuration.GetConfigurationPaths()
+	_, baseConfigPath, _, _ := configuration.GetConfigurationPaths()
 
 	if err := open.Run(baseConfigPath); err != nil {
+		notify.ErrorMsg("Editor configuration failed with error: %v", err)
+		return
+	}
+}
+
+func openLogsFolder() {
+	_, _, _, logsPath := configuration.GetConfigurationPaths()
+
+	if err := open.Run(logsPath); err != nil {
 		notify.ErrorMsg("Editor configuration failed with error: %v", err)
 		return
 	}
@@ -46,7 +55,7 @@ func startReloadConfigurationWatchdog() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		_, baseConfigFile, _ := configuration.GetConfigurationPaths()
+		_, baseConfigFile, _, _ := configuration.GetConfigurationPaths()
 
 		var lastModTime time.Time
 		if stat, err := os.Stat(baseConfigFile); err == nil {

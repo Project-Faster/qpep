@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/parvit/qpep/qpep-tray/common"
-	"github.com/parvit/qpep/qpep-tray/notify"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/qpep-tray/common"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	"os"
 	"os/signal"
 	"syscall"

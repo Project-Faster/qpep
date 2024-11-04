@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+rm -f /tmp/qpep-uninstall.log
+touch /tmp/qpep-uninstall.log
+
+{
+echo "[QPep uninstall script]"
+date
+
+if [[ -d /Applications/QPep.app ]]; then
+  if [[ -d /Applications/QPep.app/Contents/MacOS/config ]]; then
+    echo ">> Saving previous configuration"
+    cp -r /Applications/QPep.app/Contents/MacOS/config /tmp/qpep-config
+  else
+    echo ">> No previous configuration to save"
+  fi
+
+  echo ">> Stopping tray application"
+  pkill -9 qpep-tray
+
+  echo ">> Stopping running qpep if any"
+  sudo -S -u "$USER" -i /bin/bash -c 'cd /Applications/QPep.app/Contents/MacOS/ && ./qpep --client --service stop' || true
+
+  echo ">> Removing configured previous service"
+  sudo -S -u "$USER" -i /bin/bash -c 'cd /Applications/QPep.app/Contents/MacOS/ && ./qpep --client --service uninstall' || true
+
+  echo ">> Removing previous installed version"
+  rm -rf /Applications/QPep.app
+else
+  echo ">> No previous installed version to remove"
+fi
+
+echo "Done"
+}  &> /tmp/qpep-uninstall.log
+
+exit 0

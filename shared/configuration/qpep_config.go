@@ -11,7 +11,7 @@ package configuration
 import (
 	"errors"
 	"fmt"
-	"github.com/parvit/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"gopkg.in/yaml.v3"
 	"io"
 	"os"
@@ -28,6 +28,8 @@ const (
 	CONFIG_OVERRIDE_FILENAME = "qpep.user.yml"
 	// CONFIG_PATH Directory name for the configuration files
 	CONFIG_PATH = "config"
+	// LOGS_PATH Directory name for the log files
+	LOGS_PATH = "log"
 	// WEBGUI_URL URL of the web gui served by the service
 	WEBGUI_URL = "http://127.0.0.1:%d/index?mode=%s&port=%d"
 )
@@ -110,7 +112,7 @@ func (q *QPepConfigType) Merge(r *QPepConfigType) {
 
 // GetConfigurationPaths returns the current paths for handling the configuration files, creating them if those don't exist:
 // configuration directory, configuration filename and the configuration user filename
-func GetConfigurationPaths() (confDir string, confFile string, confUserFile string) {
+func GetConfigurationPaths() (confDir string, confFile string, confUserFile, logsDir string) {
 	basedir, err := os.Executable()
 	if err != nil {
 		logger.Panic("Could not find executable: %s", err)
@@ -142,7 +144,15 @@ func GetConfigurationPaths() (confDir string, confFile string, confUserFile stri
 		}
 	}
 
-	return confDir, confFile, confUserFile
+	logsDir = filepath.Join(filepath.Dir(basedir), LOGS_PATH)
+	if _, err := os.Stat(logsDir); err != nil {
+		err = os.Mkdir(logsDir, 0777)
+		if err != nil {
+			logger.Panic("Error creating logs folder: %v\n", err)
+		}
+	}
+
+	return confDir, confFile, confUserFile, logsDir
 }
 
 // ReadConfiguration method loads the global configuration from the yaml files, if the _ignoreCustom_ value is true
@@ -162,7 +172,7 @@ func ReadConfiguration(ignoreCustom bool) (outerr error) {
 	QPepConfig = QPepConfigType{}
 	QPepConfig.Merge(&DefaultConfig)
 
-	_, confFile, userConfFile := GetConfigurationPaths()
+	_, confFile, userConfFile, _ := GetConfigurationPaths()
 
 	// Read base config
 	f, err := createFileIfAbsent(confFile, false)
@@ -227,7 +237,7 @@ func WriteConfigurationOverrideFile(override QPepConfigType) {
 		}
 	}()
 
-	_, _, userConfFile := GetConfigurationPaths()
+	_, _, userConfFile, _ := GetConfigurationPaths()
 
 	// create base config if it does not exist
 	f, _ := createFileIfAbsent(userConfFile, true)

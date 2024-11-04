@@ -1,9 +1,9 @@
 package common
 
 import (
-	"github.com/parvit/qpep/qpep-tray/icons"
-	"github.com/parvit/qpep/qpep-tray/notify"
-	"github.com/parvit/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/qpep-tray/icons"
+	"github.com/Project-Faster/qpep/qpep-tray/notify"
+	"github.com/Project-Faster/qpep/shared/configuration"
 	"os/exec"
 	"path/filepath"
 )

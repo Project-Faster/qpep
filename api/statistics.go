@@ -2,8 +2,8 @@ package api
 
 import (
 	"fmt"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"strings"
 	"sync"
 )

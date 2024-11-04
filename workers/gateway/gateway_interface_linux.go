@@ -2,9 +2,9 @@ package gateway
 
 import (
 	"fmt"
-	"github.com/jackpal/gateway"
-	"github.com/parvit/qpep/shared"
-	"github.com/parvit/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared"
+	"github.com/Project-Faster/qpep/shared/logger"
+	gw "github.com/jackpal/gateway"
 	"net"
 	"net/url"
 	"strconv"
@@ -16,8 +16,15 @@ var (
 	defaultPortsIgnored = []int{53}
 )
 
+func getRouteListeningAddresses() []string {
+	if defaultListeningAddress == "" {
+		defaultListeningAddress = "127.0.0.1"
+	}
+	return []string{defaultListeningAddress}
+}
+
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
-	defaultIP, err := gateway.DiscoverInterface()
+	defaultIP, err := gw.DiscoverInterface()
 	if err != nil {
 		logger.Panic("Could not discover default lan address and the requested one is not suitable, error: %v", err)
 	}

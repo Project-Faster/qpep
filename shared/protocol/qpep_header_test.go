@@ -2,7 +2,7 @@ package protocol
 
 import (
 	"bytes"
-	"github.com/parvit/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"net"

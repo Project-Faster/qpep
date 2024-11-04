@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/parvit/qpep/workers/gateway"
+	"github.com/Project-Faster/qpep/workers/gateway"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

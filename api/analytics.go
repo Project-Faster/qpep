@@ -3,10 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Project-Faster/qpep/shared/logger"
+	"github.com/Project-Faster/qpep/shared/configuration"
+	"github.com/Project-Faster/qpep/shared/version"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/parvit/qpep/shared/configuration"
-	"github.com/parvit/qpep/shared/logger"
-	"github.com/parvit/qpep/shared/version"
 	"github.com/rs/zerolog"
 	"golang.org/x/net/context"
 	"os"
