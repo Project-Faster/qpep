@@ -257,6 +257,7 @@ jobs:
     steps:
       - name: Pre-Cleanup
         run: |
+          sudo rm -rf build/* || true
           sudo rm -rf docker/server-data-env/output/* || true
 
       - uses: actions/checkout@v4
