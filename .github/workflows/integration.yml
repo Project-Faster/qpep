@@ -38,7 +38,7 @@ jobs:
       SRC_PATTERN: '\.go|\.c|\.cpp|\.html|\.js|\.h'
 
     outputs:
-      source_changed: ${{ steps.check_file_changed.outputs.source_changed }}
+      source_changed: ${{ steps.check_file_changed.outputs.source_changed == 'true' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +64,7 @@ jobs:
 
   docs:
     needs: [ check-diff-files ]
-    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_docs }}
+    if: ${{ needs.check-diff-files.outputs.source_changed == 'true' && !inputs.skip_docs }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -108,7 +108,7 @@ jobs:
 
   build-mac-os:
     needs: [ check-diff-files ]
-    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_macos }}
+    if: ${{ needs.check-diff-files.outputs.source_changed == 'true' && !inputs.skip_macos }}
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -256,7 +256,7 @@ jobs:
 
   build-linux:
     needs: [ check-diff-files ]
-    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_linux }}
+    if: ${{ needs.check-diff-files.outputs.source_changed == 'true' && !inputs.skip_linux }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -385,7 +385,7 @@ jobs:
 
   build-windows:
     needs: [ check-diff-files ]
-    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_windows }}
+    if: ${{ needs.check-diff-files.outputs.source_changed == 'true' && !inputs.skip_windows }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
