@@ -20,6 +20,21 @@ on:
 
 run-name: Release (version ${{ inputs.version_tag }}, draft ${{ inputs.test_release }}) [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}]
 
+changelog:
+  exclude:
+    labels:
+      - cleanup
+  categories:
+    - title: Features 🛠
+      labels:
+        - feat
+        - feature
+    - title: Fixes
+      labels:
+        - fix
+        - bug
+        - bugfix
+
 jobs:
   check-release:
     runs-on: ubuntu-latest

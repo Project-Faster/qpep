@@ -29,8 +29,37 @@ on:
 run-name: Code Integration [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}] rev.${{ github.sha }}
 
 jobs:
+  check-diff-files:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      SRC_PATTERN: '\.go|\.c|\.cpp|\.html|\.js|\.h'
+
+    outputs:
+      source_changed: ${{ steps.check_file_changed.outputs.source_changed }}
+
+    steps:
+      - name: Check files difference
+        id: check_file_changed
+        run: |
+          SRC_DIFF=$(git diff --name-only | grep -E "$SRC_DIFF" | wc -l)
+          echo ">> Differing source files list <<"
+          echo $(git diff --name-only | grep -E "$SRC_DIFF")
+          echo "---------------------------------"
+          if [[ "$SRC_DIFF" -gt "0" ]]; then
+            echo ">> Found differing source files, executing integration workflow"
+            echo "source_changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo ">> No differing source files, skipping integration workflow"
+          echo "source_changed=false" >> $GITHUB_OUTPUT
+          exit 0
+
   docs:
-    if: ${{ !inputs.skip_docs }}
+    needs: [ check-diff-files ]
+    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_docs }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -73,7 +102,8 @@ jobs:
           path: "docs/*.pdf"
 
   build-mac-os:
-    if: ${{ !inputs.skip_macos }}
+    needs: [ check-diff-files ]
+    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_macos }}
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
@@ -220,7 +250,8 @@ jobs:
           done
 
   build-linux:
-    if: ${{ !inputs.skip_linux }}
+    needs: [ check-diff-files ]
+    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_linux }}
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
@@ -348,7 +379,8 @@ jobs:
           done
 
   build-windows:
-    if: ${{ !inputs.skip_windows }}
+    needs: [ check-diff-files ]
+    if: ${{ needs.check-diff-files.outputs.source_changed && !inputs.skip_windows }}
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
