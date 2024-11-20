@@ -43,6 +43,7 @@ jobs:
         id: changelog
         run: |
           set -x
+          git tag
           PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
           git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" > changelog.txt 
 
@@ -54,6 +55,7 @@ jobs:
           path: changelog.txt
 
   docs:
+    needs: check-release
     runs-on: ubuntu-latest
     defaults:
       run:
