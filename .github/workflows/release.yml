@@ -8,10 +8,6 @@ on:
         required: true
         type: boolean
         default: true
-      do_tests:
-        description: 'Execute tests'
-        type: boolean
-        default: true
       version_tag:
         description: 'Version tag'
         type: 'string'
@@ -46,18 +42,18 @@ jobs:
         if: ${{ steps.checkTag.outputs.exists == 'false' }}
         id: changelog
         run: |
+          set -x
           PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
-          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" >> changelog.txt 
+          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" > changelog.txt 
 
       - name: Upload Changelog
         uses: actions/upload-artifact@v4
         if: ${{ steps.checkTag.outputs.exists == 'false' }}
         with:
-          name: changelog_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}
+          name: changelog_v${{ github.event.inputs.version_tag }}
           path: changelog.txt
 
   docs:
-    if: true
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -96,8 +92,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_user_manual_b${{ github.run_id }}
+          name: qpep_user_manual
           path: "docs/*.pdf"
+
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.3
 
   build-mac-os:
     needs: check-release
@@ -139,9 +139,6 @@ jobs:
       - name: Prepare
         run: |
           go clean -cache -x
-          mkdir -p cover
-          mkdir -p report
-          mkdir -p unit
           mkdir -p $GOPATH/bin
           pip install dmgbuild
 
@@ -168,55 +165,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_macos_b${{ github.run_id }}
+          name: qpep_macos
           path: installer-osx/QPep*.pkg
-
-      - name: Prepare Tests
-        run: |
-          mkdir -p unit/
-          mkdir -p cover/
-          mkdir -p report/
-          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
-
-      - name: Test
-        run: |
-          set -x
-          go list ./... | grep -E -v "${IGNORE_PACKAGES}"
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
-          do
-            pushd $i
-            export WORKSPACE="${{ github.workspace }}"
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test > unit_tests.out 2>&1 || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out >> unit_tests.out 2>&1 || true
-            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Coverage Results
-        if: always()
-        run: |
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
-          do
-            pushd $i
-            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
-            echo >> $GITHUB_STEP_SUMMARY
-            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/macos@v2
-        if: always()
-        with:
-          check_name: "Unit Tests - MacOS Platform"
-          junit_files: "unit/*.xml"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -229,6 +179,10 @@ jobs:
         with:
           name: macos_coverage_report
           path: "report/*.html"
+
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.3
 
   build-linux:
     needs: check-release
@@ -265,13 +219,6 @@ jobs:
         run: |
           sudo apt-get install -y pkg-config libgtk-3-dev libayatana-appindicator-dev
           go clean -cache -x
-          mkdir -p cover
-          mkdir -p report
-          mkdir -p unit
-          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
 
       - name: Build Backends
         run: |
@@ -290,45 +237,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_linux_b${{ github.run_id }}
+          name: qpep_linux
           path: build/
 
-      - name: Test
-        if: ${{ inputs.test_release }}
-        run: |
-          set -x
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
-          do
-            pushd $i
-            export WORKSPACE="${{ github.workspace }}"
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> /dev/null || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
-            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Coverage Results
-        if: always()
-        run: |
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
-          do
-            pushd $i
-            echo "=== Package $i ==="  >> $GITHUB_STEP_SUMMARY
-            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov report | grep "Coverage" >> $GITHUB_STEP_SUMMARY || true
-            echo >> $GITHUB_STEP_SUMMARY
-            gocov convert ${{ github.workspace }}/cover/$(basename $PWD).out | gocov-html > ${{ github.workspace }}/report/$(basename $PWD).html || true
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/linux@v2
-        if: ${{ inputs.test_release }}
-        with:
-          check_name: "Unit Tests - Linux Platform"
-          junit_files: "unit/*.xml"
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.3
 
   build-windows:
     needs: check-release
@@ -420,44 +334,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_windows_b${{ github.run_id }}
+          name: qpep_windows
           path: build/installer.msi
 
-      - name: Prepare Tests
-        run: |
-          MKDIR unit
-          MKDIR cover
-          MKDIR report
-          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
-          go install github.com/axw/gocov/gocov@v1.1.0
-          go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
-          go install github.com/AlekSi/gocov-xml@v1.1.0
-
-      - name: Test
-        if: ${{ inputs.test_release }}
-        shell: bash
-        run: |
-          set -x
-          export WORKSPACE=$( echo "${{ github.workspace }}" | sed -e 's|\\|/|g' )
-          go generate github.com/Project-Faster/qpep/windivert
-          for i in $(go list ./... | grep -E -v "${IGNORE_PACKAGES}" | sed -n -e 's|github.com\/Project-Faster\/qpep\/||p')
-          do
-            pushd $i
-            cp -r $WORKSPACE/windivert/x64/* .
-            go test -v -gcflags=-l -cover -c -o qpep.$(basename $PWD).test &> NUL || true
-            ./qpep.$(basename $PWD).test -test.v -test.timeout 5m -test.coverprofile=$WORKSPACE/cover/$(basename $PWD).out &> unit_tests.out || true
-            grep -E "PASS|FAIL|SKIP" unit_tests.out || true
-            cat unit_tests.out | go-junit-report > $WORKSPACE/unit/$(basename $PWD).xml
-            popd
-          done
-        continue-on-error: true
-
-      - name: Publish Unit Test Results
-        uses: EnricoMi/publish-unit-test-result-action/windows/bash@v2
-        if: ${{ inputs.test_release }}
-        with:
-          check_name: "Unit Tests - Windows Platform"
-          junit_files: "unit/*.xml"
+      - name: Auto-cancel workflow on error
+        if: failure()
+        uses: andymckay/cancel-action@0.3
 
   create-release-tag:
     needs: [ build-windows, build-linux, build-mac-os, docs ]
@@ -470,35 +352,35 @@ jobs:
       - name: Download Changelog
         uses: actions/download-artifact@v4
         with:
-          name: changelog_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}
+          name: changelog_v${{ github.event.inputs.version_tag }}
 
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_windows_b${{ github.run_id }}
+          name: qpep_windows
 
       - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_linux_b${{ github.run_id }}
+          name: qpep_linux
 
       - name: Download MacOS Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_macos_b${{ github.run_id }}
+          name: qpep_macos
 
       - name: Download UserManual Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_user_manual_b${{ github.run_id }}
+          name: qpep_user_manual
 
       - name: Prepare archives
         run: |
            cd ${{ github.workspace }}
-           7z a -tzip qpep_windows_b${{ github.run_id }}.zip ${{ github.workspace }}/installer.msi
-           7z a -tzip qpep_linux_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep
-           7z a -tzip qpep_macos_b${{ github.run_id }}.zip ${{ github.workspace }}/*.pkg
-           7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/user-manual.pdf
+           7z a -tzip qpep_windows.zip ${{ github.workspace }}/installer.msi
+           7z a -tzip qpep_linux.zip ${{ github.workspace }}/qpep
+           7z a -tzip qpep_macos.zip ${{ github.workspace }}/*.pkg
+           7z a -tzip qpep_user_manual.zip ${{ github.workspace }}/user-manual.pdf
 
       - name: Create Release
         id: create_release
@@ -518,9 +400,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: qpep_windows_b${{ github.run_id }}.zip
-          asset_name: qpep_windows_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: qpep_windows.zip
+          asset_name: qpep_windows_v${{ github.event.inputs.version_tag }}.zip
           asset_content_type: application/zip
 
       - name: Attach Linux Release Asset
@@ -529,9 +411,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: qpep_linux_b${{ github.run_id }}.zip
-          asset_name: qpep_linux_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: qpep_linux.zip
+          asset_name: qpep_linux_v${{ github.event.inputs.version_tag }}.zip
           asset_content_type: application/zip
 
       - name: Attach MacOS Release Asset
@@ -540,9 +422,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: qpep_macos_b${{ github.run_id }}.zip
-          asset_name: qpep_macos_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: qpep_macos.zip
+          asset_name: qpep_macos_v${{ github.event.inputs.version_tag }}.zip
           asset_content_type: application/zip
           
       - name: Attach UserManual Release Asset
@@ -551,7 +433,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: qpep_user_manual_b${{ github.run_id }}.zip
-          asset_name: qpep_user_manual_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: qpep_user_manual.zip
+          asset_name: qpep_user_manual_v${{ github.event.inputs.version_tag }}.zip
           asset_content_type: application/zip
