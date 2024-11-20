@@ -20,21 +20,6 @@ on:
 
 run-name: Release (version ${{ inputs.version_tag }}, draft ${{ inputs.test_release }}) [${{ github.event_name }}][${{ github.head_ref || github.ref_name }}]
 
-changelog:
-  exclude:
-    labels:
-      - cleanup
-  categories:
-    - title: Features 🛠
-      labels:
-        - feat
-        - feature
-    - title: Fixes
-      labels:
-        - fix
-        - bug
-        - bugfix
-
 jobs:
   check-release:
     runs-on: ubuntu-latest
@@ -496,6 +481,12 @@ jobs:
            7z a -tzip qpep_macos_b${{ github.run_id }}.zip ${{ github.workspace }}/*.pkg
            7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/user-manual.pdf
 
+      - name: Prepare Changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
+          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" >> changelog.txt 
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@latest
@@ -504,8 +495,7 @@ jobs:
         with:
           tag_name: v${{ github.event.inputs.version_tag }}
           release_name: Release v${{ github.event.inputs.version_tag }}
-          body: |
-            ${{ steps.Changelog.outputs.changelog }}
+          body_path: changelog.txt
           draft: ${{ inputs.test_release }}
           prerelease: false
 
