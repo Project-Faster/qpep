@@ -42,6 +42,20 @@ jobs:
         name: Fail build
         run: exit 1
 
+      - name: Prepare Changelog
+        if: ${{ steps.checkTag.outputs.exists == 'false' }}
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
+          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" >> changelog.txt 
+
+      - name: Upload Changelog
+        uses: actions/upload-artifact@v4
+        if: ${{ steps.checkTag.outputs.exists == 'false' }}
+        with:
+          name: changelog_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}
+          path: changelog.txt
+
   docs:
     if: true
     runs-on: ubuntu-latest
@@ -453,6 +467,11 @@ jobs:
         shell: bash
 
     steps:
+      - name: Download Changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog_v${{ github.event.inputs.version_tag }}_b${{ github.run_id }}
+
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
@@ -480,12 +499,6 @@ jobs:
            7z a -tzip qpep_linux_b${{ github.run_id }}.zip ${{ github.workspace }}/qpep
            7z a -tzip qpep_macos_b${{ github.run_id }}.zip ${{ github.workspace }}/*.pkg
            7z a -tzip qpep_user_manual_b${{ github.run_id }}.zip ${{ github.workspace }}/user-manual.pdf
-
-      - name: Prepare Changelog
-        id: changelog
-        run: |
-          PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
-          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" >> changelog.txt 
 
       - name: Create Release
         id: create_release
