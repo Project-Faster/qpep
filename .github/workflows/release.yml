@@ -43,6 +43,7 @@ jobs:
         id: changelog
         run: |
           set -x
+          find .
           git tag
           PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
           git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" > changelog.txt 
