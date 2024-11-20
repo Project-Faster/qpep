@@ -41,6 +41,11 @@ jobs:
       source_changed: ${{ steps.check_file_changed.outputs.source_changed }}
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+          submodules: true
+
       - name: Check files difference
         id: check_file_changed
         run: |
