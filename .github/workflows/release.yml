@@ -47,7 +47,11 @@ jobs:
         id: changelog
         run: |
           PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
-          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat|^bug|^fix" > changelog.txt 
+          echo "== Features ==" > changelog.txt
+          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat" >> changelog.txt
+          echo "" >> changelog.txt
+          echo "== Fix ==" >> changelog.txt
+          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^bug|^fix" >> changelog.txt
 
       - name: Upload Changelog
         uses: actions/upload-artifact@v4
@@ -96,7 +100,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_user_manual
+          name: qpep_user_manual_v${{ github.event.inputs.version_tag }}
           path: "docs/*.pdf"
 
       - name: Auto-cancel workflow on error
@@ -169,20 +173,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_macos
+          name: qpep_macos_v${{ github.event.inputs.version_tag }}
           path: installer-osx/QPep*.pkg
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: macos_cover_output
-          path: "cover/*.out"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: macos_coverage_report
-          path: "report/*.html"
 
       - name: Auto-cancel workflow on error
         if: failure()
@@ -241,7 +233,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_linux
+          name: qpep_linux_v${{ github.event.inputs.version_tag }}
           path: build/
 
       - name: Auto-cancel workflow on error
@@ -338,7 +330,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: qpep_windows
+          name: qpep_windows_v${{ github.event.inputs.version_tag }}
           path: build/installer.msi
 
       - name: Auto-cancel workflow on error
@@ -361,17 +353,17 @@ jobs:
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_windows
+          name: qpep_windows_v${{ github.event.inputs.version_tag }}
 
       - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_linux
+          name: qpep_linux_v${{ github.event.inputs.version_tag }}
 
       - name: Download MacOS Artifact
         uses: actions/download-artifact@v4
         with:
-          name: qpep_macos
+          name: qpep_macos_v${{ github.event.inputs.version_tag }}
 
       - name: Download UserManual Artifact
         uses: actions/download-artifact@v4
