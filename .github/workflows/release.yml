@@ -47,12 +47,13 @@ jobs:
         id: changelog
         run: |
           set -x
-          PREV_TAG=$(git tag | { grep -E "^v" || true } | sort -ud | tac | head -n1)
+          PREV_TAG=$(git tag | { grep -E "^v" || true; } | sort -ud | tac | head -n1)
           echo "== Features ==" > changelog.txt
-          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | { grep -E "^feat" || true } >> changelog.txt
+          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | { grep -E "^feat" || true; } >> changelog.txt
           echo "" >> changelog.txt
           echo "== Fix ==" >> changelog.txt
-          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | { grep -E "^bug|^fix" || true } >> changelog.txt
+          git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | { grep -E "^bug|^fix" || true; } >> changelog.txt
+          echo "" >> changelog.txt
 
       - name: Upload Changelog
         uses: actions/upload-artifact@v4
