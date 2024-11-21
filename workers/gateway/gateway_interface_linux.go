@@ -18,9 +18,9 @@ var (
 
 func getRouteListeningAddresses() []string {
 	if defaultListeningAddress == "" {
-		defaultListeningAddress = "127.0.0.1"
+		defaultListeningAddress = detectedGatewayAddresses[0]
 	}
-	return []string{defaultListeningAddress}
+	return append([]string{}, detectedGatewayAddresses...)
 }
 
 func getRouteGatewayInterfaces() ([]int64, []string, error) {
