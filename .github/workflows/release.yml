@@ -46,6 +46,7 @@ jobs:
         if: ${{ steps.checkTag.outputs.exists == 'false' }}
         id: changelog
         run: |
+          set -x
           PREV_TAG=$(git tag | grep -E "^v" | sort -ud | tac | head -n1)
           echo "== Features ==" > changelog.txt
           git log ${PREV_TAG}..HEAD --pretty=format:"%s" | uniq | grep -E "^feat" >> changelog.txt
