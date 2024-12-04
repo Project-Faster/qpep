@@ -28,7 +28,7 @@ require (
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 	github.com/nyaosorg/go-windows-dbg v0.0.0-20210914123807-2acba179a4e5
 	github.com/project-faster/dialog v1.1.0
-	github.com/project-faster/mp-quic-go v0.0.0-20241201193249-afa77d6f01e4
+	github.com/project-faster/mp-quic-go v0.0.0-20241202070857-e8bc3c4afa6d
 	github.com/segmentio/fasthash v1.0.3
 	github.com/stretchr/testify v1.8.2
 	gonum.org/v1/plot v0.12.0
@@ -71,12 +71,12 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
 	golang.org/x/crypto v0.29.0 // indirect
-	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect
+	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
-	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/sync v0.9.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
+	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/toast.v1 v1.0.0-20180812000517-0a84660828b2 // indirect
 )
