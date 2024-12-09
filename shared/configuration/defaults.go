@@ -8,6 +8,7 @@ var DefaultConfig = QPepConfigType{
 		LocalListenPort:       9443,
 		GatewayHost:           "198.18.0.254",
 		GatewayPort:           443,
+		MultipathAddressList:  make([]MultipathPathConfig, 0),
 	},
 	Server: &ServerDefinition{
 		LocalListeningAddress: "",

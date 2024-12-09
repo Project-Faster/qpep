@@ -17,7 +17,7 @@ import (
 	stderr "github.com/Project-Faster/qpep/shared/errors"
 	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/Project-Faster/qpep/workers/gateway"
-	"github.com/project-faster/mp-quic-go"
+	quic "github.com/project-faster/mp-quic-go"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -92,6 +92,8 @@ func (q *quicGoMpBackend) Close() error {
 
 func quicGoMpGetConfiguration(traceOn bool) *quic.Config {
 	cfg := &quic.Config{
+		Versions: []quic.VersionNumber{0},
+
 		MaxReceiveConnectionFlowControlWindow: 10 * 1024 * 1024,
 		MaxReceiveStreamFlowControlWindow:     10 * 1024 * 1024,
 
@@ -99,7 +101,8 @@ func quicGoMpGetConfiguration(traceOn bool) *quic.Config {
 		HandshakeTimeout: gateway.GetScaledTimeout(10, time.Second),
 		KeepAlive:        false,
 
-		CreatePaths: true,
+		CacheHandshake: true,
+		CreatePaths:    true,
 	}
 
 	return cfg
