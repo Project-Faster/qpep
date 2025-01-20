@@ -17,7 +17,6 @@ Following here are instructions for manual building the additional parts on wind
 ### Main module
 For building the qpep package you'll need:
 - Go 1.20.x
-- CMake 3.22 [Installer](https://github.com/Kitware/CMake/releases/tag/v3.22.3)
 - (Windows) A C/C++ complier compatible with CGO eg. [MinGW64](https://www.mingw-w64.org/). Specifically, download [this](https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-posix/seh/x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z), extract the files, and add the "bin" directory to the PATH.
 - (Linux) A C/C++ complier compatible with CGO eg. GCC
 
@@ -26,10 +25,8 @@ After setting the go and c compiler in the PATH, be sure to also check that `go 
 - `CC=<path to c compiler exe>`
 - `CXX=<path to c++ compiler exe>`
 
-After that change to the "backend" directory, add the `GOPATH/bin` path your PATH and execute `go generate`, this
-will generate the native backends for qpep (at the moment the `quicly-go` wrapper library).
-
-Once done that `go build -o build\qpep.exe` in the root directory will build the executable.
+After that change to the "backend" directory, add the `GOPATH/bin` path your PATH and execute`go build -o build\qpep.exe` 
+in the root directory, this will build the executable.
 To run it, first copy the following files to the executable folder (if you are on 64 bit platform):
 - x64\WinDivert.dll
 - x64\WinDivert64.sys
