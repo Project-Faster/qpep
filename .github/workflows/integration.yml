@@ -157,13 +157,6 @@ jobs:
           mkdir -p $GOPATH/bin
           pip install dmgbuild
 
-      - name: Build Backends
-        run: |
-          export CPP=${CXX}
-          export PATH=$GOPATH/bin:$GOPATH/bin/${GOOS}_${GOARCH}:$PATH
-          cd backend/
-          go generate
-
       - name: Build Executable
         run: |
           go build -v -o build/qpep
@@ -261,7 +254,7 @@ jobs:
   build-linux:
     needs: [ check-diff-files ]
     if: ${{ needs.check-diff-files.outputs.source_changed == 'true' && !inputs.skip_linux }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       GO_VERSION: 1.20.14
       CMAKE_VERSION: '3.22.x'
@@ -301,11 +294,6 @@ jobs:
           go install github.com/axw/gocov/gocov@v1.1.0
           go install github.com/matm/gocov-html/cmd/gocov-html@v1.2.0
           go install github.com/AlekSi/gocov-xml@v1.1.0
-
-      - name: Build Backends
-        run: |
-          cd backend/
-          go generate
 
       - name: Build QPep
         run: |
@@ -451,11 +439,6 @@ jobs:
           COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\64bits
           COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\64bits
           COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\64bits
-
-      - name: Build Backends
-        run: |
-          cd backend/
-          go generate
 
       - name: Build QPep
         run: |
