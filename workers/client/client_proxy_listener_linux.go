@@ -5,6 +5,7 @@ package client
 import (
 	stderr "errors"
 	"fmt"
+	"github.com/Project-Faster/qpep/shared/errors"
 	"net"
 	"syscall"
 	"time"
@@ -32,7 +33,26 @@ func NewClientProxyListener(network string, laddr *net.TCPAddr) (net.Listener, e
 	_ = syscall.SetsockoptInt(int(fileDescriptorSource.Fd()), syscall.SOL_TCP, unix.TCP_FASTOPEN, 1)
 
 	//return a derived TCP listener object with TCProxy support
-	return &ClientProxyListener{base: listener}, nil
+	return &linuxClientProxyListener{base: listener}, nil
+}
+
+type linuxClientProxyListener struct {
+	base proxyInterface
+
+	ClientProxyListener
+}
+
+func (listener *linuxClientProxyListener) Accept() (net.Conn, error) {
+	if listener.base == nil {
+		return nil, errors.ErrFailed
+	}
+	tcpConn, err := listener.base.AcceptTCP()
+	if err != nil {
+		return nil, err
+	}
+	return &wrappedTcpConn{
+		internal: tcpConn,
+	}, nil
 }
 
 type wrappedTcpConn struct {
@@ -62,8 +82,6 @@ func getOriginalDst(clientConn *net.TCPConn) (*net.TCPAddr, *net.TCPConn, error)
 	if remoteAddr == nil {
 		return nil, nil, stderr.New("ERR: clientConn.fd is nil")
 	}
-
-	fmt.Printf(">> %v\n", clientConn.RemoteAddr())
 
 	// net.TCPConn.File() will cause the receiver's (clientConn) socket to be placed in blocking mode.
 	// The workaround is to take the File returned by .File(), do getsockopt() to get the original

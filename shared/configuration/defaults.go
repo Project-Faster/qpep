@@ -11,8 +11,9 @@ var DefaultConfig = QPepConfigType{
 		MultipathAddressList:  make([]MultipathPathConfig, 0),
 	},
 	Server: &ServerDefinition{
-		LocalListeningAddress: "",
-		LocalListenPort:       0,
+		LocalListeningAddress:    "",
+		LocalListenPort:          0,
+		ExternalListeningAddress: "",
 	},
 	Security: &CertDefinition{
 		Certificate: "server_cert.pem",

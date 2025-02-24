@@ -24,11 +24,14 @@ type ClientDefinition struct {
 }
 
 type ServerDefinition struct {
-	// ListenHost (yaml:local_address) Address on which the local client listens for incoming connections
+	// LocalListeningAddress (yaml:local_address) Address on which the local client listens for incoming connections
 	// if subnet is 0. or 127. it will try to autodetect a good ip available
 	LocalListeningAddress string `yaml:"local_address"`
 	// LocalListenPort (yaml:local_port) Port where qpep will try to redirect the local tcp connections
 	LocalListenPort int `yaml:"local_port"`
+	// ExternalListeningAddress (yaml:external_address) Necessary in scenarios where the listening address is not exposed
+	// directly to the internet, if empty gets the same value as LocalListeningAddress
+	ExternalListeningAddress string `yaml:"external_address"`
 }
 
 type CertDefinition struct {
@@ -118,6 +121,7 @@ func (q *ServerDefinition) merge(r *ServerDefinition) {
 	if r != nil {
 		q.LocalListeningAddress = r.LocalListeningAddress
 		q.LocalListenPort = r.LocalListenPort
+		q.ExternalListeningAddress = r.ExternalListeningAddress
 	}
 }
 

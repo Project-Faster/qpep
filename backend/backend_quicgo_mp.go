@@ -20,6 +20,7 @@ import (
 	quic "github.com/project-faster/mp-quic-go"
 	"io/ioutil"
 	"net"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -69,7 +70,7 @@ func (q *quicGoMpBackend) Listen(ctx context.Context, address string, port int, 
 
 	tlsConf := mpLoadTLSConfig(serverCertPath, serverKeyPath)
 
-	conn, err := quic.ListenAddr(fmt.Sprintf("%s:%d", address, port), tlsConf, quicConfig)
+	conn, err := quic.ListenAddr(fmt.Sprintf("%s:%d", "0.0.0.0", port), tlsConf, quicConfig)
 	if err != nil {
 		logger.Error("Failed to listen on Protocol session: %v\n", err)
 		return nil, stderr.ErrFailedGatewayConnect
@@ -82,8 +83,10 @@ func (q *quicGoMpBackend) Listen(ctx context.Context, address string, port int, 
 }
 
 func (q *quicGoMpBackend) Close() error {
-	for _, conn := range q.connections {
-		_ = conn.Close(0, "")
+	if !isNil(q.connections) {
+		for _, conn := range q.connections {
+			_ = conn.Close(0, "")
+		}
 	}
 	q.connections = nil
 	logger.Info("== Protocol Session Closed ==\n")
@@ -101,8 +104,7 @@ func quicGoMpGetConfiguration(traceOn bool) *quic.Config {
 		HandshakeTimeout: gateway.GetScaledTimeout(10, time.Second),
 		KeepAlive:        false,
 
-		CacheHandshake: true,
-		CreatePaths:    true,
+		CreatePaths: true,
 	}
 
 	return cfg
@@ -117,27 +119,27 @@ type quicGoMpConnectionAdapter struct {
 }
 
 func (c *quicGoMpConnectionAdapter) LocalAddr() net.Addr {
-	if c.connection != nil {
+	if !isNil(c.connection) {
 		return c.connection.LocalAddr()
 	}
-	if c.listener != nil {
+	if !isNil(c.listener) {
 		return c.listener.Addr()
 	}
 	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *quicGoMpConnectionAdapter) RemoteAddr() net.Addr {
-	if c.connection != nil {
+	if !isNil(c.connection) {
 		return c.connection.RemoteAddr()
 	}
-	if c.listener != nil {
+	if !isNil(c.listener) {
 		return c.listener.Addr()
 	}
 	panic(stderr.ErrInvalidBackendOperation)
 }
 
 func (c *quicGoMpConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
-	if c.listener != nil {
+	if !isNil(c.listener) {
 		conn, err := c.listener.Accept()
 		if err != nil {
 			return nil, err
@@ -154,7 +156,7 @@ func (c *quicGoMpConnectionAdapter) AcceptConnection(ctx context.Context) (QuicB
 }
 
 func (c *quicGoMpConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
-	if c.connection != nil {
+	if !isNil(c.connection) {
 		stream, err := c.connection.AcceptStream()
 		if stream != nil {
 			c.streams = append(c.streams, stream)
@@ -167,7 +169,7 @@ func (c *quicGoMpConnectionAdapter) AcceptStream(ctx context.Context) (QuicBacke
 }
 
 func (c *quicGoMpConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
-	if c.connection != nil {
+	if !isNil(c.connection) {
 		stream, err := c.connection.OpenStreamSync()
 		return &quicGoMpStreamAdapter{
 			Stream: stream,
@@ -185,6 +187,9 @@ func (c *quicGoMpConnectionAdapter) Close(code int, message string) error {
 	if c.connection != nil {
 		err := errors.New(fmt.Sprintf("code:%d,message:%s", code, message))
 		for _, st := range c.streams {
+			if isNil(st) {
+				continue
+			}
 			st.Reset(err)
 			_ = st.Close()
 		}
@@ -197,7 +202,7 @@ func (c *quicGoMpConnectionAdapter) Close(code int, message string) error {
 }
 
 func (c *quicGoMpConnectionAdapter) IsClosed() bool {
-	return c.connection == nil && c.listener == nil
+	return isNil(c.connection) && isNil(c.listener)
 }
 
 var _ QuicBackendConnection = &quicGoMpConnectionAdapter{}
@@ -228,7 +233,7 @@ func (stream *quicGoMpStreamAdapter) Sync() bool {
 }
 
 func (stream *quicGoMpStreamAdapter) ID() uint64 {
-	if stream.id != nil {
+	if !isNil(stream.id) {
 		return *stream.id
 	}
 	stream.id = new(uint64)
@@ -237,14 +242,14 @@ func (stream *quicGoMpStreamAdapter) ID() uint64 {
 }
 
 func (stream *quicGoMpStreamAdapter) IsClosed() bool {
-	return false // stream.closedRead || stream.closedWrite
+	return stream.closedRead && stream.closedWrite
 }
 
 func (stream *quicGoMpStreamAdapter) Close() error {
-	ctx := stream.Stream.Context()
-	<-ctx.Done()
-
-	return stream.Stream.Close()
+	if !stream.IsClosed() {
+		return stream.Stream.Close()
+	}
+	return nil
 }
 
 var _ QuicBackendStream = &quicGoMpStreamAdapter{}
@@ -370,4 +375,17 @@ func mpParsePrivateKey(der []byte) (crypto.PrivateKey, error) {
 	}
 
 	return nil, errors.New("tls: failed to parse private key")
+}
+
+// --- isNil --- //
+func isNil(i any) bool {
+	if i == nil {
+		return true
+	}
+	switch reflect.TypeOf(i).Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Array, reflect.Chan, reflect.Slice:
+		return reflect.ValueOf(i).IsNil()
+	default:
+		return false
+	}
 }
