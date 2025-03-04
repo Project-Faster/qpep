@@ -3,9 +3,8 @@ package configuration
 import "time"
 
 type MultipathPathConfig struct {
-	Address string  `json:"address"`
-	Port    int     `json:"port"`
-	Weight  float64 `json:"weight"`
+	Address string `json:"address"`
+	Port    int    `json:"port"`
 }
 
 type ClientDefinition struct {

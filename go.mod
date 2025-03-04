@@ -26,7 +26,7 @@ require (
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
 	github.com/nyaosorg/go-windows-dbg v0.0.0-20210914123807-2acba179a4e5
 	github.com/project-faster/dialog v1.1.0
-	github.com/project-faster/mp-quic-go v0.0.0-20241202070857-e8bc3c4afa6d
+	github.com/project-faster/mp-quic-go v0.0.0-20250302212009-8d5c7d88f64d
 	github.com/segmentio/fasthash v1.0.3
 	github.com/stretchr/testify v1.8.2
 	gonum.org/v1/plot v0.12.0

@@ -14,6 +14,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/Project-Faster/qpep/shared/configuration"
 	stderr "github.com/Project-Faster/qpep/shared/errors"
 	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/Project-Faster/qpep/workers/gateway"
@@ -94,6 +95,18 @@ func (q *quicGoMpBackend) Close() error {
 }
 
 func quicGoMpGetConfiguration(traceOn bool) *quic.Config {
+	multipathAddresses := make([]net.UDPAddr, 0)
+	for _, p := range configuration.QPepConfig.Client.MultipathAddressList {
+		mAddr := fmt.Sprintf("%s:%d", p.Address, p.Port)
+		addr, err := net.ResolveUDPAddr("udp", mAddr)
+		logger.OnError(err, "Could not resolve multipath address: "+mAddr)
+
+		if err == nil {
+			multipathAddresses = append(multipathAddresses, *addr)
+			logger.Info("Added multipath address: %v", mAddr)
+		}
+	}
+
 	cfg := &quic.Config{
 		Versions: []quic.VersionNumber{0},
 
@@ -104,7 +117,8 @@ func quicGoMpGetConfiguration(traceOn bool) *quic.Config {
 		HandshakeTimeout: gateway.GetScaledTimeout(10, time.Second),
 		KeepAlive:        false,
 
-		CreatePaths: true,
+		CreatePaths:        true,
+		MultipathAddresses: multipathAddresses,
 	}
 
 	return cfg

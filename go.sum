@@ -7,9 +7,6 @@ github.com/Project-Faster/monkey v1.0.4 h1:IUO+BpQtrEONxeakFk8HogDD0A8W3hEhk6uNq
 github.com/Project-Faster/monkey v1.0.4/go.mod h1:BBh51qHtjvvO5auL5aMvQl8gfRgnl5nT6U1mEXzyjjs=
 github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d h1:gC9IVuYjsQRCtDK1XkpgIOr9ER9qpNDYyHxPZJphMKw=
 github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d/go.mod h1:SABQ6Yop6PbpjBXgrM0tFwg24uML+gHDQ/PRXR/CQAU=
-github.com/Project-Faster/quicly-go v0.3.0/go.mod h1:xHQ3YqnhFYVbhZeJiBLp9OvlSy5t20r46eaGe0dH3Yw=
-github.com/Project-Faster/quicly-go v0.4.0 h1:2ZPTYu5xuWseosQxN7dPbOuHmuMtRrRKwkjXtWe8gPM=
-github.com/Project-Faster/quicly-go v0.4.0/go.mod h1:xHQ3YqnhFYVbhZeJiBLp9OvlSy5t20r46eaGe0dH3Yw=
 github.com/Project-Faster/quicly-go v0.4.1 h1:1BvK51ngfvfD7VTH7zwJQBaIG/XJA4ZW68NV1nQ/tlE=
 github.com/Project-Faster/quicly-go v0.4.1/go.mod h1:xHQ3YqnhFYVbhZeJiBLp9OvlSy5t20r46eaGe0dH3Yw=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf h1:FPsprx82rdrX2jiKyS17BH6IrTmUBYqZa/CXT4uvb+I=
@@ -123,8 +120,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/project-faster/dialog v1.1.0 h1:X8VuaoQYyODaCu9WCGtKMHH7JxS9OvGoVuVsOcaceQw=
 github.com/project-faster/dialog v1.1.0/go.mod h1:w6I9kRdTYV8b5XO/UYm5hobK2m8CiD+t6ewqcOpciw0=
-github.com/project-faster/mp-quic-go v0.0.0-20241202070857-e8bc3c4afa6d h1:Vj+3BEMbBrkKPIMm71P14sWhpneXWMmy0EUsuOqiDgo=
-github.com/project-faster/mp-quic-go v0.0.0-20241202070857-e8bc3c4afa6d/go.mod h1:2Gt9vX8PLJ5e0yXfUGLemWavgzzIyo2/U/CL6jFxVQM=
+github.com/project-faster/mp-quic-go v0.0.0-20250302212009-8d5c7d88f64d h1:URCU983zzn1C0AFnC96FmLds8Xk0MQEbkUnscuIz2jQ=
+github.com/project-faster/mp-quic-go v0.0.0-20250302212009-8d5c7d88f64d/go.mod h1:2Gt9vX8PLJ5e0yXfUGLemWavgzzIyo2/U/CL6jFxVQM=
 github.com/project-faster/systray v1.4.0 h1:0pY5iJt4MfjKPDx5YB6wFN44RS1t5IndQWn9Y4a8w2o=
 github.com/project-faster/systray v1.4.0/go.mod h1:Bv4Bn5c79K7vmV21sogt+am4rDUDN8NWDZoiJ0CgfvI=
 github.com/quic-go/qtls-go1-18 v0.2.0 h1:5ViXqBZ90wpUcZS0ge79rf029yx0dYB0McyPJwqqj7U=
