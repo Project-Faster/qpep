@@ -50,7 +50,7 @@ func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AlreadyDetected
 	detectedGatewayAddresses = []string{"127.0.0.1"}
 	detectedGatewayInterfaces = []int64{1}
 
-	addrs, interfaces := GetDefaultLanListeningAddress("192.0.0.1", "")
+	addrs, interfaces := GetDefaultLanListeningAddress("127.0.0.1", "")
 	assert.Equal(t, "127.0.0.1", addrs)
 	assertArrayEqualsInt64(t, []int64{1}, interfaces)
 }
