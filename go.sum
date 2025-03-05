@@ -120,8 +120,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/project-faster/dialog v1.1.0 h1:X8VuaoQYyODaCu9WCGtKMHH7JxS9OvGoVuVsOcaceQw=
 github.com/project-faster/dialog v1.1.0/go.mod h1:w6I9kRdTYV8b5XO/UYm5hobK2m8CiD+t6ewqcOpciw0=
-github.com/project-faster/mp-quic-go v0.0.0-20250302212009-8d5c7d88f64d h1:URCU983zzn1C0AFnC96FmLds8Xk0MQEbkUnscuIz2jQ=
-github.com/project-faster/mp-quic-go v0.0.0-20250302212009-8d5c7d88f64d/go.mod h1:2Gt9vX8PLJ5e0yXfUGLemWavgzzIyo2/U/CL6jFxVQM=
+github.com/project-faster/mp-quic-go v0.0.0-20250303221726-f651e037f8f5 h1:A4VwqfmLstQRxIqxy2yvP+i7CMkuvX4CuDsESx0Ju6g=
+github.com/project-faster/mp-quic-go v0.0.0-20250303221726-f651e037f8f5/go.mod h1:2Gt9vX8PLJ5e0yXfUGLemWavgzzIyo2/U/CL6jFxVQM=
 github.com/project-faster/systray v1.4.0 h1:0pY5iJt4MfjKPDx5YB6wFN44RS1t5IndQWn9Y4a8w2o=
 github.com/project-faster/systray v1.4.0/go.mod h1:Bv4Bn5c79K7vmV21sogt+am4rDUDN8NWDZoiJ0CgfvI=
 github.com/quic-go/qtls-go1-18 v0.2.0 h1:5ViXqBZ90wpUcZS0ge79rf029yx0dYB0McyPJwqqj7U=
