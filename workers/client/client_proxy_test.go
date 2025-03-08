@@ -41,7 +41,7 @@ func (s *ClientProxyListenerSuite) TestNewClientProxyListener() {
 
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), listener)
-	assert.NotNil(s.T(), listener.(*linuxClientProxyListener).base)
+	assert.NotNil(s.T(), listener.(*ClientProxyListener).base)
 
 	assert.NotNil(s.T(), listener.Addr())
 	assert.Equal(s.T(), fmt.Sprintf("127.0.0.1:%d", s.testLocalListenPort), listener.Addr().String())

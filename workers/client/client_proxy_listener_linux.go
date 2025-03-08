@@ -33,50 +33,31 @@ func NewClientProxyListener(network string, laddr *net.TCPAddr) (net.Listener, e
 	_ = syscall.SetsockoptInt(int(fileDescriptorSource.Fd()), syscall.SOL_TCP, unix.TCP_FASTOPEN, 1)
 
 	//return a derived TCP listener object with TCProxy support
-	return &linuxClientProxyListener{base: listener}, nil
+	return &ClientProxyListener{base: listener}, nil
 }
 
-type linuxClientProxyListener struct {
-	base proxyInterface
-}
-
-// Addr method returns the listening address
-func (listener *linuxClientProxyListener) Addr() net.Addr {
-	if listener.base == nil {
-		return nil
+// Accept method accepts the connections from generic connection types
+func (listener *ClientProxyListener) Accept() (net.Conn, error) {
+	conn, err := listener.AcceptTProxy()
+	if err == nil {
+		return &wrappedTcpConn{
+			internal: conn,
+		}, err
 	}
-	return listener.base.Addr()
+	return nil, err
 }
 
-func (listener *linuxClientProxyListener) Accept() (net.Conn, error) {
+// AcceptTProxy method accepts the connections and casts those to a tcp connection type
+func (listener *ClientProxyListener) AcceptTProxy() (*net.TCPConn, error) {
 	if listener.base == nil {
 		return nil, errors.ErrFailed
 	}
-	tcpConn, err := listener.AcceptTCP()
+	tcpConn, err := listener.base.AcceptTCP()
 	if err != nil {
 		return nil, err
 	}
-	return &wrappedTcpConn{
-		internal: tcpConn,
-	}, nil
+	return tcpConn, nil
 }
-
-func (listener *linuxClientProxyListener) AcceptTCP() (*net.TCPConn, error) {
-	if listener.base == nil {
-		return nil, errors.ErrFailed
-	}
-	return listener.base.AcceptTCP()
-}
-
-// Close method close the listener
-func (listener *linuxClientProxyListener) Close() error {
-	if listener.base == nil {
-		return nil
-	}
-	return listener.base.Close()
-}
-
-var _ proxyInterface = &linuxClientProxyListener{}
 
 type wrappedTcpConn struct {
 	internal   *net.TCPConn

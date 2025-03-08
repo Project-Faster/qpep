@@ -390,7 +390,7 @@ func (s *ClientProxyListenerSuite) TestProxyListener_FailAccept() {
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), listener)
 
-	clListener := listener.(*linuxClientProxyListener)
+	clListener := listener.(*ClientProxyListener)
 	monkey.PatchInstanceMethod(reflect.TypeOf(clListener.base), "AcceptTCP",
 		func(_ *net.TCPListener) (*net.TCPConn, error) {
 			return nil, errors.ErrFailed
