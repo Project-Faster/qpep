@@ -8,6 +8,8 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/Project-Faster/qpep/shared/errors"
 )
 
 // NewClientProxyListener method instantiates a new ClientProxyListener on a tcp address base listener
