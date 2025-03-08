@@ -45,7 +45,7 @@ func SetConnectionDiverter(active bool, gatewayAddr, listenAddr string, gatewayP
 
 	if active {
 		logger.Info("Initializing iptables: %v %v %v %v %v %v %v\n",
-			gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface)
+			gatewayAddr, listenAddr, gatewayPort, listenPort, numThreads, gatewayInterface, ignoredPorts)
 
 		_, err, _ := shared.RunCommand("bash", "-c", "iptables -P FORWARD ACCEPT")
 		if err != nil {

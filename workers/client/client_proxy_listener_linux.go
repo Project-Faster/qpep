@@ -38,15 +38,21 @@ func NewClientProxyListener(network string, laddr *net.TCPAddr) (net.Listener, e
 
 type linuxClientProxyListener struct {
 	base proxyInterface
+}
 
-	ClientProxyListener
+// Addr method returns the listening address
+func (listener *linuxClientProxyListener) Addr() net.Addr {
+	if listener.base == nil {
+		return nil
+	}
+	return listener.base.Addr()
 }
 
 func (listener *linuxClientProxyListener) Accept() (net.Conn, error) {
 	if listener.base == nil {
 		return nil, errors.ErrFailed
 	}
-	tcpConn, err := listener.base.AcceptTCP()
+	tcpConn, err := listener.AcceptTCP()
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +60,23 @@ func (listener *linuxClientProxyListener) Accept() (net.Conn, error) {
 		internal: tcpConn,
 	}, nil
 }
+
+func (listener *linuxClientProxyListener) AcceptTCP() (*net.TCPConn, error) {
+	if listener.base == nil {
+		return nil, errors.ErrFailed
+	}
+	return listener.base.AcceptTCP()
+}
+
+// Close method close the listener
+func (listener *linuxClientProxyListener) Close() error {
+	if listener.base == nil {
+		return nil
+	}
+	return listener.base.Close()
+}
+
+var _ proxyInterface = &linuxClientProxyListener{}
 
 type wrappedTcpConn struct {
 	internal   *net.TCPConn
