@@ -38,7 +38,7 @@ jobs:
       run:
         shell: bash
     env:
-      SRC_PATTERN: '\.go|\.c|\.cpp|\.html|\.js|\.h|\.mod|\.sum'
+      SRC_PATTERN: '\.go|\.c|\.cpp|\.html|\.js|\.h|\.md|\.mod|\.sum'
 
     outputs:
       source_changed: ${{ github.event_name == 'workflow_dispatch' || steps.check_file_changed.outputs.source_changed == 'true' }}

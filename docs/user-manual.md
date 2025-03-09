@@ -569,3 +569,4 @@ will differ and the two services will not be able to communicate properly.
 
 * The values for `client.gateway_port` and `server.local_port` have to be the same for communication
 to happen properly, also this port is the only one that must be opened in the server firewall.
+
