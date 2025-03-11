@@ -8,6 +8,8 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/Project-Faster/qpep/shared/errors"
 )
 
 // NewClientProxyListener method instantiates a new ClientProxyListener on a tcp address base listener
@@ -29,4 +31,25 @@ func NewClientProxyListener(network string, laddr *net.TCPAddr) (net.Listener, e
 
 	//return a derived TCP listener object with TCProxy support
 	return &ClientProxyListener{base: listener}, nil
+}
+
+// Accept method accepts the connections from generic connection types
+func (listener *ClientProxyListener) Accept() (net.Conn, error) {
+	conn, err := listener.AcceptTProxy()
+	if err == nil {
+		listener.internalConn = conn
+	}
+	return conn, err
+}
+
+// AcceptTProxy method accepts the connections and casts those to a tcp connection type
+func (listener *ClientProxyListener) AcceptTProxy() (*net.TCPConn, error) {
+	if listener.base == nil {
+		return nil, errors.ErrFailed
+	}
+	tcpConn, err := listener.base.AcceptTCP()
+	if err != nil {
+		return nil, err
+	}
+	return tcpConn, nil
 }

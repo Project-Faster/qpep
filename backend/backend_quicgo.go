@@ -14,11 +14,11 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/Project-Faster/quic-go"
-	"github.com/Project-Faster/quic-go/logging"
 	stderr "github.com/Project-Faster/qpep/shared/errors"
 	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/Project-Faster/qpep/workers/gateway"
+	"github.com/Project-Faster/quic-go"
+	"github.com/Project-Faster/quic-go/logging"
 	"io/ioutil"
 	"net"
 	"strings"
@@ -31,10 +31,10 @@ const (
 	QUICGO_DEFAULT_CCA = "reno"
 )
 
-var qgoBackend QuicBackend = &quicGoBackend{}
+var quicGoBackendVar QuicBackend = &quicGoBackend{}
 
 func init() {
-	Register(QUICGO_BACKEND, qgoBackend)
+	Register(QUICGO_BACKEND, quicGoBackendVar)
 }
 
 type quicGoBackend struct {
@@ -42,7 +42,7 @@ type quicGoBackend struct {
 }
 
 func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int, clientCertPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
-	quicConfig := qgoGetConfiguration(traceOn)
+	quicConfig := quicGoGetConfiguration(traceOn)
 
 	var err error
 	var session quic.Connection
@@ -56,7 +56,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int
 		return nil, stderr.ErrFailedGatewayConnect
 	}
 
-	sessionAdapter := &qgoConnectionAdapter{
+	sessionAdapter := &quicGoConnectionAdapter{
 		context:    ctx,
 		connection: session,
 	}
@@ -66,7 +66,7 @@ func (q *quicGoBackend) Dial(ctx context.Context, remoteAddress string, port int
 }
 
 func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, serverCertPath string, serverKeyPath string, ccAlgorithm string, ccSlowstartAlgo string, traceOn bool) (QuicBackendConnection, error) {
-	quicConfig := qgoGetConfiguration(traceOn)
+	quicConfig := quicGoGetConfiguration(traceOn)
 
 	tlsConf := loadTLSConfig(serverCertPath, serverKeyPath)
 
@@ -76,7 +76,7 @@ func (q *quicGoBackend) Listen(ctx context.Context, address string, port int, se
 		return nil, stderr.ErrFailedGatewayConnect
 	}
 
-	return &qgoConnectionAdapter{
+	return &quicGoConnectionAdapter{
 		context:  ctx,
 		listener: conn,
 	}, err
@@ -91,7 +91,7 @@ func (q *quicGoBackend) Close() error {
 	return nil
 }
 
-func qgoGetConfiguration(traceOn bool) *quic.Config {
+func quicGoGetConfiguration(traceOn bool) *quic.Config {
 	cfg := &quic.Config{
 		MaxIncomingStreams:      1024,
 		DisablePathMTUDiscovery: false,
@@ -111,7 +111,7 @@ func qgoGetConfiguration(traceOn bool) *quic.Config {
 	return cfg
 }
 
-type qgoConnectionAdapter struct {
+type quicGoConnectionAdapter struct {
 	context    context.Context
 	listener   quic.Listener
 	connection quic.Connection
@@ -119,7 +119,7 @@ type qgoConnectionAdapter struct {
 	streams []quic.Stream
 }
 
-func (c *qgoConnectionAdapter) LocalAddr() net.Addr {
+func (c *quicGoConnectionAdapter) LocalAddr() net.Addr {
 	if c.connection != nil {
 		return c.connection.LocalAddr()
 	}
@@ -129,7 +129,7 @@ func (c *qgoConnectionAdapter) LocalAddr() net.Addr {
 	panic(stderr.ErrInvalidBackendOperation)
 }
 
-func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
+func (c *quicGoConnectionAdapter) RemoteAddr() net.Addr {
 	if c.connection != nil {
 		return c.connection.RemoteAddr()
 	}
@@ -139,13 +139,13 @@ func (c *qgoConnectionAdapter) RemoteAddr() net.Addr {
 	panic(stderr.ErrInvalidBackendOperation)
 }
 
-func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
+func (c *quicGoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBackendConnection, error) {
 	if c.listener != nil {
 		conn, err := c.listener.Accept(ctx)
 		if err != nil {
 			return nil, err
 		}
-		cNew := &qgoConnectionAdapter{
+		cNew := &quicGoConnectionAdapter{
 			context:    ctx,
 			listener:   c.listener,
 			connection: conn,
@@ -156,30 +156,30 @@ func (c *qgoConnectionAdapter) AcceptConnection(ctx context.Context) (QuicBacken
 	panic(stderr.ErrInvalidBackendOperation)
 }
 
-func (c *qgoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
+func (c *quicGoConnectionAdapter) AcceptStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream, err := c.connection.AcceptStream(ctx)
 		if stream != nil {
 			c.streams = append(c.streams, stream)
 		}
-		return &qgoStreamAdapter{
+		return &quicGoStreamAdapter{
 			Stream: stream,
 		}, err
 	}
 	panic(stderr.ErrInvalidBackendOperation)
 }
 
-func (c *qgoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
+func (c *quicGoConnectionAdapter) OpenStream(ctx context.Context) (QuicBackendStream, error) {
 	if c.connection != nil {
 		stream, err := c.connection.OpenStreamSync(ctx)
-		return &qgoStreamAdapter{
+		return &quicGoStreamAdapter{
 			Stream: stream,
 		}, err
 	}
 	panic(stderr.ErrInvalidBackendOperation)
 }
 
-func (c *qgoConnectionAdapter) Close(code int, message string) error {
+func (c *quicGoConnectionAdapter) Close(code int, message string) error {
 	defer func() {
 		c.connection = nil
 		c.listener = nil
@@ -199,13 +199,13 @@ func (c *qgoConnectionAdapter) Close(code int, message string) error {
 	return nil
 }
 
-func (c *qgoConnectionAdapter) IsClosed() bool {
+func (c *quicGoConnectionAdapter) IsClosed() bool {
 	return c.connection == nil && c.listener == nil
 }
 
-var _ QuicBackendConnection = &qgoConnectionAdapter{}
+var _ QuicBackendConnection = &quicGoConnectionAdapter{}
 
-type qgoStreamAdapter struct {
+type quicGoStreamAdapter struct {
 	quic.Stream
 
 	id *uint64
@@ -214,21 +214,21 @@ type qgoStreamAdapter struct {
 	closedWrite bool
 }
 
-func (stream *qgoStreamAdapter) AbortRead(code uint64) {
+func (stream *quicGoStreamAdapter) AbortRead(code uint64) {
 	stream.CancelRead(quic.StreamErrorCode(code))
 	stream.closedRead = true
 }
 
-func (stream *qgoStreamAdapter) AbortWrite(code uint64) {
+func (stream *quicGoStreamAdapter) AbortWrite(code uint64) {
 	stream.CancelWrite(quic.StreamErrorCode(code))
 	stream.closedWrite = true
 }
 
-func (stream *qgoStreamAdapter) Sync() bool {
+func (stream *quicGoStreamAdapter) Sync() bool {
 	return stream.IsClosed()
 }
 
-func (stream *qgoStreamAdapter) ID() uint64 {
+func (stream *quicGoStreamAdapter) ID() uint64 {
 	if stream.id != nil {
 		return *stream.id
 	}
@@ -247,18 +247,18 @@ func (stream *qgoStreamAdapter) ID() uint64 {
 	return 0
 }
 
-func (stream *qgoStreamAdapter) IsClosed() bool {
+func (stream *quicGoStreamAdapter) IsClosed() bool {
 	return false // stream.closedRead || stream.closedWrite
 }
 
-func (stream *qgoStreamAdapter) Close() error {
+func (stream *quicGoStreamAdapter) Close() error {
 	ctx := stream.Stream.Context()
 	<-ctx.Done()
 
 	return stream.Stream.Close()
 }
 
-var _ QuicBackendStream = &qgoStreamAdapter{}
+var _ QuicBackendStream = &quicGoStreamAdapter{}
 
 // --- Certificate support --- //
 

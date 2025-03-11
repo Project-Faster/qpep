@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/shared/errors"
 	"github.com/stretchr/testify/assert"
@@ -13,14 +14,20 @@ import (
 
 func TestClientProxyListenerSuite(t *testing.T) {
 	var q ClientProxyListenerSuite
+	q.testLocalListenPort = 9990
+
 	suite.Run(t, &q)
 }
 
 type ClientProxyListenerSuite struct {
 	suite.Suite
+
+	testLocalListenPort int
 }
 
-func (s *ClientProxyListenerSuite) BeforeTest(_, testName string) {}
+func (s *ClientProxyListenerSuite) BeforeTest(_, testName string) {
+	s.testLocalListenPort++
+}
 
 func (s *ClientProxyListenerSuite) AfterTest(_, testName string) {
 	monkey.UnpatchAll()
@@ -29,7 +36,7 @@ func (s *ClientProxyListenerSuite) AfterTest(_, testName string) {
 func (s *ClientProxyListenerSuite) TestNewClientProxyListener() {
 	listener, err := NewClientProxyListener("tcp", &net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
-		Port: 9090,
+		Port: s.testLocalListenPort,
 	})
 
 	assert.Nil(s.T(), err)
@@ -37,7 +44,7 @@ func (s *ClientProxyListenerSuite) TestNewClientProxyListener() {
 	assert.NotNil(s.T(), listener.(*ClientProxyListener).base)
 
 	assert.NotNil(s.T(), listener.Addr())
-	assert.Equal(s.T(), "127.0.0.1:9090", listener.Addr().String())
+	assert.Equal(s.T(), fmt.Sprintf("127.0.0.1:%d", s.testLocalListenPort), listener.Addr().String())
 
 	assert.Nil(s.T(), listener.Close())
 }
@@ -72,7 +79,7 @@ func (s *ClientProxyListenerSuite) TestProxyListener_AcceptNil() {
 func (s *ClientProxyListenerSuite) TestProxyListener_AcceptConn() {
 	listener, err := NewClientProxyListener("tcp", &net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
-		Port: 9090,
+		Port: s.testLocalListenPort,
 	})
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), listener)
@@ -82,7 +89,7 @@ func (s *ClientProxyListenerSuite) TestProxyListener_AcceptConn() {
 	go func() {
 		conn, err := net.DialTCP("tcp", nil, &net.TCPAddr{
 			IP:   net.ParseIP("127.0.0.1"),
-			Port: 9090,
+			Port: s.testLocalListenPort,
 		})
 		<-time.After(1 * time.Second)
 		assert.Nil(s.T(), err)

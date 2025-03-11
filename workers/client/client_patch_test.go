@@ -4,6 +4,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"github.com/Project-Faster/monkey"
 	"github.com/Project-Faster/qpep/api"
 	"github.com/Project-Faster/qpep/shared/configuration"
@@ -48,7 +49,7 @@ func (s *ClientSuite) TestRunClient() {
 }
 
 func (s *ClientSuite) TestHandleServices() {
-	proxyListener, _ = net.Listen("tcp", "127.0.0.1:9090")
+	proxyListener, _ = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", s.testLocalListenPort))
 	defer func() {
 		if proxyListener != nil {
 			_ = proxyListener.Close()
@@ -300,7 +301,7 @@ func (s *ClientSuite) TestGatewayStatusCheck() {
 	monkey.Patch(api.RequestEcho, func(string, string, int, bool) *api.EchoResponse {
 		return &api.EchoResponse{
 			Address:       "127.0.0.1",
-			Port:          9090,
+			Port:          int64(s.testLocalListenPort),
 			ServerVersion: "0.1.0",
 		}
 	})
@@ -308,7 +309,7 @@ func (s *ClientSuite) TestGatewayStatusCheck() {
 	ok, resp := gatewayStatusCheck("127.0.0.1", "127.0.0.1", 8080)
 	assert.True(s.T(), ok)
 	assert.Equal(s.T(), "127.0.0.1", resp.Address)
-	assert.Equal(s.T(), int64(9090), resp.Port)
+	assert.Equal(s.T(), int64(s.testLocalListenPort), resp.Port)
 	assert.Equal(s.T(), "0.1.0", resp.ServerVersion)
 }
 
@@ -382,9 +383,10 @@ func (s *ClientSuite) TestClientStatisticsUpdate_Fail() {
 func (s *ClientProxyListenerSuite) TestProxyListener_FailAccept() {
 	listener, err := NewClientProxyListener("tcp", &net.TCPAddr{
 		IP:   net.ParseIP("127.0.0.1"),
-		Port: 9090,
+		Port: s.testLocalListenPort,
 	})
 
+	s.T().Logf("err: %v", err)
 	assert.Nil(s.T(), err)
 	assert.NotNil(s.T(), listener)
 

@@ -283,6 +283,7 @@ func (s *statistics) GetMappedAddress(source string) string {
 	s.semState.RLock()
 	defer s.semState.RUnlock()
 
+	logger.Debug("Get Mapped %v: %v", source, s.state["src-"+source])
 	if val, ok := s.state["src-"+source]; ok {
 		return val
 	}
@@ -298,6 +299,8 @@ func (s *statistics) SetMappedAddress(source string, dest string) {
 
 	s.semState.Lock()
 	defer s.semState.Unlock()
+
+	logger.Debug("Set Mapped %v to %v", source, dest)
 
 	srcKey := "src-" + source
 	if _, ok := s.state[srcKey]; !ok {

@@ -54,12 +54,14 @@ func init() {
 // for listening on the network of current system, it takes into account the detected interfaces and addresses defined
 // on the system and the preferred configuration address and gateway in input
 func GetDefaultLanListeningAddress(currentAddress, gatewayAddress string) (string, []int64) {
-	if len(defaultListeningAddress) > 0 {
-		return defaultListeningAddress, detectedGatewayInterfaces
+	if len(currentAddress) > 0 {
+		if !strings.HasPrefix(currentAddress, "0.") && !strings.HasPrefix(currentAddress, "127.") {
+			return currentAddress, detectedGatewayInterfaces
+		}
 	}
 
-	if !strings.HasPrefix(currentAddress, "0.") && !strings.HasPrefix(currentAddress, "127.") {
-		return currentAddress, detectedGatewayInterfaces
+	if len(defaultListeningAddress) > 0 {
+		return defaultListeningAddress, detectedGatewayInterfaces
 	}
 
 	var filterList = detectedGatewayAddresses

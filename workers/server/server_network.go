@@ -172,16 +172,19 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	// we dial the listening address when the connection is directed at the non-local API server
 	srcAddress := qpepHeader.SourceAddr.String()
 	destAddress := qpepHeader.DestAddr.String()
+	localSrcAddress := &net.TCPAddr{IP: net.ParseIP(configuration.QPepConfig.Server.ExternalListeningAddress)}
+
 	if qpepHeader.Flags&protocol.QPEP_LOCALSERVER_DESTINATION != 0 {
 		logger.Debug("[%d] Local connection to server", quicStream.ID())
 		destAddress = fmt.Sprintf("127.0.0.1:%d", qpepHeader.DestAddr.Port)
+		localSrcAddress = nil
 	}
 
 	tskKey := fmt.Sprintf("TCP-Dial:%v:%v", quicStream.ID(), destAddress)
 	tsk := shared.StartRegion(tskKey)
 	logger.Debug("[%d] >> Opening TCP NetConn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
-		//LocalAddr:     &net.TCPAddr{IP: net.ParseIP(ServerConfiguration.ListenHost)},
+		LocalAddr:     localSrcAddress,
 		Timeout:       30 * time.Second,
 		Deadline:      time.Now().Add(30 * time.Second),
 		KeepAlive:     -1,
@@ -207,7 +210,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	//setLinger(tcpConn)
 
-	api.Statistics.SetMappedAddress(proxySrcAddress, srcAddress)
+	api.Statistics.SetMappedAddress(proxySrcAddress, destAddress)
 	api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS)
 	api.Statistics.IncrementCounter(1.0, api.PERF_CONN, srcAddress)
 	defer func() {

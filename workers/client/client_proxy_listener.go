@@ -1,13 +1,14 @@
 package client
 
 import (
-	"github.com/Project-Faster/qpep/shared/errors"
 	"net"
 )
 
 // ClientProxyListener implements the local listener for diverted connections
 type ClientProxyListener struct {
 	base proxyInterface
+
+	internalConn *net.TCPConn
 }
 
 type proxyInterface interface {
@@ -30,21 +31,4 @@ func (listener *ClientProxyListener) Close() error {
 		return nil
 	}
 	return listener.base.Close()
-}
-
-// Accept method accepts the connections from generic connection types
-func (listener *ClientProxyListener) Accept() (net.Conn, error) {
-	return listener.AcceptTProxy()
-}
-
-// AcceptTProxy method accepts the connections and casts those to a tcp connection type
-func (listener *ClientProxyListener) AcceptTProxy() (*net.TCPConn, error) {
-	if listener.base == nil {
-		return nil, errors.ErrFailed
-	}
-	tcpConn, err := listener.base.AcceptTCP()
-	if err != nil {
-		return nil, err
-	}
-	return tcpConn, nil
 }

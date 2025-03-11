@@ -8,7 +8,7 @@ var strVersion string
 
 var (
 	VERSION_MAJOR = 0
-	VERSION_MINOR = 6
+	VERSION_MINOR = 7
 	VERSION_PATCH = 0
 )
 

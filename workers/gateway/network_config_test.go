@@ -3,12 +3,9 @@
 package gateway
 
 import (
-	"errors"
 	"github.com/Project-Faster/monkey"
-	"github.com/jackpal/gateway"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"net"
 	"testing"
 )
 
@@ -50,7 +47,7 @@ func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AlreadyDetected
 	detectedGatewayAddresses = []string{"127.0.0.1"}
 	detectedGatewayInterfaces = []int64{1}
 
-	addrs, interfaces := GetDefaultLanListeningAddress("192.0.0.1", "")
+	addrs, interfaces := GetDefaultLanListeningAddress("127.0.0.1", "")
 	assert.Equal(t, "127.0.0.1", addrs)
 	assertArrayEqualsInt64(t, []int64{1}, interfaces)
 }
@@ -66,37 +63,6 @@ func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_NoAutodetect() 
 	assertArrayEqualsInt64(t, []int64{1}, interfaces)
 }
 
-func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AutodetectNoGateway() {
-	t := s.T()
-	defaultListeningAddress = ""
-	detectedGatewayAddresses = []string{"127.0.0.1"}
-	detectedGatewayInterfaces = []int64{1}
-
-	monkey.Patch(gateway.DiscoverInterface, func() (net.IP, error) {
-		return net.ParseIP("192.168.1.1"), nil
-	})
-
-	addrs, interfaces := GetDefaultLanListeningAddress("0.0.0.0", "")
-	assert.Equal(t, "192.168.1.1", addrs)
-	assertArrayEqualsInt64(t, []int64{1}, interfaces)
-}
-
-func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AutodetectNoGatewayPanic() {
-	t := s.T()
-	defaultListeningAddress = ""
-	detectedGatewayAddresses = []string{"127.0.0.1"}
-	detectedGatewayInterfaces = []int64{1}
-
-	guard := monkey.Patch(gateway.DiscoverInterface, func() (net.IP, error) {
-		return nil, errors.New("<test-error>")
-	})
-	defer guard.Restore()
-
-	assert.Panics(t, func() {
-		GetDefaultLanListeningAddress("0.0.0.0", "")
-	})
-}
-
 func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AutodetectWithGatewayNotFound() {
 	t := s.T()
 	defaultListeningAddress = ""
@@ -106,6 +72,28 @@ func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AutodetectWithG
 	addrs, interfaces := GetDefaultLanListeningAddress("0.0.0.0", "192.168.1.1")
 	assert.Equal(t, "172.168.1.1", addrs)
 	assertArrayEqualsInt64(t, []int64{1}, interfaces)
+}
+
+func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AutodetectWithGatewayFound() {
+	t := s.T()
+	defaultListeningAddress = ""
+	detectedGatewayAddresses = []string{"127.0.0.1", "192.0.1.1", "192.168.0.1", "192.168.1.100"}
+	detectedGatewayInterfaces = []int64{1, 2, 3, 4}
+
+	addrs, interfaces := GetDefaultLanListeningAddress("0.0.0.0", "192.168.1.1")
+	assert.Equal(t, "192.168.1.100", addrs)
+	assertArrayEqualsInt64(t, []int64{1, 2, 3, 4}, interfaces)
+}
+
+func (s *NetworkConfigSuite) TestGetDefaultLanListeningAddresses_AutodetectWithGatewayFoundExact() {
+	t := s.T()
+	defaultListeningAddress = ""
+	detectedGatewayAddresses = []string{"127.0.0.1", "192.168.1.1", "192.168.0.1", "192.168.1.100"}
+	detectedGatewayInterfaces = []int64{1, 2, 3, 4}
+
+	addrs, interfaces := GetDefaultLanListeningAddress("0.0.0.0", "192.168.1.1")
+	assert.Equal(t, "192.168.1.1", addrs)
+	assertArrayEqualsInt64(t, []int64{1, 2, 3, 4}, interfaces)
 }
 
 // Utils

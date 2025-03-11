@@ -111,6 +111,12 @@ func validateConfiguration() {
 
 	configSrv.LocalListeningAddress, _ = gateway.GetDefaultLanListeningAddress(configSrv.LocalListeningAddress, "")
 
+	if configSrv.ExternalListeningAddress != "" {
+		configuration.AssertParamIP("external source host", configSrv.ExternalListeningAddress)
+	} else {
+		configSrv.ExternalListeningAddress = configSrv.LocalListeningAddress
+	}
+
 	configuration.AssertParamPort("api port", configGeneral.APIPort)
 	configuration.AssertParamValidTimeout("idle timeout", configProto.IdleTimeout)
 	configuration.AssertParamPortsDifferent("ports", configSrv.LocalListenPort, configGeneral.APIPort)

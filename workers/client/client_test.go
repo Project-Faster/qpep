@@ -27,17 +27,22 @@ import (
 
 func TestClientSuite(t *testing.T) {
 	var q ClientSuite
+	q.testLocalListenPort = 9090
 	suite.Run(t, &q)
 }
 
 type ClientSuite struct {
 	suite.Suite
 
+	testLocalListenPort int
+
 	mtx sync.Mutex
 }
 
 func (s *ClientSuite) BeforeTest(_, testName string) {
 	proxyListener = nil
+
+	s.testLocalListenPort++
 
 	gateway.UsingProxy = false
 	gateway.ProxyAddress = nil
@@ -50,7 +55,7 @@ func (s *ClientSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.Client.GatewayHost = "127.0.0.2"
 	configuration.QPepConfig.Client.GatewayPort = 9443
 	configuration.QPepConfig.Client.LocalListeningAddress = "127.0.0.1"
-	configuration.QPepConfig.Client.LocalListenPort = 9090
+	configuration.QPepConfig.Client.LocalListenPort = s.testLocalListenPort
 
 	configuration.QPepConfig.General.APIPort = 445
 	configuration.QPepConfig.General.MaxConnectionRetries = 15

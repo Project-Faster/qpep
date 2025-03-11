@@ -87,6 +87,8 @@ QPep supports different backend implementations of the QUIC protocol currently:
 
 * _[Quic-Go](https://github.com/quic-go/quic-go)_ : An implementation of QUIC in pure Go
 
+* _[Quic-Go MP](https://github.com/Project-Faster/mp-quic-go)_ : Fork of Quic-go library to support the multipath extension
+
 More integrations are planned for future versions.
 
 \bigbreak
@@ -249,10 +251,16 @@ client:
   local_port: 9443
   gateway_address: 192.18.0.254
   gateway_port: 443
+  multipath_address_list:
+    - address: 10.20.55.100
+      port: 8443
+    - address: 10.20.44.100
+      port: 8443
 
 server:
-  local_address: 192.168.1.54
+  local_address: 10.20.55.100
   local_port: 443
+  external_address: 192.168.1.54
 
 protocol:
   backend: quic-go
@@ -311,6 +319,9 @@ Allows to customize the behavior when in client mode.
 
 * **gateway_port** : Remote port of the server on which the QUIC tunnel is sent
 
+* **multipath_address_list** : List of address/port combinations to use as addresses for the multipath extension. Only
+                               valid with mp-quic-go backend
+
 #### Server
 
 Allows to customize the behavior when in server mode.
@@ -318,6 +329,8 @@ Allows to customize the behavior when in server mode.
 * **local_address** : Public listening address on which the server receives quic connections
 
 * **local_port** : Public listening address on which the server receives quic connections
+
+* **external_address** : Address to force qpep to use a specific interface for making external connections
 
 \newpage
 
@@ -556,3 +569,4 @@ will differ and the two services will not be able to communicate properly.
 
 * The values for `client.gateway_port` and `server.local_port` have to be the same for communication
 to happen properly, also this port is the only one that must be opened in the server firewall.
+
