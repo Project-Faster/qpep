@@ -116,12 +116,10 @@ jobs:
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
       GOARCH: arm64
       GOOS: darwin
       CGO_ENABLED: 1
       GOPATH: ${{ github.workspace }}/.go
-      CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
     defaults:
       run:
@@ -137,11 +135,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.14
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -257,11 +250,9 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
     defaults:
       run:
@@ -277,11 +268,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.14
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Prepare
         run: |
@@ -382,12 +368,10 @@ jobs:
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
       GOARCH: amd64
       GOOS: windows
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
-      CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
       MINGW_BASEDIR: 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
     defaults:
@@ -420,11 +404,6 @@ jobs:
           platform: x64
           static: true
           version: 11.1.0
-
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.14
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Prepare
         run: |

@@ -45,10 +45,6 @@ ECHO [Requirements check: GO]
 go version
 if %ERRORLEVEL% GEQ 1 goto fail
 
-ECHO [Requirements check: CMake]
-cmake --version
-if %ERRORLEVEL% GEQ 1 goto fail
-
 ECHO [Requirements check: MSBuild]
 msbuild --version
 if %ERRORLEVEL% GEQ 1 goto fail

@@ -243,7 +243,6 @@ jobs:
     runs-on: vm-server
     env:
       GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
       GH_TOKEN: ${{ github.token }}
       CACHE_KEY: qpep_server-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
       DEST_ARTIFACT: results_server/${{ inputs.backend }}_${{ inputs.cca }}_${{ inputs.slowstart }}_${{ inputs.connection_delay_ms }}ms/

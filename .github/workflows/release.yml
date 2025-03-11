@@ -114,12 +114,10 @@ jobs:
     runs-on: macos-latest
     env:
       GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
       GOARCH: arm64
       GOOS: darwin
       CGO_ENABLED: 1
       GOPATH: ${{ github.workspace }}/.go
-      CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui|workers$'
     defaults:
       run:
@@ -135,11 +133,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.14
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -187,11 +180,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
       GOARCH: amd64
       GOOS: linux
       CGO_ENABLED: 1
-      CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
     defaults:
       run:
@@ -207,11 +198,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.14
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
 
       - name: Prepare
         run: |
@@ -247,12 +233,10 @@ jobs:
     runs-on: windows-latest
     env:
       GO_VERSION: 1.20.14
-      CMAKE_VERSION: '3.22.x'
       GOARCH: amd64
       GOOS: windows
       CGO_ENABLED: 1
       QPEP_CI_ENV: 1
-      CMAKE_BUILD_PARALLEL_LEVEL: 4
       IGNORE_PACKAGES: 'tray|docker|docs|version|webgui'
       MINGW_BASEDIR: 'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
     defaults:
@@ -286,11 +270,6 @@ jobs:
           static: true
           version: 11.1.0
 
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.14
-        with:
-          cmake-version: ${{ env.CMAKE_VERSION }}
-
       - name: Prepare
         run: |
           @echo on
@@ -305,11 +284,6 @@ jobs:
           COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\64bits
           COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\64bits
           COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\64bits
-
-      - name: Build Backends
-        run: |
-          cd backend/
-          go generate
 
       - name: Build QPep
         run: |

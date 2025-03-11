@@ -26,7 +26,7 @@ RUN sh -c 'echo export GOROOT=/opt/go'
 RUN sh -c "echo export PATH=$GOROOT/bin:$PATH"
 
 RUN sh -c 'apt-get update'
-RUN sh -c 'apt-get install -y wget git dos2unix gettext-base iputils-ping g++ cmake'
+RUN sh -c 'apt-get install -y wget git dos2unix gettext-base iputils-ping g++'
 
 WORKDIR /opt
 RUN sh -c "wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"

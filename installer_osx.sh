@@ -32,12 +32,6 @@ if [[ ! "$?" -eq "0" ]]; then
   fail "Not found"
 fi
 
-echo [Prerequisites check: CMAKE]
-cmake --version
-if [[ ! "$?" -eq "0" ]]; then
-  fail "Not found"
-fi
-
 echo [Prerequisites check: DMGBUILD]
 dmgbuild -h &> /dev/null || true
 if [[ ! "$?" -eq "0" ]]; then
