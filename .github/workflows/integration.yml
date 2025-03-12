@@ -69,7 +69,7 @@ jobs:
   docs:
     needs: [ check-diff-files ]
     if: ${{ needs.check-diff-files.outputs.source_changed == 'true' && !inputs.skip_docs }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     defaults:
       run:
         shell: bash
