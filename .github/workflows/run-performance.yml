@@ -301,7 +301,7 @@ jobs:
         with:
           timeout_minutes: 5
           max_attempts: 3
-          retry_on: timeout
+          retry_on: any
           warning_on_retry: true
           continue_on_error: true
           shell: bash
