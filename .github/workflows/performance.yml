@@ -93,7 +93,7 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        backend: [ 'quic-go', 'quicly-go' ]
+        backend: [ 'quic-go', 'mp-quic-go', 'quicly-go' ]
         cca: [ 'reno', 'cubic' ]
         slowstart: [ 'basic', 'search' ]
         connection_delay_ms: [ 0, 500 ]
@@ -101,6 +101,10 @@ jobs:
           - backend: 'quic-go'
             slowstart: 'search'
           - backend: 'quic-go'
+            cca: 'cubic'
+          - backend: 'mp-quic-go'
+            slowstart: 'search'
+          - backend: 'mp-quic-go'
             cca: 'cubic'
     uses: './.github/workflows/run-performance.yml'
     with:

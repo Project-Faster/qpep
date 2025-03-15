@@ -124,43 +124,40 @@ jobs:
           $config = Get-Content -Path ./build/config/qpep.yml
           write-host $config
 
-      - name: Run Client
-        if: inputs.backend_trace_active != true
-        shell: cmd
-        run: |
-          cd build/
-          cmd /c "START /b qpep.exe -c"
-
-      - name: Run Client (trace)
-        if: inputs.backend_trace_active == true
-        shell: cmd
-        run: |
-          cd build/
-          cmd /c "START /b qpep.exe -c -t"
-
       - name: Wait Server
-        shell: pwsh
-        run: |
-          $Stoploop = $false
-          [ int ]$MaxRetries = "60"
-          [ int ]$Retrycount = $MaxRetries
-
-          do {
-            try {
-              $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
-              Write-Host "$DT : Echoing server... (Remaining $Retrycount)"
-              Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 3
-              Write-Host "Job completed"
-              $Stoploop = $true
-            }
-            catch {
-              $Retrycount = $Retrycount - 1
-              if ($Retrycount -lt 0){
-                Write-Error "Could not get server after $MaxRetries retries." -ErrorAction Stop
+        uses:
+          nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_on: any
+          retry_wait_seconds: 3
+          warning_on_retry: true
+          continue_on_error: true
+          shell: pwsh
+          command: |
+            $Stoploop = $false
+            [ int ]$MaxRetries = "60"
+            [ int ]$Retrycount = $MaxRetries
+            
+            $job = Start-Job -ScriptBlock { qpep.exe -c -t }
+            do {
+              try {
+                $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
+                Write-Host "$DT : Echoing server... (Remaining $Retrycount)"
+                Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 3
+                Write-Host "Job completed"
+                $Stoploop = $true
+              }
+              catch {
+                $Retrycount = $Retrycount - 1
+                if ($Retrycount -lt 0){
+                  Write-Error "Could not get server after $MaxRetries retries." -ErrorAction Stop
+                  Stop-Job -Id $job.Id
+                }
               }
             }
-          }
-          While ($Stoploop -eq $false)
+            While ($Stoploop -eq $false)
 
       - name: Run Server Tests
         shell: cmd
@@ -281,20 +278,6 @@ jobs:
           envsubst < ${{ github.workspace }}/docker/server-env/server/config/qpep.yml.tpl > ${{ github.workspace }}/build/config/qpep.yml
           cat ${{ github.workspace }}/build/config/qpep.yml
 
-      - name: Run server
-        if: inputs.backend_trace_active != true
-        run: |
-          cd build/
-          sudo pkill -e -n --signal SIGINT qpep || true
-          sudo ./qpep &> test.log &
-
-      - name: Run server (trace)
-        if: inputs.backend_trace_active == true
-        run: |
-          cd build/
-          sudo pkill -e -n --signal SIGINT qpep || true
-          sudo ./qpep -t &> test.log &
-
       - name: Run data server
         run: |
           cd docker/server-data-env/
@@ -323,6 +306,10 @@ jobs:
           continue_on_error: true
           shell: bash
           command: |
+            cd build/
+            sudo pkill -e -n --signal SIGINT qpep || true
+            sudo ./qpep &> test.log &
+            
             # initial wait for server setup
             sleep 30
             
