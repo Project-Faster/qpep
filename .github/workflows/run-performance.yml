@@ -315,6 +315,7 @@ jobs:
             
             echo [Starting wait for tests execution...]
             CONN_NUM=1
+            CLIENT_CONNECTED=0
             RETRIES=${{ inputs.server_wait_timeout }}
             while ! (( RETRIES <= 0 ));
             do
@@ -328,10 +329,15 @@ jobs:
                 (( RETRIES -= 1 )) || true
               else
                 (( RETRIES=${{ inputs.server_wait_timeout }} )) || true
+                (( CLIENT_CONNECTED=1 )) || true
               fi
               echo "$(date +%F_%T.%N): Remaining $RETRIES retries"
               sleep 1
             done
+            if (( CLIENT_CONNECTED <= 0 )); then
+               echo [Fail]
+               exit 1
+            fi
             echo [OK]
 
       - name: Stop Server
