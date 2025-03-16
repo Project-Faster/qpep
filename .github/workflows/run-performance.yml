@@ -310,8 +310,14 @@ jobs:
             sudo pkill -e -n --signal SIGINT qpep || true
             sudo ./qpep &> test.log &
             
+            ps -ef | grep qpep
+            echo "-----------"
+
             # initial wait for server setup
             sleep 30
+            
+            ps -ef | grep qpep
+            exit 1
             
             echo [Starting wait for tests execution...]
             CONN_NUM=1
