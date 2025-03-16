@@ -140,7 +140,9 @@ jobs:
             [ int ]$MaxRetries = "60"
             [ int ]$Retrycount = $MaxRetries
             
-            $job = Start-Job -ScriptBlock { qpep.exe -c -t }
+            $block = {& "${{ github.workspace }}/build/qpep.exe" $args}
+            $job = Start-Job -ScriptBlock $block -argumentList "-c"
+            Receive-Job -Job $job
             do {
               try {
                 $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
@@ -310,14 +312,8 @@ jobs:
             sudo pkill -e -n --signal SIGINT qpep || true
             sudo ./qpep &> test.log &
             
-            ps -ef | grep qpep
-            echo "-----------"
-
             # initial wait for server setup
             sleep 30
-            
-            ps -ef | grep qpep
-            exit 1
             
             echo [Starting wait for tests execution...]
             CONN_NUM=1
