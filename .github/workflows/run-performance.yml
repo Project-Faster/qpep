@@ -128,7 +128,6 @@ jobs:
         uses:
           nick-fields/retry@v3
         with:
-          timeout_minutes: 5
           max_attempts: 3
           retry_on: any
           retry_wait_seconds: 3
@@ -136,13 +135,14 @@ jobs:
           continue_on_error: true
           shell: pwsh
           command: |
+            $env:RUNNER_TRACKING_ID=""
+            
             $Stoploop = $false
             [ int ]$MaxRetries = "60"
             [ int ]$Retrycount = $MaxRetries
             
             $block = {& "${{ github.workspace }}/build/qpep.exe" $args}
             $job = Start-Job -ScriptBlock $block -argumentList "-c"
-            Receive-Job -Job $job
             do {
               try {
                 $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
@@ -158,6 +158,7 @@ jobs:
                   Stop-Job -Id $job.Id
                 }
               }
+              Start-Sleep -Seconds 1
             }
             While ($Stoploop -eq $false)
 
@@ -301,7 +302,6 @@ jobs:
         uses:
           nick-fields/retry@v3
         with:
-          timeout_minutes: 5
           max_attempts: 3
           retry_on: any
           warning_on_retry: true
