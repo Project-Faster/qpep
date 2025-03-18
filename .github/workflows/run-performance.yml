@@ -124,6 +124,20 @@ jobs:
           $config = Get-Content -Path ./build/config/qpep.yml
           write-host $config
 
+      - name: Run Client
+        if: inputs.backend_trace_active != true
+        shell: cmd
+        run: |
+          cd build/
+          cmd /c "START /b qpep.exe -c"
+
+      - name: Run Client (trace)
+        if: inputs.backend_trace_active == true
+        shell: cmd
+        run: |
+          cd build/
+          cmd /c "START /b qpep.exe -c -t"
+
       - name: Wait Server
         shell: pwsh
         run: |
@@ -133,9 +147,6 @@ jobs:
           $Stoploop = $false
           [ int ]$MaxRetries = "60"
           [ int ]$Retrycount = $MaxRetries
-          
-          $block = {& "${{ github.workspace }}/build/qpep.exe" $args}
-          $job = Start-Job -ScriptBlock $block -WorkingDirectory "${{ github.workspace }}/build" -argumentList "-c"
           
           Start-Sleep -Seconds 10
           
@@ -151,9 +162,6 @@ jobs:
               $Retrycount = $Retrycount - 1
               if ($Retrycount -lt 0){
                 Write-Error "Could not get server after $MaxRetries retries." -ErrorAction Stop
-                Stop-Job -Id $job.Id
-          
-                go run docker/speedtests/utils/reset_proxy_util.go
               }
             }
             Start-Sleep -Seconds 1
@@ -173,14 +181,19 @@ jobs:
           shell: cmd
           command: |
             cd docker/speedtests/
+            echo "1"
             set CGO_ENABLED=0
+            echo "2"
             go test speed_test.go -v -c -o speedtests.test
-  
+            echo "3"
+            
             .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
                -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
                -test.v -test.timeout 5m > speedtests.out
+            echo "4"
             
             del .\speedtests.test
+            echo "5"
 
       - name: Stop Client
         if: always()
@@ -312,8 +325,8 @@ jobs:
         uses:
           nick-fields/retry@v3
         with:
-          timeout_minutes: 5
-          max_attempts: 3
+          timeout_minutes: 15
+          max_attempts: 2
           retry_on: any
           warning_on_retry: true
           continue_on_error: true
