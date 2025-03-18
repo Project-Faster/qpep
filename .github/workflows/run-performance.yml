@@ -125,6 +125,42 @@ jobs:
           write-host $config
 
       - name: Wait Server
+        shell: pwsh
+        run: |
+          $env:RUNNER_TRACKING_ID=""
+          $env:CGO_ENABLED=0
+          
+          $Stoploop = $false
+          [ int ]$MaxRetries = "60"
+          [ int ]$Retrycount = $MaxRetries
+          
+          $block = {& "${{ github.workspace }}/build/qpep.exe" $args}
+          $job = Start-Job -ScriptBlock $block -WorkingDirectory "${{ github.workspace }}/build" -argumentList "-c"
+          
+          Start-Sleep -Seconds 10
+          
+          do {
+            try {
+              $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
+              Write-Host "$DT : Echoing server... (Remaining $Retrycount)"
+              Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 3
+              Write-Host "Job completed"
+              $Stoploop = $true
+            }
+            catch {
+              $Retrycount = $Retrycount - 1
+              if ($Retrycount -lt 0){
+                Write-Error "Could not get server after $MaxRetries retries." -ErrorAction Stop
+                Stop-Job -Id $job.Id
+          
+                go run docker/speedtests/utils/reset_proxy_util.go
+              }
+            }
+            Start-Sleep -Seconds 1
+          }
+          While ($Stoploop -eq $false)
+
+      - name: Run Client Tests
         uses:
           nick-fields/retry@v3
         with:
@@ -134,49 +170,17 @@ jobs:
           retry_wait_seconds: 3
           warning_on_retry: true
           continue_on_error: true
-          shell: pwsh
+          shell: cmd
           command: |
-            $env:RUNNER_TRACKING_ID=""
+            cd docker/speedtests/
+            set CGO_ENABLED=0
+            go test speed_test.go -v -c -o speedtests.test
+  
+            .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
+               -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
+               -test.v -test.timeout 5m > speedtests.out
             
-            $Stoploop = $false
-            [ int ]$MaxRetries = "60"
-            [ int ]$Retrycount = $MaxRetries
-            
-            $block = {& "${{ github.workspace }}/build/qpep.exe" $args}
-            $job = Start-Job -ScriptBlock $block -argumentList "-c"
-            do {
-              try {
-                $DT = get-date -format "yyyy-MM-dd_HH:mm:ss"
-                Write-Host "$DT : Echoing server... (Remaining $Retrycount)"
-                Invoke-WebRequest -Uri "http://${{ inputs.server_public_address }}:444/api/v1/server/echo" -UseBasicParsing -TimeoutSec 3
-                Write-Host "Job completed"
-                $Stoploop = $true
-              }
-              catch {
-                $Retrycount = $Retrycount - 1
-                if ($Retrycount -lt 0){
-                  Write-Error "Could not get server after $MaxRetries retries." -ErrorAction Stop
-                  Stop-Job -Id $job.Id
-                }
-              }
-              Start-Sleep -Seconds 1
-            }
-            While ($Stoploop -eq $false)
-
-      - name: Run Server Tests
-        shell: cmd
-        run: |
-          cd docker/speedtests/
-          set CGO_ENABLED=0
-          go test speed_test.go -v -c -o speedtests.test
-
-          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
-             -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
-             -test.v -test.timeout 5m > speedtests.out
-          
-          del .\speedtests.test
-
-          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms TargetSize:${{ matrix.download_size }}MB Connections:${{ matrix.connections_number }} Backend:${{ inputs.backend }} CC:${{ inputs.cca }}/${{ inputs.slowstart }}]"
+            del .\speedtests.test
 
       - name: Stop Client
         if: always()
@@ -185,6 +189,11 @@ jobs:
         run: |
           ${{ github.workspace }}/docker/speedtests/utils/windows-kill.exe -SIGBREAK @(Get-Process qpep | select -expand id)
           
+      - name: Generate data plot
+        run: |
+          cd docker/speedtests/
+          go run utils/plotter.go output.csv "Client speed test [Delay:${{ inputs.connection_delay_ms }}ms TargetSize:${{ matrix.download_size }}MB Connections:${{ matrix.connections_number }} Backend:${{ inputs.backend }} CC:${{ inputs.cca }}/${{ inputs.slowstart }}]"
+
       - name: Wait Client Stop
         if: always()
         shell: pwsh
