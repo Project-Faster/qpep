@@ -171,6 +171,8 @@ jobs:
       - name: Run Client Tests
         shell: cmd
         run: |
+          @echo on
+          
           cd docker/speedtests/
           set CGO_ENABLED=0
           echo "Building speedtest binary"
@@ -180,7 +182,7 @@ jobs:
           .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
              -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
              -test.v -test.timeout 5m > speedtests.out
-          if %ERRORLEVEL% eq 0 (
+          if %ERRORLEVEL% EQU 0 (
              goto success
           )
           
@@ -188,7 +190,7 @@ jobs:
           .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
              -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
              -test.v -test.timeout 5m > speedtests.out
-          if %ERRORLEVEL% eq 0 (
+          if %ERRORLEVEL% EQU 0 (
              goto success
           )
           
@@ -196,7 +198,7 @@ jobs:
           .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
              -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
              -test.v -test.timeout 5m > speedtests.out
-          if %ERRORLEVEL% eq 0 (
+          if %ERRORLEVEL% EQU 0 (
              goto success
           )
           
