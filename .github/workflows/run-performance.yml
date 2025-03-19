@@ -178,7 +178,7 @@ jobs:
           retry_wait_seconds: 3
           warning_on_retry: true
           continue_on_error: true
-          shell: cmd
+          shell: pwsh
           command: |
             cd docker/speedtests/
             echo "1"
@@ -192,7 +192,7 @@ jobs:
                -test.v -test.timeout 5m > speedtests.out
             echo "4"
             
-            del .\speedtests.test
+            rm .\speedtests.test
             echo "5"
 
       - name: Stop Client
