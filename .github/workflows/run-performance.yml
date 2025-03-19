@@ -169,28 +169,43 @@ jobs:
           While ($Stoploop -eq $false)
 
       - name: Run Client Tests
-        uses:
-          nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          retry_on: any
-          retry_wait_seconds: 3
-          warning_on_retry: true
-          continue_on_error: true
-          shell: pwsh
-          command: |
-            cd docker/speedtests/
-            set CGO_ENABLED=0
-            echo "Building speedtest binary"
-            go test speed_test.go -v -c -o speedtests.test
-            
-            echo "Running speedtest binary"
-            .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat `
-               -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} `
-               -test.v -test.timeout 5m > speedtests.out
-            
-            rm .\speedtests.test
+        shell: cmd
+        run: |
+          cd docker/speedtests/
+          set CGO_ENABLED=0
+          echo "Building speedtest binary"
+          go test speed_test.go -v -c -o speedtests.test
+          
+          echo "Running speedtest binary (#1)"
+          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
+             -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
+             -test.v -test.timeout 5m > speedtests.out
+          if %ERRORLEVEL% eq 0 (
+             goto success
+          )
+          
+          echo "Running speedtest binary (#2)"
+          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
+             -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
+             -test.v -test.timeout 5m > speedtests.out
+          if %ERRORLEVEL% eq 0 (
+             goto success
+          )
+          
+          echo "Running speedtest binary (#3)"
+          .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
+             -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
+             -test.v -test.timeout 5m > speedtests.out
+          if %ERRORLEVEL% eq 0 (
+             goto success
+          )
+          
+          del .\speedtests.test
+          exit /B 1
+          
+          :success
+          del .\speedtests.test
+          exit /B 0
 
       - name: Stop Client
         if: always()
