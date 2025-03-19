@@ -181,19 +181,16 @@ jobs:
           shell: pwsh
           command: |
             cd docker/speedtests/
-            echo "1"
             set CGO_ENABLED=0
-            echo "2"
+            echo "Building speedtest binary"
             go test speed_test.go -v -c -o speedtests.test
-            echo "3"
             
-            .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
-               -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} ^
+            echo "Running speedtest binary"
+            .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat `
+               -expect_mb ${{ matrix.download_size }} -connections_num ${{ matrix.connections_number }} `
                -test.v -test.timeout 5m > speedtests.out
-            echo "4"
             
             rm .\speedtests.test
-            echo "5"
 
       - name: Stop Client
         if: always()
