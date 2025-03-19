@@ -171,8 +171,6 @@ jobs:
       - name: Run Client Tests
         shell: cmd
         run: |
-          @echo on
-          
           cd docker/speedtests/
           set CGO_ENABLED=0
           echo "Building speedtest binary"
@@ -185,6 +183,8 @@ jobs:
           if %ERRORLEVEL% EQU 0 (
              goto success
           )
+          echo "[Retry]"
+          sleep 3
           
           echo "Running speedtest binary (#2)"
           .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
@@ -193,6 +193,8 @@ jobs:
           if %ERRORLEVEL% EQU 0 (
              goto success
           )
+          echo "[Retry]"
+          sleep 3
           
           echo "Running speedtest binary (#3)"
           .\speedtests.test -target_url http://${{ inputs.server_public_address }}:8080/target_${{ matrix.download_size }}M.dat ^
@@ -202,10 +204,12 @@ jobs:
              goto success
           )
           
+          echo "[Fail]"
           del .\speedtests.test
           exit /B 1
           
           :success
+          echo "[OK]"
           del .\speedtests.test
           exit /B 0
 
