@@ -93,8 +93,8 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        backend: [ 'quic-go', 'mp-quic-go', 'quicly-go' ]
-        cca: [ 'reno', 'cubic' ]
+        backend: [ 'mp-quic-go' ] #, 'quic-go', 'quicly-go' ]
+        cca: [ 'reno' ] #, 'cubic' ]
         slowstart: [ 'basic', 'search' ]
         connection_delay_ms: [ 0, 500 ]
         exclude:
