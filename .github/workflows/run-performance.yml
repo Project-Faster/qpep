@@ -330,6 +330,7 @@ jobs:
         with:
           timeout_minutes: 15
           max_attempts: 2
+          retry_wait_seconds: 30
           retry_on: any
           warning_on_retry: true
           continue_on_error: true
