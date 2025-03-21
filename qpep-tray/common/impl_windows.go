@@ -59,9 +59,11 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 // fakeAPICallCheckProxy executes a "fake" api call to the local server to check for the connection running through
 // the global proxy, this is checked by the client that adds the "X-QPEP-PROXY" header with value "true", a missing or
 // "false" value means the proxy is not running correctly
-func fakeAPICallCheckProxy() bool {
-	data, err, _ := shared.RunCommand("powershell.exe", "-ExecutionPolicy", "ByPass", "-Command",
-		"Invoke-WebRequest -Uri \"http://192.168.1.40:444/qpep-client-proxy-check\" -UseBasicParsing -TimeoutSec 1",
+func fakeAPICallCheckProxy(host string) bool {
+	data, err, _ := shared.RunCommand("powershell.exe",
+		"-WindowStyle", "hidden",
+		"-ExecutionPolicy", "ByPass", "-Command",
+		fmt.Sprintf("Invoke-WebRequest -Uri \"http://%s:444/qpep-client-proxy-check\" -UseBasicParsing -TimeoutSec 1", host),
 	)
 	logger.Info("proxy check data: %s", data)
 	logger.Info("proxy check error: %v", err)

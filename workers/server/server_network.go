@@ -184,13 +184,16 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	tsk := shared.StartRegion(tskKey)
 	logger.Debug("[%d] >> Opening TCP NetConn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
-		LocalAddr:     localSrcAddress,
 		Timeout:       30 * time.Second,
 		Deadline:      time.Now().Add(30 * time.Second),
 		KeepAlive:     -1,
 		DualStack:     false,
 		FallbackDelay: -1,
 	}
+	if localSrcAddress != nil {
+		dial.LocalAddr = localSrcAddress
+	}
+
 	tcpConn, err := dial.Dial("tcp", destAddress)
 	tsk.End()
 	if err != nil {
@@ -200,7 +203,6 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	}
 	logger.Info("[%d] Opened TCP NetConn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
 
-	proxySrcAddress := qpepHeader.SourceAddr.String()
 	startTime := time.Now()
 	tqActiveFlag := atomic.Bool{}
 	qtActiveFlag := atomic.Bool{}
@@ -210,13 +212,13 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	//setLinger(tcpConn)
 
-	api.Statistics.SetMappedAddress(proxySrcAddress, destAddress)
+	api.Statistics.SetMappedAddress(srcAddress, destAddress)
 	api.Statistics.IncrementCounter(1.0, api.TOTAL_CONNECTIONS)
 	api.Statistics.IncrementCounter(1.0, api.PERF_CONN, srcAddress)
 	defer func() {
 		api.Statistics.DecrementCounter(1.0, api.PERF_CONN, srcAddress)
 		api.Statistics.DecrementCounter(1.0, api.TOTAL_CONNECTIONS)
-		api.Statistics.DeleteMappedAddress(proxySrcAddress)
+		api.Statistics.DeleteMappedAddress(srcAddress)
 	}()
 
 	ctx, _ := context.WithCancel(context.Background())
