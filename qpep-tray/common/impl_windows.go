@@ -7,6 +7,7 @@ import (
 	"github.com/Project-Faster/qpep/shared"
 	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/Project-Faster/qpep/shared/logger"
+	"golang.org/x/sys/windows"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -42,8 +43,9 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 	}
 
 	attr := &syscall.SysProcAttr{
-		HideWindow: true,
-		CmdLine:    fmt.Sprintf(CMD_SERVICE, exeFile, clientFlag, serviceFlag, hostFlag, verboseFlag),
+		HideWindow:    true,
+		CmdLine:       fmt.Sprintf(CMD_SERVICE, exeFile, clientFlag, serviceFlag, hostFlag, verboseFlag),
+		CreationFlags: windows.CREATE_NO_WINDOW | windows.DETACHED_PROCESS,
 	}
 
 	cmd := exec.Command(exeFile)
