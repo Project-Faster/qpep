@@ -35,6 +35,9 @@ var (
 	quicSession backend.QuicBackendConnection
 
 	filteredPorts map[int]struct{} = nil
+
+	cacheResolverLock  sync.RWMutex
+	proxyResolverCache map[string]net.IP = nil
 )
 
 func setLinger(c net.Conn) {
@@ -408,7 +411,7 @@ func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpCon
 			panic("Should not happen as the handleProxyOpenConnection method checks the http request")
 		}
 
-		logger.Info("HOST: %s", req.Host)
+		logger.Debug("HOST: %s", req.Host)
 
 		t := http.Response{
 			Status:        "200 Connection established",
@@ -587,9 +590,10 @@ func handleDirectConnection(conn net.Conn, req *http.Request, dest string) {
 
 	//
 	dialer := &net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: 3 * time.Second,
-		DualStack: true,
+		Timeout:       5 * time.Second,
+		KeepAlive:     -1,
+		DualStack:     false,
+		FallbackDelay: -1,
 	}
 
 	c, err := dialer.Dial("tcp", dest)
@@ -650,6 +654,17 @@ func getAddressPortFromHost(host string) (net.IP, int, bool) {
 		}
 	}
 
+	// cache address resolution results to speed up reconnections
+	if proxyResolverCache != nil {
+		cacheResolverLock.RLock()
+		if addr, ok := proxyResolverCache[urlParts[0]]; ok {
+			cacheResolverLock.RUnlock()
+			logger.Debug("resolved (cache) %s:%d -> %s:%d", urlParts[0], port, addr.String(), port)
+			return addr, int(port), true
+		}
+		cacheResolverLock.RUnlock()
+	}
+
 	if urlParts[0] == "" {
 		address = net.ParseIP("127.0.0.1")
 		proxyable = true
@@ -668,6 +683,15 @@ func getAddressPortFromHost(host string) (net.IP, int, bool) {
 			port = 80
 		}
 	}
+
+	cacheResolverLock.Lock()
+	if proxyResolverCache == nil {
+		proxyResolverCache = make(map[string]net.IP)
+	}
+	proxyResolverCache[urlParts[0]] = address
+	logger.Info("resolved %s:%d -> %s:%d", urlParts[0], port, address.String(), port)
+	cacheResolverLock.Unlock()
+
 	return address, int(port), proxyable
 }
 
