@@ -99,7 +99,7 @@ func setLinger(c net.Conn) {
 func listenQuicConn(quicConn backend.QuicBackendConnection) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Info("PANIC: %v\n", err)
+			logger.Error("PANIC: %v\n", err)
 			debug.PrintStack()
 		}
 	}()
@@ -116,7 +116,7 @@ func listenQuicConn(quicConn backend.QuicBackendConnection) {
 			}
 			defer func() {
 				if err := recover(); err != nil {
-					logger.Info("PANIC: %v\n", err)
+					logger.Error("PANIC: %v\n", err)
 					debug.PrintStack()
 				}
 			}()
@@ -146,7 +146,7 @@ func listenQuicConn(quicConn backend.QuicBackendConnection) {
 func handleQuicStream(quicStream backend.QuicBackendStream) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Info("PANIC: %v\n", err)
+			logger.Error("PANIC: %v\n", err)
 			debug.PrintStack()
 		}
 	}()
@@ -182,7 +182,7 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 
 	tskKey := fmt.Sprintf("TCP-Dial:%v:%v", quicStream.ID(), destAddress)
 	tsk := shared.StartRegion(tskKey)
-	logger.Debug("[%d] >> Opening TCP NetConn to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
+	logger.Debug("[%d] TCP Start to dest:%s, src:%s\n", quicStream.ID(), destAddress, qpepHeader.SourceAddr)
 	dial := &net.Dialer{
 		Timeout:       30 * time.Second,
 		Deadline:      time.Now().Add(30 * time.Second),
@@ -197,11 +197,11 @@ func handleQuicStream(quicStream backend.QuicBackendStream) {
 	tcpConn, err := dial.Dial("tcp", destAddress)
 	tsk.End()
 	if err != nil {
-		logger.Error("[%d] Unable to open TCP connection from QPEP quicStream: %s\n", quicStream.ID(), err)
+		logger.Error("[%d] TCP error from QPEP quicStream: %s\n", quicStream.ID(), err)
 		closeStreamNow(quicStream)
 		return
 	}
-	logger.Info("[%d] Opened TCP NetConn %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
+	logger.Info("[%d] Opened TCP %s -> %s\n", quicStream.ID(), qpepHeader.SourceAddr, destAddress)
 
 	startTime := time.Now()
 	tqActiveFlag := atomic.Bool{}
@@ -261,7 +261,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk.End()
 		streamWait.Done()
 		qtFlag.Store(false)
-		logger.Info("[%d] Stream Q->T [wr:%v rd:%d] done", src.ID(), written, read)
+		logger.Debug("[%d] Stream Q->T [wr:%v rd:%d] done", src.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.server.qt", src.ID())
@@ -340,7 +340,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		tsk.End()
 		tqFlag.Store(false)
 		streamWait.Done()
-		logger.Info("[%d] Stream T->Q [wr:%v rd:%d] done", dst.ID(), written, read)
+		logger.Debug("[%d] Stream T->Q [wr:%v rd:%d] done", dst.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.server.tq", dst.ID())
@@ -354,7 +354,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, speedLimit
 		}
 
 		if dst.IsClosed() || !qtFlag.Load() {
-			logger.Error("[%v] T->Q CLOSE (%v %v %v)", dst.ID(), dst.IsClosed(), !qtFlag.Load(), dst.Sync())
+			logger.Debug("[%v] T->Q CLOSE (%v %v %v)", dst.ID(), dst.IsClosed(), !qtFlag.Load(), dst.Sync())
 			return
 		}
 

@@ -48,7 +48,7 @@ func setLinger(c net.Conn) {
 func listenTCPConn(wg *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Info("PANIC: %v", err)
+			logger.Error("PANIC: %v", err)
 			debug.PrintStack()
 		}
 		wg.Done()
@@ -68,7 +68,7 @@ func listenTCPConn(wg *sync.WaitGroup) {
 func handleTCPConn(tcpConn net.Conn) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Info("PANIC: %v", err)
+			logger.Error("PANIC: %v", err)
 			debug.PrintStack()
 		}
 	}()
@@ -76,9 +76,9 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	setLinger(tcpConn)
 
-	logger.Info("TCP connection START: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
+	logger.Info("TCP START: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
 	defer func() {
-		logger.Debug("TCP connection END: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
+		logger.Info("TCP END: source:%s destination:%s", tcpConn.LocalAddr().String(), tcpConn.RemoteAddr().String())
 		_ = tcpConn.Close()
 	}()
 
@@ -99,7 +99,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		// proxy open connection
 		proxyRequest, errProxy = handleProxyOpenConnection(tcpConn)
 		if errProxy == errors.ErrProxyCheckRequest {
-			logger.Info("Checked for proxy usage, closing.")
+			logger.Debug("Checked for proxy usage, closing.")
 			return
 		}
 
@@ -107,7 +107,7 @@ func handleTCPConn(tcpConn net.Conn) {
 		if proxyRequest != nil {
 			_, port, _ := getAddressPortFromHost(proxyRequest.Host)
 			if _, ok := filteredPorts[port]; ok {
-				logger.Info("opening proxy direct connection")
+				logger.Debug("opening proxy direct connection")
 				handleProxyedRequest(proxyRequest, nil, tcpConn, nil)
 				return
 			}
@@ -141,7 +141,7 @@ func handleTCPConn(tcpConn net.Conn) {
 
 	// divert check
 	if diverted {
-		logger.Info("Diverted connection: %v:%v -> %v:%v", srcAddress, srcPort, dstAddress, dstPort)
+		logger.Debug("Diverted connection: %v:%v -> %v:%v", srcAddress, srcPort, dstAddress, dstPort)
 
 		sessionHeader.SourceAddr = &net.TCPAddr{
 			IP:   net.ParseIP(srcAddress),
@@ -156,7 +156,7 @@ func handleTCPConn(tcpConn net.Conn) {
 			sessionHeader.Flags |= protocol.QPEP_LOCALSERVER_DESTINATION
 		}
 
-		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v (Connection flags : %d %d)",
+		logger.Debug("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v (Connection flags : %d %d)",
 			sessionHeader.SourceAddr, sessionHeader.DestAddr,
 			sessionHeader.Flags, sessionHeader.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
 
@@ -184,7 +184,7 @@ func handleTCPConn(tcpConn net.Conn) {
 	//we exit (and close the TCP connection) once both streams are done copying
 	logger.Debug("[%d] Stream Wait", quicStream.ID())
 	streamWait.Wait()
-	logger.Info("[%d] Stream End (duration: %v)", quicStream.ID(), time.Now().Sub(startTime))
+	logger.Debug("[%d] Stream End (duration: %v)", quicStream.ID(), time.Now().Sub(startTime))
 
 	if !generalConfig.MultiStream || (quicSession != nil && quicSession.IsClosed()) {
 		// destroy the session so a new one is created next time
@@ -369,7 +369,7 @@ func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpCon
 			panic("Should not happen as the handleProxyOpenConnection method checks the http request")
 		}
 
-		logger.Info("HOST: %s", req.Host)
+		logger.Debug("HOST: %s", req.Host)
 
 		// direct
 		if header == nil {
@@ -387,9 +387,9 @@ func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpCon
 		}
 
 		headerData := header.ToBytes()
-		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
-		logger.Info("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
-		logger.Info("QPEP header %v / ID: %v", headerData, stream.ID())
+		logger.Debug("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
+		logger.Debug("Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
+		logger.Debug("QPEP header %v / ID: %v", headerData, stream.ID())
 
 		_, err := stream.Write(headerData)
 		if err != nil {
@@ -437,9 +437,9 @@ func handleProxyedRequest(req *http.Request, header *protocol.QPepHeader, tcpCon
 		if header.DestAddr.IP.String() == clientConfig.GatewayHost {
 			header.Flags |= protocol.QPEP_LOCALSERVER_DESTINATION
 		}
-		logger.Info("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
 
-		logger.Info("(Proxied) Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
+		logger.Debug("Proxied connection flags : %d %d", header.Flags, header.Flags&protocol.QPEP_LOCALSERVER_DESTINATION)
+		logger.Debug("(Proxied) Sending QPEP header to server, SourceAddr: %v / DestAddr: %v / ID: %v", header.SourceAddr, header.DestAddr, stream.ID())
 
 		_, err := stream.Write(header.ToBytes())
 		if err != nil {
@@ -475,7 +475,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 		tsk.End()
 		streamWait.Done()
 		tqFlag.Store(false)
-		logger.Info("[%d] Stream T->Q done [wr:%v rd:%d]", dst.ID(), written, read)
+		logger.Debug("[%d] Stream T->Q done [wr:%v rd:%d]", dst.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.client.tq", dst.ID())
@@ -508,7 +508,7 @@ func handleTcpToQuic(ctx context.Context, streamWait *sync.WaitGroup, dst backen
 			if err2, ok := err.(net.Error); ok && err2.Timeout() {
 				continue
 			}
-			logger.Error("[%d] END T->Q: %v", dst.ID(), err)
+			logger.Debug("[%d] END T->Q: %v", dst.ID(), err)
 			dst.AbortWrite(0)
 			dst.AbortRead(0)
 			return
@@ -537,7 +537,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		tsk.End()
 		streamWait.Done()
 		qtFlag.Store(false)
-		logger.Info("[%d] Stream Q->T done [wr:%v rd:%d]", src.ID(), written, read)
+		logger.Debug("[%d] Stream Q->T done [wr:%v rd:%d]", src.ID(), written, read)
 	}()
 
 	pktPrefix := fmt.Sprintf("%v.client.qt", src.ID())
@@ -550,7 +550,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 		}
 
 		if src.IsClosed() || !tqFlag.Load() {
-			logger.Error("[%v] Q->T CLOSE", src.ID())
+			logger.Debug("[%v] Q->T CLOSE", src.ID())
 			return
 		}
 
@@ -571,7 +571,7 @@ func handleQuicToTcp(ctx context.Context, streamWait *sync.WaitGroup, dst net.Co
 				continue
 			}
 			// closed tcp endpoint means its useless to go on with quic side
-			logger.Error("[%d] END Q->T: %v", src.ID(), err)
+			logger.Debug("[%d] END Q->T: %v", src.ID(), err)
 			src.AbortWrite(0)
 			src.AbortRead(0)
 			return

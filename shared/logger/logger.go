@@ -1,11 +1,12 @@
-/*
-Package logger provides a very basic interface to logging throughout the project.
-
-By default, it logs to standard out and when SetupLogger is called it outputs to a file
-and on windows it also outputs to OutputDebugString facility if level is debug.
-
-The level is set using the global log level of package zerolog.
-*/
+/**
+* Package logger
+*
+* Provides a very basic interface to logging throughout the project.
+*
+* By default, it logs to standard out and when SetupLogger is called it outputs to a file.
+*
+* The level is set using the global log level of package zerolog.
+ */
 package logger
 
 import (
@@ -16,7 +17,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/nyaosorg/go-windows-dbg"
 	log "github.com/rs/zerolog"
 )
 
@@ -92,11 +92,6 @@ func GetLogger() *log.Logger {
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Info(format string, values ...interface{}) {
 	_log.Info().Time("time", time.Now()).Msgf(format, values...)
-	//stdlog.Printf(format, values...)
-	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
-		_, _ = dbg.Printf(format, values...)
-		return
-	}
 }
 
 // Debug Outputs a new formatted string with the provided parameters to the logger instance with Debug level
@@ -106,22 +101,12 @@ func Debug(format string, values ...interface{}) {
 		return
 	}
 	_log.Debug().Time("time", time.Now()).Msgf(format, values...)
-	//stdlog.Printf(format, values...)
-	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
-		_, _ = dbg.Printf(format, values...)
-		return
-	}
 }
 
 // Error Outputs a new formatted string with the provided parameters to the logger instance with Error level
 // Outputs the same data to the OutputDebugString facility if os is Windows and level is set to Debug
 func Error(format string, values ...interface{}) {
 	_log.Error().Time("time", time.Now()).Msgf(format, values...)
-	//stdlog.Printf(format, values...)
-	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
-		_, _ = dbg.Printf(format, values...)
-		return
-	}
 }
 
 // Panic Outputs a new formatted string with the provided parameters to the logger instance with Error level
@@ -129,9 +114,6 @@ func Error(format string, values ...interface{}) {
 // and then panics with the same formatted string
 func Panic(format string, values ...interface{}) {
 	_log.Error().Time("time", time.Now()).Msgf(format, values...)
-	if runtime.GOOS == "windows" && _log.GetLevel() >= log.DebugLevel {
-		_, _ = dbg.Printf(format, values...)
-	}
 	panic(fmt.Sprintf(format, values...))
 }
 
