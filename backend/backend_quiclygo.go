@@ -4,11 +4,11 @@ package backend
 
 import (
 	"context"
+	stderr "github.com/Project-Faster/qpep/shared/errors"
+	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/Project-Faster/quicly-go"
 	"github.com/Project-Faster/quicly-go/quiclylib/errors"
 	"github.com/Project-Faster/quicly-go/quiclylib/types"
-	stderr "github.com/Project-Faster/qpep/shared/errors"
-	"github.com/Project-Faster/qpep/shared/logger"
 	"net"
 	"os"
 	"strings"
@@ -113,18 +113,18 @@ func (q *quiclyGoBackend) Dial(ctx context.Context, remoteAddress string, port i
 
 	session := quicly.Dial(&remoteAddr, types.Callbacks{
 		OnConnectionOpen: func(connection types.Session) {
-			logger.Info("OPEN [%v]: %v", remoteAddress, &connection)
+			logger.Debug("OPEN [%v]: %v", remoteAddress, &connection)
 		},
 		OnConnectionClose: func(connection types.Session) {
-			logger.Info("CLOSE [%v]: %v", remoteAddress, &connection)
+			logger.Debug("CLOSE [%v]: %v", remoteAddress, &connection)
 
 			q.setListener(remoteAddress, nil)
 		},
 		OnStreamOpenCallback: func(stream types.Stream) {
-			logger.Info(">> Callback open %d", stream.ID())
+			logger.Debug(">> Callback open %d", stream.ID())
 		},
 		OnStreamCloseCallback: func(stream types.Stream, error int) {
-			logger.Info(">> Callback close %d, error %d", stream.ID(), error)
+			logger.Debug(">> Callback close %d, error %d", stream.ID(), error)
 		},
 	}, ctx)
 
@@ -162,16 +162,16 @@ func (q *quiclyGoBackend) Listen(ctx context.Context, address string, port int, 
 
 	session := quicly.Listen(&localAddr, types.Callbacks{
 		OnConnectionOpen: func(conn types.Session) {
-			logger.Info("OnStart")
+			logger.Debug("OnStart")
 		},
 		OnConnectionClose: func(conn types.Session) {
-			logger.Info("OnClose")
+			logger.Debug("OnClose")
 		},
 		OnStreamOpenCallback: func(stream types.Stream) {
-			logger.Info(">> Callback open %d", stream.ID())
+			logger.Debug(">> Callback open %d", stream.ID())
 		},
 		OnStreamCloseCallback: func(stream types.Stream, error int) {
-			logger.Info(">> Callback close %d, error %d", stream.ID(), error)
+			logger.Debug(">> Callback close %d, error %d", stream.ID(), error)
 		},
 	}, ctx)
 
