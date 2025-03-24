@@ -72,7 +72,7 @@ func (s *ClientNetworkSuite) BeforeTest(_, testName string) {
 	configuration.QPepConfig.General.PreferProxy = true
 	configuration.QPepConfig.General.Verbose = false
 
-	logger.SetupLogger(testName, "info")
+	logger.SetupLogger(testName, "info", false)
 }
 
 func (s *ClientNetworkSuite) AfterTest(_, testName string) {

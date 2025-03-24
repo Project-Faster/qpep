@@ -34,7 +34,7 @@ func (s *LoggerSuite) AfterTest(_, _ string) {
 func (s *LoggerSuite) BeforeTest(_, _ string) {}
 
 func (s *LoggerSuite) TestCloseLogger() {
-	SetupLogger("test", "info")
+	SetupLogger("test", "info", false)
 
 	var prevlog = _log
 	CloseLogger()
@@ -48,7 +48,7 @@ func (s *LoggerSuite) TestLogger_InfoLevel() {
 	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
-	SetupLogger("test", "info")
+	SetupLogger("test", "info", false)
 
 	assert.NotEqual(t, prevlog, _log)
 	assert.Equal(t, _log.GetLevel(), log.InfoLevel)
@@ -76,7 +76,7 @@ func (s *LoggerSuite) TestLogger_DebugLevel() {
 	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
-	SetupLogger("test", "debug")
+	SetupLogger("test", "debug", false)
 
 	assert.NotEqual(t, prevlog, _log)
 	assert.Equal(t, log.DebugLevel, _log.GetLevel())
@@ -106,7 +106,7 @@ func (s *LoggerSuite) TestLogger_ErrorLevel() {
 	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
-	SetupLogger("test", "info")
+	SetupLogger("test", "info", false)
 
 	assert.NotEqual(t, prevlog, _log)
 	assert.Equal(t, _log.GetLevel(), log.InfoLevel)
@@ -136,7 +136,7 @@ func (s *LoggerSuite) TestLogger_PanicMessage() {
 	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
 
 	var prevlog = _log
-	SetupLogger("test", "info")
+	SetupLogger("test", "info", false)
 
 	assert.NotEqual(t, prevlog, _log)
 	assert.Equal(t, _log.GetLevel(), log.InfoLevel)
@@ -161,7 +161,7 @@ func (s *LoggerSuite) TestLogger_PanicMessage() {
 
 func (s *LoggerSuite) TestLogger_OutputDebugString_DebugLevel() {
 	t := s.T()
-	SetupLogger("test", "info")
+	SetupLogger("test", "info", false)
 
 	log.SetGlobalLevel(log.DebugLevel)
 

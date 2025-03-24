@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	logger.SetupLogger("qpep-service.log", "info")
+	logger.SetupLogger("qpep-service.log", "info", false)
 }
 
 func main() {

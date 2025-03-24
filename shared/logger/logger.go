@@ -53,7 +53,7 @@ func getLoggerFile(logName string) *os.File {
 }
 
 // SetupLogger Sets up a new logger destroying the previous one to a file with name "qpep_<logName>.log"
-func SetupLogger(logName string, level string) {
+func SetupLogger(logName string, level string, verbose bool) {
 	CloseLogger()
 
 	_logFile = getLoggerFile(logName)
@@ -66,9 +66,15 @@ func SetupLogger(logName string, level string) {
 	log.SetGlobalLevel(logLevel)
 	log.TimeFieldFormat = time.StampMilli
 
-	_log = log.New(io.MultiWriter(_logFile, os.Stdout)).
-		Level(logLevel).
-		With().Logger()
+	if verbose {
+		_log = log.New(io.MultiWriter(_logFile, os.Stdout)).
+			Level(logLevel).
+			With().Logger()
+	} else {
+		_log = log.New(_logFile).
+			Level(logLevel).
+			With().Logger()
+	}
 }
 
 // CloseLogger Terminates the current log and resets it to stdout output

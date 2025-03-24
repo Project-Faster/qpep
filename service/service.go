@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/Project-Faster/qpep/shared/configuration"
 	"github.com/Project-Faster/qpep/shared/flags"
 	"github.com/Project-Faster/qpep/shared/logger"
@@ -11,6 +10,7 @@ import (
 	"github.com/Project-Faster/qpep/workers/client"
 	"github.com/Project-Faster/qpep/workers/gateway"
 	"github.com/Project-Faster/qpep/workers/server"
+	"github.com/davecgh/go-spew/spew"
 	log "github.com/rs/zerolog"
 	"os"
 	"os/signal"
@@ -189,7 +189,7 @@ func ServiceMain() int {
 	if flags.Globals.Verbose {
 		logLevel = "debug"
 	}
-	logger.SetupLogger(logName, logLevel)
+	logger.SetupLogger(logName, logLevel, flags.Globals.Verbose)
 
 	// detect forced interactive mode because service was not installed
 	status := getStatusCode(serviceInst)
