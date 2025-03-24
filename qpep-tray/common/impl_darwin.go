@@ -39,7 +39,7 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 	return cmd
 }
 
-func fakeAPICallCheckProxy() bool {
+func fakeAPICallCheckProxy(path string) bool {
 	return true
 }
 

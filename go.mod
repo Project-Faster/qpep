@@ -19,7 +19,7 @@ require (
 require (
 	github.com/Project-Faster/monkey v1.0.4
 	github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d
-	github.com/Project-Faster/quicly-go v0.4.1
+	github.com/Project-Faster/quicly-go v0.4.2
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/martinlindhe/notify v0.0.0-20181008203735-20632c9a275a

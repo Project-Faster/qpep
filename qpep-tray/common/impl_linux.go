@@ -40,7 +40,7 @@ func getServiceCommand(start, client bool) *exec.Cmd {
 // fakeAPICallCheckProxy executes a "fake" api call to the local server to check for the connection running through
 // the global proxy, this is checked by the client that adds the "X-QPEP-PROXY" header with value "true", a missing or
 // "false" value means the proxy is not running correctly
-func fakeAPICallCheckProxy() bool {
+func fakeAPICallCheckProxy(path string) bool {
 	return true
 }
 

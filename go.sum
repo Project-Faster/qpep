@@ -9,6 +9,8 @@ github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d h1:gC9IVuYj
 github.com/Project-Faster/quic-go v0.0.0-20230209052722-fd67b0616c6d/go.mod h1:SABQ6Yop6PbpjBXgrM0tFwg24uML+gHDQ/PRXR/CQAU=
 github.com/Project-Faster/quicly-go v0.4.1 h1:1BvK51ngfvfD7VTH7zwJQBaIG/XJA4ZW68NV1nQ/tlE=
 github.com/Project-Faster/quicly-go v0.4.1/go.mod h1:xHQ3YqnhFYVbhZeJiBLp9OvlSy5t20r46eaGe0dH3Yw=
+github.com/Project-Faster/quicly-go v0.4.2 h1:W0cAP8TogGf7/pc+1XiXly2FUCvrnhvwniZCUoVLgMY=
+github.com/Project-Faster/quicly-go v0.4.2/go.mod h1:xHQ3YqnhFYVbhZeJiBLp9OvlSy5t20r46eaGe0dH3Yw=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf h1:FPsprx82rdrX2jiKyS17BH6IrTmUBYqZa/CXT4uvb+I=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
 github.com/ajstarks/deck v0.0.0-20200831202436-30c9fc6549a9/go.mod h1:JynElWSGnm/4RlzPXRlREEwqTHAN3T56Bv2ITsFT3gY=

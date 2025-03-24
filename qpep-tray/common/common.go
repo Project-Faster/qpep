@@ -342,7 +342,7 @@ func startConnectionStatusWatchdog() (context.Context, context.CancelFunc) {
 				}
 				logger.Info("Proxy: %v %v\n", gateway.UsingProxy, gateway.ProxyAddress)
 
-				if !fakeAPICallCheckProxy() {
+				if !fakeAPICallCheckProxy(listenHost) {
 					notify.NotifyUser("Detected issue with setting the proxy values, terminating...", "Error", false)
 					state = stateDisconnected
 					if clientActive {
