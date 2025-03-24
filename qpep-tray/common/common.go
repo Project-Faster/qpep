@@ -30,7 +30,7 @@ var (
 )
 
 func Init(pathDir string) {
-	logger.SetupLogger("qpep-tray.log", "info")
+	logger.SetupLogger("qpep-tray.log", "info", false)
 
 	ExeDir, _ = filepath.Abs(filepath.Dir(pathDir))
 
