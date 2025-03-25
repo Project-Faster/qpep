@@ -6,9 +6,7 @@ package logger
 
 import (
 	"errors"
-	"fmt"
 	"github.com/Project-Faster/monkey"
-	dbg "github.com/nyaosorg/go-windows-dbg"
 	log "github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -39,6 +37,33 @@ func (s *LoggerSuite) TestCloseLogger() {
 	var prevlog = _log
 	CloseLogger()
 	assert.NotEqual(s.T(), _log, prevlog)
+}
+
+func (s *LoggerSuite) TestGetLogger() {
+	SetupLogger("test", "info", false)
+	assert.NotNil(s.T(), _logFile)
+
+	assert.NotNil(s.T(), GetLogger())
+}
+
+func (s *LoggerSuite) TestSetupLogger() {
+	CloseLogger()
+	assert.Nil(s.T(), _logFile)
+	var prevlog = _log
+
+	SetupLogger("test", "info", false)
+	assert.NotEqual(s.T(), _log, prevlog)
+	assert.NotNil(s.T(), _logFile)
+}
+
+func (s *LoggerSuite) TestSetupLogger_verbose() {
+	CloseLogger()
+	assert.Nil(s.T(), _logFile)
+	var prevlog = _log
+
+	SetupLogger("test", "debug", true)
+	assert.NotEqual(s.T(), _log, prevlog)
+	assert.NotNil(s.T(), _logFile)
 }
 
 func (s *LoggerSuite) TestLogger_InfoLevel() {
@@ -159,32 +184,26 @@ func (s *LoggerSuite) TestLogger_PanicMessage() {
 	assert.NotEqual(t, -1, strings.Index(strData, "PanicMessage"))
 }
 
-func (s *LoggerSuite) TestLogger_OutputDebugString_DebugLevel() {
+func (s *LoggerSuite) TestLogger_Trace_DebugLevel() {
 	t := s.T()
-	SetupLogger("test", "info", false)
+	execPath, _ := os.Executable()
+
+	logFile := filepath.Join(filepath.Dir(execPath), "log", "test")
+
+	var prevlog = _log
+	SetupLogger("test", "debug", false)
+
+	assert.NotEqual(t, prevlog, _log)
+	assert.Equal(t, log.DebugLevel, _log.GetLevel())
+	assert.Equal(t, log.DebugLevel, log.GlobalLevel())
 
 	log.SetGlobalLevel(log.DebugLevel)
 
-	var counter = 0
-	guard := monkey.Patch(dbg.Printf, func(format string, values ...interface{}) (int, error) {
-		counter++
-		_ = fmt.Sprint(fmt.Sprintf(format, values...))
-		return 0, nil
-	})
-	defer func() {
-		if guard != nil {
-			guard.Restore()
-		}
-	}()
+	Trace()
 
-	Info("InfoMessage")
-	assert.PanicsWithValue(t, "PanicMessage", func() {
-		Panic("PanicMessage")
-	})
-	Debug("DebugMessage")
-	Error("ErrorMessage")
-
-	assert.Equal(t, 4, counter)
+	data, _ := os.ReadFile(logFile)
+	var strData = string(data)
+	assert.NotEqual(t, -1, strings.Index(strData, "logger_windows_test.go"))
 }
 
 func (s *LoggerSuite) TestLogger_getLoggerFileFailExecutable() {

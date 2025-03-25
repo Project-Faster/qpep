@@ -124,12 +124,15 @@ func Panic(format string, values ...interface{}) {
 }
 
 func Trace() {
-	_, file, line, ok := runtime.Caller(1)
-	if !ok {
-		Info("[trace][%s:%d]", "<missing>", 0)
+	if log.GlobalLevel() != log.DebugLevel {
 		return
 	}
-	Info("[trace][%s:%d]", file, line)
+	_, file, line, ok := runtime.Caller(1)
+	if !ok {
+		Info("[%s:%d]", "<missing>", 0)
+		return
+	}
+	Info("[%s:%d]", file, line)
 }
 
 // OnError method sends an error log only if the err value in input is not nil

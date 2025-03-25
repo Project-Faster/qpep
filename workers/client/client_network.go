@@ -660,7 +660,7 @@ func getAddressPortFromHost(host string) (net.IP, int, bool) {
 		if addr, ok := proxyResolverCache[urlParts[0]]; ok {
 			cacheResolverLock.RUnlock()
 			logger.Debug("resolved (cache) %s:%d -> %s:%d", urlParts[0], port, addr.String(), port)
-			return addr, int(port), true
+			return addr, int(port), !addr.Equal(net.IPv4zero)
 		}
 		cacheResolverLock.RUnlock()
 	}
@@ -688,7 +688,11 @@ func getAddressPortFromHost(host string) (net.IP, int, bool) {
 	if proxyResolverCache == nil {
 		proxyResolverCache = make(map[string]net.IP)
 	}
-	proxyResolverCache[urlParts[0]] = address
+	if !proxyable {
+		proxyResolverCache[urlParts[0]] = net.IPv4zero
+	} else {
+		proxyResolverCache[urlParts[0]] = address
+	}
 	logger.Info("resolved %s:%d -> %s:%d", urlParts[0], port, address.String(), port)
 	cacheResolverLock.Unlock()
 
