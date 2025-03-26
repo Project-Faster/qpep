@@ -5,7 +5,6 @@ import (
 	"github.com/Project-Faster/qpep/shared/logger"
 	"github.com/Project-Faster/qpep/workers/gateway"
 	"os"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -60,18 +59,16 @@ func setServiceUserPermissions(serviceName string) {
 // setInstallDirectoryPermissions runs on the "install" command and sets the permissions of the installation directory
 // so that logs and configuration files can be written into it
 func setInstallDirectoryPermissions(workDir string) {
-	installDir := filepath.Dir(workDir) // Permissions should be set for the entire folder
-
-	logger.Info("Set install permissions %s", installDir)
+	logger.Info("Set install permissions %s", workDir)
 
 	// reset access permission on the installation directory to allow writing logs
-	_, err, _ := shared.RunCommand(`icacls`, installDir, `/t`, `/q`, `/c`, `/reset`)
+	_, err, _ := shared.RunCommand(`icacls`, workDir, `/t`, `/q`, `/c`, `/reset`)
 	if err != nil {
 		logger.Panic("%v", err)
 	}
 
 	// allow Everyone group to access installation directory to allow writing logs
-	_, err, _ = shared.RunCommand(`icacls`, installDir, `/t`, `/grant`, `Everyone:F`)
+	_, err, _ = shared.RunCommand(`icacls`, workDir, `/t`, `/grant`, `Everyone:F`)
 	if err != nil {
 		logger.Panic("%v", err)
 	}

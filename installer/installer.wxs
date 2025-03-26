@@ -96,7 +96,7 @@
             <ComponentGroupRef Id="GROUPBIN" />
 
             <!-- 1001 means disabled by default -->
-            <Feature Id="Arch64bit" Title="64bit Application shortcut" Level="1">
+            <Feature Id="Arch64bit" Title="Application shortcut" Level="1">
                 <ComponentRef Id="SHORTCUTSX64" />
             </Feature>
         </Feature>
