@@ -410,32 +410,31 @@ jobs:
           @echo on
           
           MKDIR build
-          MKDIR build\64bits
-          MKDIR build\32bits
           COPY /Y windivert\LICENSE build\LICENSE.windivert
           COPY /Y LICENSE build\LICENSE
           go clean -cache -x
-          COPY /Y windivert\x64\* build\64bits
-          COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\64bits
-          COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\64bits
-          COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\64bits
+          COPY /Y windivert\x64\* build\
+          COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\
+          COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\
+          COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\
+          
+          cd shared\version
+          go install github.com/josephspurrier/goversioninfo@latest
+          go generate
 
       - name: Build QPep
         run: |
-          go build -o build\64bits\qpep.exe
+          go build -o build\qpep.exe
 
       - name: Build QPep Tray
         run: |
           pushd qpep-tray
           set CGO_ENABLED=0
-          go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
+          go build -ldflags -H=windowsgui -o ..\build\qpep-tray.exe
           popd
 
       - name: Build QPep Installer
         run: |
-          sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > installer/installer.wxs
-          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' shared/version/versioninfo.json > shared/version/versioninfo.json
-          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' shared/version/versioninfo.json > shared/version/versioninfo.json
           set PATH=${{ github.workspace }}\wix\tools;%PATH%
           msbuild installer\installer.sln
 
@@ -445,6 +444,7 @@ jobs:
           path: build/installer.msi
 
       - name: Prepare Tests
+        if: always()
         run: |
           MKDIR unit
           MKDIR cover

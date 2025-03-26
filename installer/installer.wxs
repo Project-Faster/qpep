@@ -70,36 +70,17 @@
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFilesFolder">
                 <Directory Id="APPLICATIONROOTDIRECTORY" Name="QPep" >
-                    <Directory Id="INSTALLDIRX86" Name="32bits" />
-                    <Directory Id="INSTALLDIRX64" Name="64bits" />
                 </Directory>
             </Directory>
 
             <Directory Id="DesktopFolder" Name="Desktop">
-                <Component Id="SHORTCUTSX86" Guid="{77078330-A81C-405D-9E76-A98FC55F6DDE}">
-                    <Shortcut Id="QPepDesktopShortcutX86"
-                        Name="QPep 32bit"
-                        Description="Network traffic accelerator (32bit)"
-                        Target="[INSTALLDIRX86]\qpep-tray.exe"
-                        Icon="applications_internet.ico"
-                        WorkingDirectory="INSTALLDIRX86"/>
-                    <RemoveFolder Id="DesktopFolder" On="uninstall"/>
-                    <RegistryValue
-                        Root="HKCU"
-                        Key="Software\VirtuallyNathan\QPep"
-                        Name="installed"
-                        Type="integer"
-                        Value="1"
-                        KeyPath="yes"/>
-                </Component>
-
                 <Component Id="SHORTCUTSX64" Guid="{F182D5E8-FE26-4F0D-8B1B-41BCDC4943C9}">
                     <Shortcut Id="QPepDesktopShortcutX64"
-                        Name="QPep 64bit"
-                        Description="Network traffic accelerator (64bit)"
-                        Target="[INSTALLDIRX64]\qpep-tray.exe"
+                        Name="QPep"
+                        Description="Network traffic accelerator"
+                        Target="[APPLICATIONROOTDIRECTORY]\qpep-tray.exe"
                         Icon="applications_internet.ico"
-                        WorkingDirectory="INSTALLDIRX64"/>
+                        WorkingDirectory="APPLICATIONROOTDIRECTORY"/>
                     <RegistryValue
                         Root="HKCU"
                         Key="Software\ProjectFaster\QPep"
@@ -115,10 +96,7 @@
             <ComponentGroupRef Id="GROUPBIN" />
 
             <!-- 1001 means disabled by default -->
-            <Feature Id="Arch32bit" Title="32bit Application shortcut" Level="1001" >
-                <ComponentRef Id="SHORTCUTSX86" />
-            </Feature>
-            <Feature Id="Arch64bit" Title="64bit Application shortcut" Level="1">
+            <Feature Id="Arch64bit" Title="Application shortcut" Level="1">
                 <ComponentRef Id="SHORTCUTSX64" />
             </Feature>
         </Feature>

@@ -270,37 +270,46 @@ jobs:
           static: true
           version: 11.1.0
 
+      - name: Update version info
+        shell: bash
+        run: |
+          sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > temp.wxs
+          mv temp.wxs installer/installer.wxs
+          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
+          mv temp.json version/versioninfo.json
+          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"v${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
+          mv temp.json version/versioninfo.json
+
       - name: Prepare
         run: |
           @echo on
           
           MKDIR build
-          MKDIR build\64bits
-          MKDIR build\32bits
           COPY /Y windivert\LICENSE build\LICENSE.windivert
           COPY /Y LICENSE build\LICENSE
           go clean -cache -x
-          COPY /Y windivert\x64\* build\64bits
-          COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\64bits
-          COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\64bits
-          COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\64bits
+          COPY /Y windivert\x64\* build\
+          COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\
+          COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\
+          COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\
+          
+          cd shared\version
+          go install github.com/josephspurrier/goversioninfo@latest
+          go generate
 
       - name: Build QPep
         run: |
-          go build -o build\64bits\qpep.exe
+          go build -o build\qpep.exe
 
       - name: Build QPep Tray
         run: |
           pushd qpep-tray
           set CGO_ENABLED=0
-          go build -ldflags -H=windowsgui -o ..\build\64bits\qpep-tray.exe
+          go build -ldflags -H=windowsgui -o ..\build\qpep-tray.exe
           popd
 
       - name: Build QPep Installer
         run: |
-          sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > installer/installer.wxs
-          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > version/versioninfo.json
-          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"v${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > version/versioninfo.json
           set PATH=${{ github.workspace }}\wix\tools;%PATH%
           msbuild installer\installer.sln
 
