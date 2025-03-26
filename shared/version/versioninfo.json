@@ -19,6 +19,7 @@
     "InternalName": "qpep.exe",
     "ProductName": "QPep",
     "ProductVersion": "v0.7.1",
+    "LegalCopyright": "© 2025 Project-Faster",
     "SpecialBuild": ""
   },
   "IconPath": "../../qpep-tray/icons/main_icon_connected.ico"

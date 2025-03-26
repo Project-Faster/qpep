@@ -270,6 +270,16 @@ jobs:
           static: true
           version: 11.1.0
 
+      - name: Update version info
+        shell: bash
+        run: |
+          sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > temp.wxs
+          mv temp.wxs installer/installer.wxs
+          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
+          mv temp.json version/versioninfo.json
+          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"v${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
+          mv temp.json version/versioninfo.json
+
       - name: Prepare
         run: |
           @echo on
@@ -282,6 +292,10 @@ jobs:
           COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\
           COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\
           COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\
+          
+          cd shared\version
+          go install github.com/josephspurrier/goversioninfo@latest
+          go generate
 
       - name: Build QPep
         run: |
@@ -293,16 +307,6 @@ jobs:
           set CGO_ENABLED=0
           go build -ldflags -H=windowsgui -o ..\build\qpep-tray.exe
           popd
-
-      - name: Build QPep Installer
-        shell: bash
-        run: |
-          sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > temp.wxs
-          mv temp.wxs installer/installer.wxs
-          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
-          mv temp.json version/versioninfo.json
-          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"v${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
-          mv temp.json version/versioninfo.json
 
       - name: Build QPep Installer
         run: |

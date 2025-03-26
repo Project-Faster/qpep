@@ -417,6 +417,10 @@ jobs:
           COPY /y "%MINGW_BASEDIR%\libgcc_s_seh-1.dll" build\
           COPY /y "%MINGW_BASEDIR%\libwinpthread-1.dll" build\
           COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\
+          
+          cd shared\version
+          go install github.com/josephspurrier/goversioninfo@latest
+          go generate
 
       - name: Build QPep
         run: |
