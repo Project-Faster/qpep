@@ -294,7 +294,7 @@ jobs:
           COPY /y "%MINGW_BASEDIR%\libstdc++-6.dll" build\
           
           cd shared\version
-          go install github.com/josephspurrier/goversioninfo@latest
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
           go generate
 
       - name: Build QPep
