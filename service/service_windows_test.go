@@ -102,14 +102,14 @@ func (s *ServiceWinSuite) TestInstallDirectoryPermissions() {
 		assert.Equal(s.T(), "icacls", name)
 		switch len(params) {
 		case 5:
-			assert.Equal(s.T(), ".", params[0])
+			assert.Equal(s.T(), ".\\dir", params[0])
 			assert.Equal(s.T(), "/t", params[1])
 			assert.Equal(s.T(), "/q", params[2])
 			assert.Equal(s.T(), "/c", params[3])
 			assert.Equal(s.T(), "/reset", params[4])
 			break
 		case 4:
-			assert.Equal(s.T(), ".", params[0])
+			assert.Equal(s.T(), ".\\dir", params[0])
 			assert.Equal(s.T(), "/t", params[1])
 			assert.Equal(s.T(), "/grant", params[2])
 			assert.Equal(s.T(), "Everyone:F", params[3])
@@ -122,7 +122,7 @@ func (s *ServiceWinSuite) TestInstallDirectoryPermissions() {
 	})
 
 	assert.NotPanics(s.T(), func() {
-		setInstallDirectoryPermissions(".\\.tempPath")
+		setInstallDirectoryPermissions(".\\dir")
 	})
 }
 
