@@ -432,11 +432,11 @@ jobs:
       - name: Update version QPep Installer
         shell: bash
         run: |
-          sed -E 's/Version="[^"]+"/Version="1.0.0.0-dev${{github.run_id}}"/' installer/installer.wxs > temp.wxs
+          sed -E 's/Version="[^"]+"/Version="1.0.0.${{github.run_id}}"/' installer/installer.wxs > temp.wxs
           mv temp.wxs installer/installer.wxs
-          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.0-dev${{github.run_id}}"/' shared/version/versioninfo.json > temp.json
+          sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"0.0.${{github.run_id}}"/' shared/version/versioninfo.json > temp.json
           mv temp.json shared/version/versioninfo.json
-          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.0-dev${{github.run_id}}"/' shared/version/versioninfo.json > temp.json
+          sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"0.0.${{github.run_id}}"/' shared/version/versioninfo.json > temp.json
           mv temp.json shared/version/versioninfo.json
 
       - name: Build QPep Installer
@@ -450,6 +450,7 @@ jobs:
           path: build/installer.msi
 
       - name: Prepare Tests
+        if: always()
         run: |
           MKDIR unit
           MKDIR cover
