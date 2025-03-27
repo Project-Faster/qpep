@@ -275,7 +275,7 @@ jobs:
       QPEP_BACKEND: ${{ inputs.backend }}
       QPEP_CCA: ${{ inputs.cca }}
       QPEP_SLOWSTART: ${{ inputs.slowstart }}
-      QPEP_GATEWAY: ${{ inputs.server_private_address }}
+      QPEP_GATEWAY: ${{ inputs.server_public_address }}
       QPEP_PORT: ${{ inputs.gateway_port }}
       QPEP_ADDRESS: ${{ inputs.server_private_address }}
       QPEP_BROKER: ${{ inputs.server_private_address }}

@@ -2,6 +2,7 @@
 server:
   local_address: ${QPEP_ADDRESS}
   local_port: ${QPEP_PORT}
+  external_address: ${QPEP_GATEWAY}
 
 protocol:
   backend: ${QPEP_BACKEND}

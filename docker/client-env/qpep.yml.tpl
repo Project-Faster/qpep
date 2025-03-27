@@ -4,6 +4,9 @@ client:
   local_port: 9443
   gateway_address: <QPEP_GATEWAY>
   gateway_port: <QPEP_PORT>
+  multipath_address_list:
+     - address: <QPEP_ADDRESS>
+       port: <QPEP_PORT>
 
 protocol:
   backend: <QPEP_BACKEND>
