@@ -275,6 +275,7 @@ jobs:
         run: |
           sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > temp.wxs
           mv temp.wxs installer/installer.wxs
+          cd shared/
           sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
           mv temp.json version/versioninfo.json
           sed -E 's/ProductVersion:\s*"[^"]+"/ProductVersion:\s*"v${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
