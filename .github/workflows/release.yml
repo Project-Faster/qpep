@@ -273,7 +273,7 @@ jobs:
       - name: Update version info
         shell: bash
         run: |
-          sed -E 's/Version="[^"]+"/Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > temp.wxs
+          sed -E 's/ Version="[^"]+"/ Version="1.${{ github.event.inputs.version_tag }}"/' installer/installer.wxs > temp.wxs
           mv temp.wxs installer/installer.wxs
           cd shared/
           sed -E 's/FileVersion:\s*"[^"]+"/FileVersion:\s*"v0.${{ github.event.inputs.version_tag }}"/' version/versioninfo.json > temp.json
